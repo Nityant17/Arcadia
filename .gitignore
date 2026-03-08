@@ -1,0 +1,42 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+backend/arc/
+.venv/
+
+# Database
+backend/data/arcadia.db
+backend/data/chroma_db/
+
+# Uploads
+backend/data/uploads/*
+!backend/data/uploads/.gitkeep
+
+# Audio cache
+backend/static/audio/*
+!backend/static/audio/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Flutter
+frontend/arcadia_app/.dart_tool/
+frontend/arcadia_app/.packages
+frontend/arcadia_app/build/
+frontend/arcadia_app/.flutter-plugins
+frontend/arcadia_app/.flutter-plugins-dependencies
+frontend/arcadia_app/pubspec.lock
+
+# Env
+.env
+*.env.local
