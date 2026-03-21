@@ -8,8 +8,17 @@ import '../models/models.dart';
 
 class ChatScreen extends StatefulWidget {
   final ArcadiaDocument document;
+  final String userId;
+  final String? topicScope;
+  final List<String>? documentIds;
 
-  const ChatScreen({super.key, required this.document});
+  const ChatScreen({
+    super.key,
+    required this.document,
+    required this.userId,
+    this.topicScope,
+    this.documentIds,
+  });
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -48,6 +57,22 @@ class _ChatScreenState extends State<ChatScreen> {
           '- "Summarize this topic"\n'
           '- "What are the key formulas?"',
     ));
+    _loadHistory();
+  }
+
+  Future<void> _loadHistory() async {
+    try {
+      final rows = await ApiService().getChatHistory(widget.document.id);
+      if (!mounted || rows.isEmpty) return;
+      setState(() {
+        _messages.clear();
+        _messages.addAll(rows.map((m) => ChatMessage(
+              role: (m['role'] ?? 'assistant').toString(),
+              content: (m['content'] ?? '').toString(),
+            )));
+      });
+      _scrollToBottom();
+    } catch (_) {}
   }
 
   @override
@@ -73,6 +98,9 @@ class _ChatScreenState extends State<ChatScreen> {
       // Always fetch English answer so we can re-translate later
       final englishAnswer = await ApiService().chat(
         documentId: widget.document.id,
+        documentIds: widget.documentIds ?? const [],
+        topic: widget.topicScope ?? '',
+        userId: widget.userId,
         message: text,
         language: 'en',
       );

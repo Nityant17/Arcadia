@@ -1,7 +1,9 @@
 """
 TTS & Translation Router.
 """
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
+from models.database import User
+from routers.auth import get_current_user
 
 from models.schemas import (
     TTSRequest, TTSResponse,
@@ -15,7 +17,10 @@ router = APIRouter()
 
 
 @router.post("/tts", response_model=TTSResponse)
-async def text_to_speech(request: TTSRequest):
+async def text_to_speech(
+    request: TTSRequest,
+    current_user: User = Depends(get_current_user),
+):
     """Convert text to speech in the specified language."""
     if request.language not in SUPPORTED_LANGUAGES:
         raise HTTPException(400, f"Unsupported language: {request.language}. "
@@ -29,7 +34,10 @@ async def text_to_speech(request: TTSRequest):
 
 
 @router.post("/translate", response_model=TranslateResponse)
-async def translate_text(request: TranslateRequest):
+async def translate_text(
+    request: TranslateRequest,
+    current_user: User = Depends(get_current_user),
+):
     """Translate text between languages."""
     if request.target_language not in SUPPORTED_LANGUAGES:
         raise HTTPException(400, f"Unsupported target language: {request.target_language}")

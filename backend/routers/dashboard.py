@@ -8,6 +8,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from models.database import get_db, Document, QuizAttempt, MasteryScore, ChatHistory
+from routers.auth import get_current_user
 from models.schemas import DashboardStats, DashboardResponse, TopicMastery
 from services.quiz_service import quiz_service
 from config import AUDIO_DIR
@@ -16,7 +17,7 @@ router = APIRouter()
 
 
 @router.get("/dashboard/stats")
-async def get_dashboard(db: Session = Depends(get_db)):
+async def get_dashboard(current_user = Depends(get_current_user), db: Session = Depends(get_db)):
     """Get full dashboard: stats + per-topic mastery."""
     # Counts
     total_docs = db.query(func.count(Document.id)).scalar() or 0
@@ -68,13 +69,13 @@ async def get_dashboard(db: Session = Depends(get_db)):
 
 
 @router.get("/dashboard/mastery")
-async def get_mastery(document_id: str = None):
+async def get_mastery(document_id: str = None, current_user = Depends(get_current_user)):
     """Get mastery scores, optionally filtered by document."""
     return quiz_service.get_mastery(document_id)
 
 
 @router.get("/dashboard/recent-quizzes")
-async def recent_quizzes(db: Session = Depends(get_db)):
+async def recent_quizzes(current_user = Depends(get_current_user), db: Session = Depends(get_db)):
     """Get 10 most recent quiz attempts."""
     attempts = (
         db.query(QuizAttempt)
@@ -97,7 +98,7 @@ async def recent_quizzes(db: Session = Depends(get_db)):
 
 
 @router.delete("/dashboard/reset")
-async def reset_progress(db: Session = Depends(get_db)):
+async def reset_progress(current_user = Depends(get_current_user), db: Session = Depends(get_db)):
     """Clear ALL quiz attempts, mastery scores, chat history, and cached TTS audio."""
     deleted_quizzes = db.query(QuizAttempt).delete()
     deleted_mastery = db.query(MasteryScore).delete()

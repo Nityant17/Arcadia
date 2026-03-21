@@ -8,7 +8,7 @@ import uuid
 import datetime
 from typing import List, Dict, Optional
 
-from models.database import SessionLocal, QuizAttempt, MasteryScore, Document
+from models.database import SessionLocal, QuizAttempt, MasteryScore, Document, WeakTopic
 from services.llm_service import llm_service
 from services.rag_service import rag_service
 from services.translate_service import translate_service
@@ -91,7 +91,7 @@ class QuizService:
         }
 
     def submit_quiz(self, quiz_id: str, document_id: str,
-                    questions: List[Dict], answers: List[Dict]) -> Dict:
+                    questions: List[Dict], answers: List[Dict], user_id: str = "guest") -> Dict:
         """Score a quiz attempt and update mastery."""
         # Build answer lookup
         answer_map = {a["question_id"]: a["selected_option"] for a in answers}
@@ -170,6 +170,26 @@ class QuizService:
                 if mastery.tier_unlocked < 3:
                     mastery.tier_unlocked = 3
                     next_tier_unlocked = True
+
+            wrong_count = max(total - correct_count, 0)
+            if wrong_count > 0:
+                weak = db.query(WeakTopic).filter(
+                    WeakTopic.user_id == user_id,
+                    WeakTopic.document_id == document_id,
+                    WeakTopic.topic == mastery.topic,
+                ).first()
+                if not weak:
+                    weak = WeakTopic(
+                        id=str(uuid.uuid4()),
+                        user_id=user_id,
+                        document_id=document_id,
+                        topic=mastery.topic,
+                        wrong_attempts=0,
+                        weakness_score=0.0,
+                    )
+                    db.add(weak)
+                weak.wrong_attempts += wrong_count
+                weak.weakness_score = min(1.0, (weak.weakness_score * 0.7) + ((wrong_count / total) * 0.3))
 
             db.commit()
 

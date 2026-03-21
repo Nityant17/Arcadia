@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 import '../theme.dart';
 import '../config.dart';
 import '../services/api_service.dart';
@@ -6,8 +9,9 @@ import '../models/models.dart';
 
 class QuizScreen extends StatefulWidget {
   final ArcadiaDocument document;
+  final String userId;
 
-  const QuizScreen({super.key, required this.document});
+  const QuizScreen({super.key, required this.document, required this.userId});
 
   @override
   State<QuizScreen> createState() => _QuizScreenState();
@@ -21,6 +25,10 @@ class _QuizScreenState extends State<QuizScreen> {
   List<QuizQuestion> _questions = [];
   QuizSubmitResult? _result;
   String _language = 'en';
+  final List<Offset?> _whiteboardPoints = [];
+  String? _hint;
+  bool _hintLoading = false;
+  final GlobalKey _whiteboardKey = GlobalKey();
 
   // Topic selection
   List<TopicItem> _topics = [];
@@ -33,6 +41,67 @@ class _QuizScreenState extends State<QuizScreen> {
       case 2: return ArcadiaTheme.tier2;
       case 3: return ArcadiaTheme.tier3;
       default: return ArcadiaTheme.primary;
+    }
+  }
+
+  Future<void> _clearWhiteboard() async {
+    setState(() {
+      _whiteboardPoints.clear();
+      _hint = null;
+    });
+  }
+
+  Future<void> _getWhiteboardHint() async {
+    if (_whiteboardPoints.isEmpty || _questions.isEmpty) return;
+
+    setState(() {
+      _hintLoading = true;
+      _hint = null;
+    });
+
+    try {
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder);
+      const size = Size(900, 420);
+
+      final bgPaint = Paint()..color = Colors.white;
+      canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
+
+      final strokePaint = Paint()
+        ..color = Colors.black
+        ..strokeWidth = 4
+        ..strokeCap = StrokeCap.round;
+
+      for (int i = 0; i < _whiteboardPoints.length - 1; i++) {
+        final p1 = _whiteboardPoints[i];
+        final p2 = _whiteboardPoints[i + 1];
+        if (p1 != null && p2 != null) {
+          canvas.drawLine(p1, p2, strokePaint);
+        }
+      }
+
+      final image = await recorder.endRecording().toImage(size.width.toInt(), size.height.toInt());
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (bytes == null) return;
+
+      final base64Image = base64Encode(Uint8List.view(bytes.buffer));
+      final currentQuestion = _questions.first.question;
+      final data = await ApiService().whiteboardHint(
+        imageBase64: base64Image,
+        question: currentQuestion,
+        topic: _selectedTopic,
+      );
+      if (mounted) {
+        setState(() => _hint = (data['hint'] ?? '').toString());
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Hint generation failed: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _hintLoading = false);
     }
   }
 
@@ -106,6 +175,7 @@ class _QuizScreenState extends State<QuizScreen> {
       _result = await ApiService().submitQuiz(
         quizId: _quizId!,
         documentId: widget.document.id,
+        userId: widget.userId,
         answers: answers,
       );
       setState(() => _submitted = true);
@@ -357,10 +427,91 @@ class _QuizScreenState extends State<QuizScreen> {
 
         // Questions
         Expanded(
-          child: ListView.builder(
+          child: ListView(
             padding: const EdgeInsets.all(16),
-            itemCount: _questions.length,
-            itemBuilder: (ctx, index) => _buildQuestionCard(_questions[index], index),
+            children: [
+              Card(
+                margin: const EdgeInsets.only(bottom: 16),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Rough Work Whiteboard',
+                          style: TextStyle(fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 8),
+                      Container(
+                        key: _whiteboardKey,
+                        height: 320,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          border: Border.all(color: Colors.grey.shade300),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: GestureDetector(
+                          onPanUpdate: (details) {
+                            final box = _whiteboardKey.currentContext?.findRenderObject() as RenderBox?;
+                            if (box == null) return;
+                            final localPos = box.globalToLocal(details.globalPosition);
+                            setState(() => _whiteboardPoints.add(localPos));
+                          },
+                          onPanEnd: (_) => _whiteboardPoints.add(null),
+                          child: CustomPaint(
+                            painter: _WhiteboardPainter(_whiteboardPoints),
+                            size: const Size(double.infinity, 320),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Use this full rough-work area to solve steps. Arcadia analyzes your writing and gives smart hints.',
+                        style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          OutlinedButton.icon(
+                            onPressed: _clearWhiteboard,
+                            icon: const Icon(Icons.cleaning_services_outlined),
+                            label: const Text('Clear'),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton.icon(
+                            onPressed: _hintLoading ? null : _getWhiteboardHint,
+                            icon: _hintLoading
+                                ? const SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                  )
+                                : const Icon(Icons.lightbulb_outline),
+                            label: const Text('Get AI Hint'),
+                          ),
+                        ],
+                      ),
+                      if (_hint != null) ...[
+                        const SizedBox(height: 10),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.amber.shade50,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.amber.shade200),
+                          ),
+                          child: Text(_hint!, style: const TextStyle(fontSize: 13)),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              ...List.generate(
+                _questions.length,
+                (index) => _buildQuestionCard(_questions[index], index),
+              ),
+            ],
           ),
         ),
 
@@ -630,4 +781,29 @@ class _QuizScreenState extends State<QuizScreen> {
       ),
     );
   }
+}
+
+class _WhiteboardPainter extends CustomPainter {
+  final List<Offset?> points;
+
+  _WhiteboardPainter(this.points);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.black
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round;
+
+    for (int i = 0; i < points.length - 1; i++) {
+      final p1 = points[i];
+      final p2 = points[i + 1];
+      if (p1 != null && p2 != null) {
+        canvas.drawLine(p1, p2, paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }

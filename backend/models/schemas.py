@@ -27,7 +27,10 @@ class DocumentListResponse(BaseModel):
 # ─── Chat ─────────────────────────────────────────────────────
 
 class ChatRequest(BaseModel):
-    document_id: str
+    document_id: str = ""
+    document_ids: List[str] = []
+    topic: str = ""
+    user_id: str = "guest"
     message: str
     language: str = "en"
 
@@ -70,6 +73,7 @@ class QuizAnswer(BaseModel):
 class QuizSubmitRequest(BaseModel):
     quiz_id: str
     document_id: str
+    user_id: str = "guest"
     answers: List[QuizAnswer]
 
 

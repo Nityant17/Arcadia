@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 from config import AUDIO_DIR, MODE
 from models.database import init_db
 from services.rag_service import rag_service
-from routers import upload, chat, quiz, generate, tts, dashboard
+from routers import upload, chat, quiz, generate, tts, dashboard, auth, planner, whiteboard, challenge
 
 
 @asynccontextmanager
@@ -51,6 +51,10 @@ app.include_router(quiz.router,      prefix="/api", tags=["Adaptive Quiz"])
 app.include_router(generate.router,  prefix="/api", tags=["Generate Study Materials"])
 app.include_router(tts.router,       prefix="/api", tags=["TTS & Translation"])
 app.include_router(dashboard.router, prefix="/api", tags=["Dashboard & Mastery"])
+app.include_router(auth.router,      prefix="/api", tags=["Auth"])
+app.include_router(planner.router,   prefix="/api", tags=["Timetable & Spaced Repetition"])
+app.include_router(whiteboard.router, prefix="/api", tags=["Whiteboard Hints"])
+app.include_router(challenge.router, prefix="/api", tags=["Challenge Rooms"])
 
 
 @app.get("/", tags=["Health"])

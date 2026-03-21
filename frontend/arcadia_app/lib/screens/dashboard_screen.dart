@@ -24,13 +24,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _loadDashboard() async {
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       final data = await ApiService().getDashboard();
       _stats = DashboardStats.fromJson(data['stats']);
-      _mastery = (data['mastery'] as List)
-          .map((m) => TopicMastery.fromJson(m))
-          .toList();
+      _mastery = (data['mastery'] as List).map((m) => TopicMastery.fromJson(m)).toList();
     } catch (e) {
       _error = e.toString();
     }
@@ -38,360 +39,217 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _resetProgress() async {
-    final confirmed = await showDialog<bool>(
+    final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Reset All Progress'),
-        content: const Text(
-          'This will permanently delete all quiz attempts, mastery scores, '
-          'chat history, and cached audio.\n\n'
-          'Uploaded documents will NOT be deleted.\n\n'
-          'This action cannot be undone.',
-        ),
+      builder: (_) => AlertDialog(
+        title: const Text('Reset all progress?'),
+        content: const Text('This removes quiz attempts, mastery history, chat history, and cached audio.'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: ArcadiaTheme.accent),
-            child: const Text('Reset Everything'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Reset')),
         ],
       ),
     );
 
-    if (confirmed != true) return;
-
-    try {
-      await ApiService().resetProgress();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('All progress has been reset')),
-        );
-        _loadDashboard();
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Reset failed: $e')),
-        );
-      }
-    }
+    if (ok != true) return;
+    await ApiService().resetProgress();
+    _loadDashboard();
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (_error != null) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.cloud_off, size: 52),
+              const SizedBox(height: 10),
+              Text('Failed to load dashboard', style: TextStyle(color: Colors.grey.shade700)),
+              TextButton(onPressed: _loadDashboard, child: const Text('Retry')),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final s = _stats!;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Dashboard'),
+        title: const Text('Progress Dashboard'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.delete_sweep_outlined),
-            tooltip: 'Reset all progress',
-            onPressed: _resetProgress,
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadDashboard,
-          ),
+          IconButton(onPressed: _loadDashboard, icon: const Icon(Icons.refresh)),
+          IconButton(onPressed: _resetProgress, icon: const Icon(Icons.delete_sweep_outlined)),
         ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.cloud_off, size: 48, color: Colors.grey),
-                      const SizedBox(height: 16),
-                      Text('Cannot load dashboard',
-                          style: TextStyle(color: Colors.grey.shade600)),
-                      const SizedBox(height: 8),
-                      TextButton(
-                          onPressed: _loadDashboard,
-                          child: const Text('Retry')),
-                    ],
-                  ),
-                )
-              : RefreshIndicator(
-                  onRefresh: _loadDashboard,
-                  child: _buildDashboard(),
-                ),
-    );
-  }
-
-  Widget _buildDashboard() {
-    final stats = _stats!;
-    return SingleChildScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Stats grid
-          Row(
-            children: [
-              Expanded(child: _statCard(
-                Icons.description_outlined,
-                '${stats.totalDocuments}',
-                'Documents',
-                ArcadiaTheme.primary,
-              )),
-              const SizedBox(width: 12),
-              Expanded(child: _statCard(
-                Icons.quiz_outlined,
-                '${stats.totalQuizzesTaken}',
-                'Quizzes',
-                ArcadiaTheme.secondary,
-              )),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(child: _statCard(
-                Icons.percent,
-                '${(stats.averageScore * 100).round()}%',
-                'Avg Score',
-                ArcadiaTheme.accent,
-              )),
-              const SizedBox(width: 12),
-              Expanded(child: _statCard(
-                Icons.emoji_events_outlined,
-                '${stats.topicsMastered}',
-                'Mastered',
-                const Color(0xFFFFB300),
-              )),
-            ],
-          ),
-
-          const SizedBox(height: 24),
-
-          // Mastery overview
-          const Text(
-            'Topic Mastery',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 12),
-
-          if (_mastery.isEmpty)
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Center(
-                  child: Column(
-                    children: [
-                      Icon(Icons.school_outlined,
-                          size: 48, color: Colors.grey.shade300),
-                      const SizedBox(height: 12),
-                      Text('No mastery data yet',
-                          style: TextStyle(color: Colors.grey.shade600)),
-                      const Text('Take a quiz to start tracking mastery!'),
-                    ],
-                  ),
-                ),
-              ),
-            )
-          else ...[
-            // Bar chart
-            SizedBox(
-              height: 200,
-              child: BarChart(
-                BarChartData(
-                  alignment: BarChartAlignment.spaceAround,
-                  maxY: 100,
-                  barGroups: _mastery.asMap().entries.map((e) {
-                    final m = e.value;
-                    return BarChartGroupData(
-                      x: e.key,
-                      barRods: [
-                        BarChartRodData(
-                          toY: m.masteryScore * 100,
-                          color: m.masteryScore >= 0.8
-                              ? ArcadiaTheme.tier1
-                              : m.masteryScore >= 0.5
-                                  ? ArcadiaTheme.tier2
-                                  : ArcadiaTheme.tier3,
-                          width: 20,
-                          borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(6)),
-                        ),
-                      ],
-                    );
-                  }).toList(),
-                  titlesData: FlTitlesData(
-                    leftTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        reservedSize: 35,
-                        getTitlesWidget: (v, _) => Text(
-                          '${v.toInt()}%',
-                          style: TextStyle(
-                              color: Colors.grey.shade600, fontSize: 11),
-                        ),
-                      ),
-                    ),
-                    bottomTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        getTitlesWidget: (v, _) {
-                          final idx = v.toInt();
-                          if (idx >= _mastery.length) return const SizedBox();
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 4),
-                            child: Text(
-                              _mastery[idx]
-                                  .topic
-                                  .substring(0, _mastery[idx].topic.length.clamp(0, 8)),
-                              style: TextStyle(
-                                  color: Colors.grey.shade600, fontSize: 10),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    topTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false)),
-                    rightTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false)),
-                  ),
-                  gridData: FlGridData(
-                    drawVerticalLine: false,
-                    getDrawingHorizontalLine: (v) => FlLine(
-                      color: Colors.grey.shade200,
-                      strokeWidth: 1,
-                    ),
-                  ),
-                  borderData: FlBorderData(show: false),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Mastery list
-            ...(_mastery.map((m) => Card(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 42,
-                          height: 42,
-                          decoration: BoxDecoration(
-                            color: _masteryColor(m.masteryScore).withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Center(
-                            child: Text(
-                              '${(m.masteryScore * 100).round()}%',
-                              style: TextStyle(
-                                color: _masteryColor(m.masteryScore),
-                                fontWeight: FontWeight.w700,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                m.topic.isNotEmpty
-                                    ? m.topic
-                                    : m.documentId.substring(0, 8),
-                                style: const TextStyle(fontWeight: FontWeight.w600),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Tier ${m.tierUnlocked} unlocked · ${m.totalAttempts} attempts',
-                                style: TextStyle(
-                                    color: Colors.grey.shade600, fontSize: 12),
-                              ),
-                            ],
-                          ),
-                        ),
-                        // Tier badges
-                        ...List.generate(3, (i) {
-                          final tier = i + 1;
-                          final unlocked = tier <= m.tierUnlocked;
-                          return Container(
-                            margin: const EdgeInsets.only(left: 4),
-                            width: 24,
-                            height: 24,
-                            decoration: BoxDecoration(
-                              color: unlocked
-                                  ? _tierColor(tier)
-                                  : Colors.grey.shade200,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Center(
-                              child: Text(
-                                '$tier',
-                                style: TextStyle(
-                                  color: unlocked ? Colors.white : Colors.grey,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          );
-                        }),
-                      ],
-                    ),
-                  ),
-                ))),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _statCard(IconData icon, String value, String label, Color color) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      body: RefreshIndicator(
+        onRefresh: _loadDashboard,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
+                gradient: ArcadiaTheme.primaryGradient,
+                borderRadius: BorderRadius.circular(20),
               ),
-              child: Icon(icon, color: color, size: 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Mastery Overview', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 22)),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Avg score ${(s.averageScore * 100).round()}% across ${s.totalQuizzesTaken} quizzes.',
+                    style: const TextStyle(color: Colors.white70),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 12),
-            Text(value,
-                style: TextStyle(
-                    fontSize: 28, fontWeight: FontWeight.w700, color: color)),
-            Text(label,
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                _metricCard('Documents', '${s.totalDocuments}', Icons.description_outlined, ArcadiaTheme.primary),
+                const SizedBox(width: 10),
+                _metricCard('Quizzes', '${s.totalQuizzesTaken}', Icons.quiz_outlined, ArcadiaTheme.secondary),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                _metricCard('Avg Score', '${(s.averageScore * 100).round()}%', Icons.percent, ArcadiaTheme.accent),
+                const SizedBox(width: 10),
+                _metricCard('Mastered', '${s.topicsMastered}', Icons.emoji_events_outlined, const Color(0xFFFFB300)),
+              ],
+            ),
+            const SizedBox(height: 20),
+            const Text('Topic Mastery', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 10),
+            if (_mastery.isEmpty)
+              const Card(child: Padding(padding: EdgeInsets.all(20), child: Text('No mastery data yet. Take quizzes to populate this dashboard.')))
+            else ...[
+              SizedBox(
+                height: 220,
+                child: Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: BarChart(
+                      BarChartData(
+                        maxY: 100,
+                        barGroups: _mastery.asMap().entries.map((entry) {
+                          final m = entry.value;
+                          return BarChartGroupData(
+                            x: entry.key,
+                            barRods: [
+                              BarChartRodData(
+                                toY: m.masteryScore * 100,
+                                color: _barColor(m.masteryScore),
+                                width: 20,
+                                borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                              )
+                            ],
+                          );
+                        }).toList(),
+                        borderData: FlBorderData(show: false),
+                        gridData: FlGridData(
+                          drawVerticalLine: false,
+                          getDrawingHorizontalLine: (value) => FlLine(color: Colors.grey.shade200),
+                        ),
+                        titlesData: FlTitlesData(
+                          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                          leftTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              reservedSize: 30,
+                              getTitlesWidget: (v, _) => Text('${v.toInt()}%', style: const TextStyle(fontSize: 10)),
+                            ),
+                          ),
+                          bottomTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              getTitlesWidget: (v, _) {
+                                final i = v.toInt();
+                                if (i < 0 || i >= _mastery.length) return const SizedBox();
+                                final name = _mastery[i].topic;
+                                final short = name.length > 8 ? '${name.substring(0, 8)}…' : name;
+                                return Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Text(short, style: const TextStyle(fontSize: 10)),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              ..._mastery.map((m) => Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(child: Text(m.topic, style: const TextStyle(fontWeight: FontWeight.w700))),
+                              Text('${(m.masteryScore * 100).round()}%', style: TextStyle(color: _barColor(m.masteryScore), fontWeight: FontWeight.w700)),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: LinearProgressIndicator(
+                              minHeight: 10,
+                              value: m.masteryScore,
+                              backgroundColor: Colors.grey.shade200,
+                              valueColor: AlwaysStoppedAnimation(_barColor(m.masteryScore)),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text('Tier ${m.tierUnlocked} unlocked · ${m.totalAttempts} attempts', style: TextStyle(color: Colors.grey.shade600)),
+                        ],
+                      ),
+                    ),
+                  )),
+            ],
           ],
         ),
       ),
     );
   }
 
-  Color _masteryColor(double score) {
+  Widget _metricCard(String label, String value, IconData icon, Color color) {
+    return Expanded(
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(color: color.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
+                child: Icon(icon, color: color, size: 18),
+              ),
+              const SizedBox(height: 8),
+              Text(value, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 22, color: color)),
+              Text(label, style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Color _barColor(double score) {
     if (score >= 0.8) return ArcadiaTheme.tier1;
     if (score >= 0.5) return ArcadiaTheme.tier2;
     return ArcadiaTheme.tier3;
-  }
-
-  Color _tierColor(int tier) {
-    switch (tier) {
-      case 1: return ArcadiaTheme.tier1;
-      case 2: return ArcadiaTheme.tier2;
-      case 3: return ArcadiaTheme.tier3;
-      default: return Colors.grey;
-    }
   }
 }

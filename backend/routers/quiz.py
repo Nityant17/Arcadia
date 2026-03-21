@@ -1,13 +1,15 @@
 """
 Quiz Router — Adaptive 3-tier quiz generation and scoring.
 """
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
+from models.database import User
 
 from models.schemas import (
     QuizGenerateRequest, QuizGenerateResponse, QuizQuestion,
     QuizSubmitRequest, QuizSubmitResponse, QuizResult,
 )
 from services.quiz_service import quiz_service
+from routers.auth import get_current_user
 
 router = APIRouter()
 
@@ -16,7 +18,10 @@ _active_quizzes = {}
 
 
 @router.post("/quiz/generate", response_model=QuizGenerateResponse)
-async def generate_quiz(request: QuizGenerateRequest):
+async def generate_quiz(
+    request: QuizGenerateRequest,
+    current_user: User = Depends(get_current_user),
+):
     """
     Generate a quiz for a document at the specified tier.
     Tier 1 = Recall, Tier 2 = Application, Tier 3 = Analysis.
@@ -57,7 +62,11 @@ async def generate_quiz(request: QuizGenerateRequest):
 
 
 @router.post("/quiz/submit", response_model=QuizSubmitResponse)
-async def submit_quiz(request: QuizSubmitRequest):
+async def submit_quiz(
+    request: QuizSubmitRequest,
+    current_user: User = Depends(get_current_user),
+):
+    request.user_id = current_user.id
     """
     Submit quiz answers and get scored results.
     Also updates mastery score and checks tier unlock.
@@ -71,6 +80,7 @@ async def submit_quiz(request: QuizSubmitRequest):
             quiz_id=request.quiz_id,
             document_id=request.document_id,
             questions=quiz_data["questions"],
+            user_id=request.user_id,
             answers=[a.model_dump() for a in request.answers],
         )
     except Exception as e:
@@ -102,6 +112,6 @@ async def submit_quiz(request: QuizSubmitRequest):
 
 
 @router.get("/quiz/history")
-async def quiz_history(document_id: str = None):
+async def quiz_history(document_id: str = None, current_user = Depends(get_current_user)):
     """Get quiz attempt history, optionally filtered by document."""
     return quiz_service.get_quiz_history(document_id)

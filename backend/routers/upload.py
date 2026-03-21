@@ -11,9 +11,11 @@ from sqlalchemy.orm import Session
 from config import UPLOAD_DIR
 from models.database import get_db, Document
 from models.schemas import DocumentResponse, DocumentListResponse, TopicsResponse, TopicItem
+from routers.auth import get_current_user
 from services.ocr_service import ocr_service
 from services.rag_service import rag_service
 from services.llm_service import llm_service
+from services.safety_service import safety_service
 
 router = APIRouter()
 
@@ -23,6 +25,7 @@ async def upload_document(
     file: UploadFile = File(...),
     subject: str = Form(default="General"),
     topic: str = Form(default=""),
+    current_user = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -57,6 +60,11 @@ async def upload_document(
         save_path.unlink(missing_ok=True)
         raise HTTPException(422, "Could not extract meaningful text from the file.")
 
+    safety = safety_service.check_text(extracted_text[:6000])
+    if not safety.allowed:
+        save_path.unlink(missing_ok=True)
+        raise HTTPException(400, safety.reason)
+
     # Index in ChromaDB
     chunk_count = rag_service.index_document(doc_id, extracted_text, subject, topic)
 
@@ -87,7 +95,7 @@ async def upload_document(
 
 
 @router.get("/documents", response_model=DocumentListResponse)
-async def list_documents(db: Session = Depends(get_db)):
+async def list_documents(current_user = Depends(get_current_user), db: Session = Depends(get_db)):
     """List all uploaded documents."""
     docs = db.query(Document).order_by(Document.created_at.desc()).all()
     return DocumentListResponse(
@@ -109,7 +117,7 @@ async def list_documents(db: Session = Depends(get_db)):
 
 
 @router.get("/documents/{doc_id}", response_model=DocumentResponse)
-async def get_document(doc_id: str, db: Session = Depends(get_db)):
+async def get_document(doc_id: str, current_user = Depends(get_current_user), db: Session = Depends(get_db)):
     """Get a single document's details."""
     doc = db.query(Document).filter(Document.id == doc_id).first()
     if not doc:
@@ -127,7 +135,7 @@ async def get_document(doc_id: str, db: Session = Depends(get_db)):
 
 
 @router.delete("/documents/{doc_id}")
-async def delete_document(doc_id: str, db: Session = Depends(get_db)):
+async def delete_document(doc_id: str, current_user = Depends(get_current_user), db: Session = Depends(get_db)):
     """Delete a document and its vector embeddings."""
     doc = db.query(Document).filter(Document.id == doc_id).first()
     if not doc:
@@ -148,7 +156,7 @@ async def delete_document(doc_id: str, db: Session = Depends(get_db)):
 
 
 @router.post("/documents/{doc_id}/topics", response_model=TopicsResponse)
-async def extract_topics(doc_id: str, db: Session = Depends(get_db)):
+async def extract_topics(doc_id: str, current_user = Depends(get_current_user), db: Session = Depends(get_db)):
     """Extract chapters/topics from a document using the LLM."""
     doc = db.query(Document).filter(Document.id == doc_id).first()
     if not doc:

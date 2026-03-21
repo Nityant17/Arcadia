@@ -64,6 +64,91 @@ class ChatHistory(Base):
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
 
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(String, primary_key=True)
+    name = Column(String, nullable=False)
+    email = Column(String, nullable=False, unique=True)
+    password_hash = Column(String, nullable=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+
+class UserSession(Base):
+    __tablename__ = "user_sessions"
+
+    id = Column(String, primary_key=True)
+    user_id = Column(String, nullable=False)
+    token = Column(String, nullable=False, unique=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    expires_at = Column(DateTime, nullable=True)
+
+
+class WeakTopic(Base):
+    __tablename__ = "weak_topics"
+
+    id = Column(String, primary_key=True)
+    user_id = Column(String, nullable=False, default="guest")
+    document_id = Column(String, nullable=False)
+    topic = Column(String, nullable=False)
+    wrong_attempts = Column(Integer, default=0)
+    weakness_score = Column(Float, default=0.0)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow,
+                        onupdate=datetime.datetime.utcnow)
+
+
+class StudyPlan(Base):
+    __tablename__ = "study_plans"
+
+    id = Column(String, primary_key=True)
+    user_id = Column(String, nullable=False)
+    title = Column(String, default="Study Plan")
+    metadata_json = Column(JSON, default={})
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+
+class StudyTask(Base):
+    __tablename__ = "study_tasks"
+
+    id = Column(String, primary_key=True)
+    plan_id = Column(String, nullable=False)
+    user_id = Column(String, nullable=False)
+    subject = Column(String, nullable=False)
+    task_type = Column(String, default="revision")
+    due_date = Column(DateTime, nullable=False)
+    estimated_minutes = Column(Integer, default=30)
+    spaced_interval_days = Column(Integer, default=0)
+    status = Column(String, default="pending")
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+
+class ChallengeRoom(Base):
+    __tablename__ = "challenge_rooms"
+
+    id = Column(String, primary_key=True)
+    code = Column(String, nullable=False, unique=True)
+    host_user_id = Column(String, nullable=False)
+    document_id = Column(String, nullable=False)
+    tier = Column(Integer, default=1)
+    num_questions = Column(Integer, default=5)
+    status = Column(String, default="waiting")
+    quiz_payload_json = Column(JSON, default={})
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+
+class ChallengeParticipant(Base):
+    __tablename__ = "challenge_participants"
+
+    id = Column(String, primary_key=True)
+    room_id = Column(String, nullable=False)
+    user_id = Column(String, nullable=False)
+    display_name = Column(String, nullable=False)
+    score = Column(Float, default=0.0)
+    total_questions = Column(Integer, default=0)
+    joined_at = Column(DateTime, default=datetime.datetime.utcnow)
+    submitted_at = Column(DateTime, nullable=True)
+
+
 # ─── Init ─────────────────────────────────────────────────────
 
 def init_db():

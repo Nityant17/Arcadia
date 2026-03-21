@@ -7,25 +7,48 @@ from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from models.database import get_db, ChatHistory, Document
+from models.database import get_db, ChatHistory, Document, User
 from models.schemas import ChatRequest, ChatResponse
+from routers.auth import get_current_user
 from services.rag_service import rag_service
 from services.llm_service import llm_service
 from services.translate_service import translate_service
+from services.safety_service import safety_service
 
 router = APIRouter()
 
 
 @router.post("/chat", response_model=ChatResponse)
-async def chat(request: ChatRequest, db: Session = Depends(get_db)):
+async def chat(
+    request: ChatRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    request.user_id = current_user.id
+
     """
     RAG chatbot: retrieves relevant chunks from the student's notes,
     then generates a contextual answer using the LLM.
     """
-    # Validate document exists
-    doc = db.query(Document).filter(Document.id == request.document_id).first()
-    if not doc:
+    selected_doc_ids = []
+    if request.document_ids:
+        selected_doc_ids = request.document_ids
+    elif request.topic:
+        topic_docs = db.query(Document).filter(Document.topic == request.topic).all()
+        selected_doc_ids = [d.id for d in topic_docs]
+    elif request.document_id:
+        selected_doc_ids = [request.document_id]
+
+    if not selected_doc_ids:
+        raise HTTPException(404, "No documents found for this request.")
+
+    existing_count = db.query(Document).filter(Document.id.in_(selected_doc_ids)).count()
+    if existing_count == 0:
         raise HTTPException(404, "Document not found. Upload a document first.")
+
+    safety = safety_service.check_text(request.message)
+    if not safety.allowed:
+        raise HTTPException(400, safety.reason)
 
     # 1. Retrieve relevant chunks
     query_text = request.message
@@ -38,7 +61,11 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)):
         except Exception:
             query_text = request.message  # Fallback to original
 
-    chunks = rag_service.query(query_text, document_id=request.document_id)
+    chunks = []
+    for doc_id in selected_doc_ids:
+        chunks.extend(rag_service.query(query_text, document_id=doc_id, top_k=3))
+    chunks.sort(key=lambda c: c.get("distance", 1.0))
+    chunks = chunks[:6]
 
     if not chunks:
         return ChatResponse(
@@ -56,6 +83,10 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)):
     # 3. Generate answer (in English)
     try:
         answer = await llm_service.generate(user_prompt, system_prompt)
+        answer_safety = safety_service.check_text(answer)
+        if not answer_safety.allowed:
+            raise HTTPException(400, answer_safety.reason)
+
     except ConnectionError as e:
         raise HTTPException(503, str(e))
     except Exception as e:
@@ -74,13 +105,13 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)):
     try:
         db.add(ChatHistory(
             id=str(uuid.uuid4()),
-            document_id=request.document_id,
+            document_id=selected_doc_ids[0],
             role="user",
             content=request.message,
         ))
         db.add(ChatHistory(
             id=str(uuid.uuid4()),
-            document_id=request.document_id,
+            document_id=selected_doc_ids[0],
             role="assistant",
             content=answer,
         ))
@@ -101,10 +132,17 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/chat/stream")
-async def chat_stream(request: ChatRequest, db: Session = Depends(get_db)):
+async def chat_stream(
+    request: ChatRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """
     Streaming RAG chat — returns tokens as Server-Sent Events (SSE).
     """
+    if not request.document_id:
+        raise HTTPException(400, "document_id is required for stream chat")
+
     doc = db.query(Document).filter(Document.id == request.document_id).first()
     if not doc:
         raise HTTPException(404, "Document not found.")
@@ -127,7 +165,11 @@ async def chat_stream(request: ChatRequest, db: Session = Depends(get_db)):
 
 
 @router.get("/chat/history/{document_id}")
-async def get_chat_history(document_id: str, db: Session = Depends(get_db)):
+async def get_chat_history(
+    document_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """Get chat history for a document."""
     messages = (
         db.query(ChatHistory)
