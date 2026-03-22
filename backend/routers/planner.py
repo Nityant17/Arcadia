@@ -62,9 +62,12 @@ def create_plan(
     )
     weakness_by_subject = {subject: 0.0 for subject in unique_subjects}
     weakness_count_by_subject = {subject: 0 for subject in unique_subjects}
+    weak_topics_by_subject = {subject: [] for subject in unique_subjects}
     for weak, doc in weak_rows:
         weakness_by_subject[doc.subject] = weakness_by_subject.get(doc.subject, 0.0) + (weak.weakness_score or 0.0)
         weakness_count_by_subject[doc.subject] = weakness_count_by_subject.get(doc.subject, 0) + 1
+        if weak.topic and weak.topic not in weak_topics_by_subject.setdefault(doc.subject, []):
+            weak_topics_by_subject[doc.subject].append(weak.topic)
 
     for subject in unique_subjects:
         count = weakness_count_by_subject.get(subject, 0)
@@ -113,6 +116,15 @@ def create_plan(
         if not subject_name:
             continue
 
+        subject_docs = docs_by_subject.get(subject_name, [])
+        doc_topics = []
+        for doc in subject_docs:
+            topic_label = (doc.topic or "").strip()
+            if topic_label and topic_label not in doc_topics:
+                doc_topics.append(topic_label)
+        weak_topics = weak_topics_by_subject.get(subject_name, [])
+        topic_cycle = weak_topics + [t for t in doc_topics if t not in weak_topics]
+
         days_left = max((subject.exam_date - today).days, 1)
         subject_hours = allocation.get(subject_name, {}).get("adjusted_weekly_hours", subject.weekly_hours)
         sessions_per_week = max(2, int(round((subject_hours * 60) / 90)))
@@ -125,12 +137,13 @@ def create_plan(
         while session_day <= subject.exam_date and session_index < total_sessions:
             slot_hour = [17, 19, 21][session_index % 3]
             task_type = "study_block" if (session_index % 3 != 2) else "quiz_revision"
+            focus_topic = topic_cycle[session_index % len(topic_cycle)] if topic_cycle else ""
             task = StudyTask(
                 id=str(uuid.uuid4()),
                 plan_id=plan.id,
                 user_id=request.user_id,
                 subject=subject_name,
-                task_type=task_type,
+                task_type=f"{task_type}::{focus_topic}" if focus_topic else task_type,
                 due_date=datetime.datetime.combine(session_day, datetime.time(hour=slot_hour)),
                 estimated_minutes=base_minutes,
                 spaced_interval_days=spacing_days,
@@ -144,19 +157,23 @@ def create_plan(
         weakness = allocation.get(subject_name, {}).get("weakness_score", 0.0)
         if weakness >= 0.35:
             booster_day = today + datetime.timedelta(days=2)
+            weak_cycle = weak_topics if weak_topics else topic_cycle
+            booster_index = 0
             while booster_day <= subject.exam_date:
+                booster_topic = weak_cycle[booster_index % len(weak_cycle)] if weak_cycle else ""
                 db.add(StudyTask(
                     id=str(uuid.uuid4()),
                     plan_id=plan.id,
                     user_id=request.user_id,
                     subject=subject_name,
-                    task_type="weakness_booster",
+                    task_type=f"weakness_booster::{booster_topic}" if booster_topic else "weakness_booster",
                     due_date=datetime.datetime.combine(booster_day, datetime.time(hour=20)),
                     estimated_minutes=max(30, int(base_minutes * 0.6)),
                     spaced_interval_days=5,
                     status="pending",
                 ))
                 booster_day = booster_day + datetime.timedelta(days=5)
+                booster_index += 1
 
     db.commit()
     return {"plan_id": plan.id, "status": "created"}
@@ -209,16 +226,17 @@ def get_tasks(user_id: str = "", current_user: User = Depends(get_current_user),
 
     return {
         "tasks": [
-            {
-                "id": t.id,
-                "subject": t.subject,
-                "task_type": t.task_type,
-                "due_date": str(t.due_date),
-                "start_time": str(t.due_date),
-                "end_time": str(t.due_date + datetime.timedelta(minutes=t.estimated_minutes)),
-                "estimated_minutes": t.estimated_minutes,
-                "status": t.status,
-            }
+            (lambda _t: {
+                "id": _t.id,
+                "subject": _t.subject,
+                "task_type": (_t.task_type.split("::", 1)[0] if "::" in (_t.task_type or "") else _t.task_type),
+                "focus_topic": (_t.task_type.split("::", 1)[1] if "::" in (_t.task_type or "") else ""),
+                "due_date": str(_t.due_date),
+                "start_time": str(_t.due_date),
+                "end_time": str(_t.due_date + datetime.timedelta(minutes=_t.estimated_minutes)),
+                "estimated_minutes": _t.estimated_minutes,
+                "status": _t.status,
+            })(t)
             for t in tasks
         ],
         "weak_topics": [
@@ -258,12 +276,15 @@ def complete_task(task_id: str, current_user: User = Depends(get_current_user), 
 
     if task.spaced_interval_days:
         next_due = task.due_date + datetime.timedelta(days=task.spaced_interval_days * 2)
+        focus_topic = ""
+        if task.task_type and "::" in task.task_type:
+            focus_topic = task.task_type.split("::", 1)[1]
         db.add(StudyTask(
             id=str(uuid.uuid4()),
             plan_id=task.plan_id,
             user_id=task.user_id,
             subject=task.subject,
-            task_type="spaced_repetition",
+            task_type=f"spaced_repetition::{focus_topic}" if focus_topic else "spaced_repetition",
             due_date=next_due,
             estimated_minutes=max(15, int(task.estimated_minutes * 0.7)),
             spaced_interval_days=task.spaced_interval_days * 2,

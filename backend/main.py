@@ -32,10 +32,10 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# ─── CORS (allow Flutter app from any origin during dev) ──────
+# ─── CORS (allow React/Vite frontend during dev) ─────────────
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -1,0 +1,175 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  src: url("/assets/fonts/PlusJakartaSans.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@layer base {
+  :root {
+    --radius: 1rem;
+    /* Dark mode only - Arcadia futuristic premium */
+    --background: 0.09 0.02 264;
+    --foreground: 0.94 0.01 264;
+    --card: 0.13 0.025 264;
+    --card-foreground: 0.94 0.01 264;
+    --popover: 0.12 0.025 264;
+    --popover-foreground: 0.94 0.01 264;
+    --primary: 0.95 0.01 264;
+    --primary-foreground: 0.09 0.02 264;
+    --secondary: 0.18 0.03 264;
+    --secondary-foreground: 0.94 0.01 264;
+    --muted: 0.18 0.025 264;
+    --muted-foreground: 0.58 0.02 264;
+    --accent: 0.78 0.16 196;
+    --accent-foreground: 0.09 0.02 264;
+    --destructive: 0.65 0.22 25;
+    --destructive-foreground: 0.95 0.01 264;
+    --border: 1 0 0 / 12%;
+    --input: 1 0 0 / 10%;
+    --ring: 0.78 0.16 196;
+    --chart-1: 0.78 0.16 196;
+    --chart-2: 0.65 0.22 304;
+    --chart-3: 0.62 0.18 240;
+    --chart-4: 0.7 0.2 340;
+    --chart-5: 0.82 0.16 84;
+    --sidebar: 0.11 0.025 264;
+    --sidebar-foreground: 0.94 0.01 264;
+    --sidebar-primary: 0.78 0.16 196;
+    --sidebar-primary-foreground: 0.09 0.02 264;
+    --sidebar-accent: 0.18 0.03 264;
+    --sidebar-accent-foreground: 0.94 0.01 264;
+    --sidebar-border: 1 0 0 / 10%;
+    --sidebar-ring: 0.78 0.16 196;
+
+    /* Arcadia custom tokens */
+    --arcadia-teal: 0.78 0.16 196;
+    --arcadia-cyan: 0.82 0.14 200;
+    --arcadia-indigo: 0.6 0.2 264;
+    --arcadia-purple: 0.66 0.22 304;
+    --arcadia-blue: 0.68 0.18 240;
+    --arcadia-magenta: 0.62 0.22 340;
+    --arcadia-surface: 1 0 0 / 7%;
+    --arcadia-surface-hover: 1 0 0 / 10%;
+    --arcadia-border: 1 0 0 / 12%;
+    --arcadia-border-bright: 1 0 0 / 18%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Plus Jakarta Sans", sans-serif;
+    background: linear-gradient(135deg, #070a12 0%, #0b1020 50%, #0f172a 100%);
+    min-height: 100vh;
+  }
+}
+
+/* Glassmorphism utilities */
+.glass {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45), inset 0 1px 0
+    rgba(255, 255, 255, 0.1);
+}
+
+.glass-nav {
+  background: rgba(7, 10, 18, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), inset 0 1px 0
+    rgba(255, 255, 255, 0.08);
+}
+
+.glass-card-hover:hover {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.16);
+  transform: translateY(-1px);
+  transition: all 0.2s ease;
+}
+
+/* Ambient blobs */
+.blob-teal {
+  background: radial-gradient(
+    circle,
+    rgba(34, 211, 238, 0.18) 0%,
+    transparent 70%
+  );
+  filter: blur(60px);
+  pointer-events: none;
+}
+
+.blob-purple {
+  background: radial-gradient(
+    circle,
+    rgba(139, 92, 246, 0.15) 0%,
+    transparent 70%
+  );
+  filter: blur(80px);
+  pointer-events: none;
+}
+
+/* Progress ring */
+.progress-ring {
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 2px;
+}
+
+/* Flashcard 3D flip */
+.flashcard-scene {
+  perspective: 1000px;
+}
+.flashcard {
+  transform-style: preserve-3d;
+  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+.flashcard.flipped {
+  transform: rotateY(180deg);
+}
+.flashcard-front,
+.flashcard-back {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  position: absolute;
+  inset: 0;
+  border-radius: 1.5rem;
+}
+.flashcard-back {
+  transform: rotateY(180deg);
+}
