@@ -1,334 +1,427 @@
-<p align="center">
-  <img src="assets/banner.png" alt="Arcadia Banner" width="100%"/>
-</p>
+# Arcadia
 
-<h1 align="center">Arcadia</h1>
-<p align="center">
-  <b>AI-Powered Multimodal Study Buddy</b><br/>
-  Upload your notes. Chat with them. Quiz yourself. Master every topic — in 9 languages.
-</p>
+AI-powered multimodal study companion with a **React + Vite + Tailwind frontend** and **FastAPI backend**.
 
-<p align="center">
-  <img src="https://img.shields.io/badge/python-3.10+-blue?logo=python&logoColor=white" alt="Python"/>
-  <img src="https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter&logoColor=white" alt="Flutter"/>
-  <img src="https://img.shields.io/badge/FastAPI-0.100+-009688?logo=fastapi&logoColor=white" alt="FastAPI"/>
-  <img src="https://img.shields.io/badge/Ollama-Mistral_7B-black?logo=ollama&logoColor=white" alt="Ollama"/>
-  <img src="https://img.shields.io/badge/License-MIT-green" alt="MIT"/>
-</p>
-
-<p align="center">
-  <a href="#features">Features</a> · 
-  <a href="#demo">Demo</a> · 
-  <a href="#architecture">Architecture</a> · 
-  <a href="#quick-start">Quick Start</a> · 
-  <a href="#api-reference">API</a> · 
-  <a href="#tech-stack">Tech Stack</a> · 
-  <a href="#project-structure">Structure</a>
-</p>
+This README is written as a **build contract** for humans and AI agents. It defines:
+- what pages exist,
+- what each page must do,
+- which backend endpoints to call,
+- request/response shapes,
+- integration rules (auth, proxy, static audio, loading/error UX).
 
 ---
 
-## The Problem
+## 1) Product Summary
 
-Students drown in disorganised notes — handwritten pages, PDFs, scattered images. Existing tools don't understand **your** material. Generic AI chatbots hallucinate. Quizzes are one-size-fits-all. And almost nothing works in Indian regional languages.
-
-## The Solution
-
-Arcadia turns your raw notes into a **personalised learning engine:**
-
-1. **Upload** any document (PDF, photo of handwritten notes, text file)
-2. **Chat** with your notes — AI answers using only YOUR content (RAG, no hallucination)
-3. **Quiz** yourself with adaptive difficulty that scales with your mastery
-4. **Study** with auto-generated cheatsheets, flashcards & concept diagrams
-5. **Learn in your language** — 9 languages with live TTS and instant re-translation
+Arcadia helps students learn from their own materials:
+- Upload notes (PDF/images/text)
+- Ask contextual questions via RAG chat
+- Generate adaptive quizzes and track mastery
+- Produce cheatsheets, flashcards, and Mermaid diagrams
+- Use translation + TTS for multilingual study
+- Plan study schedules and challenge friends
 
 ---
 
-## Demo
+## 2) Current Tech Stack
 
-### Screenshots
-
-| Home & Upload | RAG Chat | Adaptive Quiz |
-|:---:|:---:|:---:|
-| ![Home](assets/screenshots/home.png) | ![Chat](assets/screenshots/chat.png) | ![Quiz](assets/screenshots/quiz.png) |
-
-| Study Materials | Dashboard | Language Switch |
-|:---:|:---:|:---:|
-| ![Study](assets/screenshots/study.png) | ![Dashboard](assets/screenshots/dashboard.png) | ![Language](assets/screenshots/language.png) |
+- **Frontend:** React 19, Vite 5, Tailwind, TanStack Router, Zustand, Sonner, Axios
+- **Backend:** FastAPI, SQLAlchemy, ChromaDB, Ollama/Azure-ready services
+- **Data/Assets:** SQLite + local files, static TTS audio at `/static/audio/...`
 
 ---
 
-## Features
+## 3) Frontend Routes (Source of Truth)
 
-| Feature | Description |
-|---------|-------------|
-| **RAG-Powered Chat** | Ask questions about your uploaded notes — AI retrieves relevant chunks and answers in context, no hallucination |
-| **3-Tier Adaptive Quizzes** | Recall → Application → Analysis (Bloom's Taxonomy). Tiers unlock as mastery improves |
-| **Auto Cheatsheets** | One-page AI-generated summaries with key concepts, formulas & common mistakes |
-| **Flashcard Decks** | Study cards generated from your uploaded material |
-| **Concept Diagrams** | Mermaid.js visual flowcharts rendered live in the app |
-| **9-Language Support** | English + Hindi, Tamil, Telugu, Marathi, Bengali, Gujarati, Kannada, Malayalam |
-| **TTS Play/Stop Toggle** | Tap speaker to listen, tap again to stop mid-playback |
-| **Live Re-translation** | Switch language and ALL existing messages re-translate instantly |
-| **Mastery Dashboard** | Track scores, tier progression, and study streaks with charts |
-| **Progress Reset** | One-button wipe of all quiz history, mastery scores, and chat logs |
-| **OCR for Handwritten Notes** | Tesseract extracts text from photos of handwritten pages |
-| **Azure-Ready** | Flip one config flag to swap from local AI to Azure OpenAI, AI Search, Cosmos DB |
+Protected routes require auth token in local state/storage.
 
----
+- `/auth` → `AuthPage`
+- `/home` → `HomePage`
+- `/dashboard` → `DashboardPage`
+- `/notes` → `NotesPage`
+- `/chat` → `ChatPage`
+- `/quiz` → `QuizPage`
+- `/study` → `StudyPage`
+- `/planner` → `PlannerPage`
+- `/challenge` → `ChallengePage`
 
-## Architecture
-
-<p align="center">
-  <img src="assets/flowcharts/01_System_Architecture.png" alt="System Architecture" width="90%"/>
-</p>
-
-### RAG Pipeline
-
-<p align="center">
-  <img src="assets/flowcharts/04_RAG_Pipeline.png" alt="RAG Pipeline" width="80%"/>
-</p>
-
-### Data Flow
-
-<p align="center">
-  <img src="assets/flowcharts/02_Data_Flow.png" alt="Data Flow" width="80%"/>
-</p>
+Routing is defined in `arcadia_react_frontend/src/frontend/src/App.tsx`.
 
 ---
 
-## Tech Stack
+## 4) Integration Rules (Must Follow)
 
-| Layer | Local (Default) | Azure Alternative |
-|-------|----------------|-------------------|
-| **LLM** | Ollama + Mistral 7B | Azure OpenAI GPT-4o |
-| **Embeddings** | sentence-transformers MiniLM-L6-v2 | Azure OpenAI Embeddings |
-| **Vector DB** | ChromaDB | Azure AI Search |
-| **OCR** | Tesseract + pytesseract | Azure Form Recognizer |
-| **TTS** | gTTS (Google) | Azure AI Speech |
-| **Translation** | deep-translator (Google) | Azure AI Translator |
-| **Database** | SQLite (SQLAlchemy) | Azure Cosmos DB |
-| **Backend** | FastAPI (localhost:8000) | Azure App Service |
-| **Frontend** | Flutter 3.x (Web/Android/iOS/Desktop) | Same |
+### 4.1 Base URLs and Proxy
+Frontend dev config:
+- Vite proxy `/api` → `http://localhost:8000`
+- Vite proxy `/static` → `http://localhost:8000`
+- Frontend env: `VITE_API_BASE_URL=http://localhost:8000/api`
 
-> **To switch to Azure:** Set `MODE = "azure"` in `backend/config.py` and add your credentials. Zero frontend changes.
+Files:
+- `arcadia_react_frontend/src/frontend/vite.config.js`
+- `arcadia_react_frontend/src/frontend/.env`
+
+### 4.2 Authentication
+- Login/register returns a `token`
+- Token must be sent as `Authorization: Bearer <token>`
+- Axios interceptor handles this globally
+
+File:
+- `arcadia_react_frontend/src/frontend/src/services/api.ts`
+
+### 4.3 Static TTS Audio
+Backend mounts static files and returns audio URLs such as:
+- `/static/audio/tts_*.mp3`
+
+Backend file:
+- `backend/main.py`
+
+### 4.4 Error + Loading UX Standard
+For all major API calls:
+- wrap in `try/catch`
+- show toast on error
+- use loading/skeleton states for pending UI
+
+### 4.5 Language + TTS Behavior
+- Re-translation: on `currentLanguage` change, iterate all prior assistant messages and call translate endpoint
+- TTS race condition: if user plays a second message, stop/reset current audio before starting next
 
 ---
 
-## Quick Start
+## 5) Frontend Page Requirements (AI Implementation Contract)
 
-### Prerequisites
+Use this section to generate/validate each page.
 
-```bash
-# System packages (Ubuntu/Debian)
-sudo apt update && sudo apt install -y tesseract-ocr poppler-utils
+### 5.1 AuthPage (`/auth`)
+**Purpose:** Login/Register and bootstrap authenticated session.
 
-# Ollama (local LLM)
-curl -fsSL https://ollama.com/install.sh | sh
-ollama pull mistral
+Required behavior:
+- Connect Login form to `POST /api/auth/login`
+- Connect Register form to `POST /api/auth/register`
+- On success: persist token, set current user, redirect to `/home`
+- On failure: show toast + inline error state
+- Include loading states for submit buttons
 
-# Flutter — https://docs.flutter.dev/get-started/install
-flutter doctor
+### 5.2 HomePage (`/home`)
+**Purpose:** Entry dashboard and feature navigation.
+
+Required behavior:
+- Show bento-style shortcuts to major product sections
+- Surface current language and quick actions
+- No blocking API dependency required to render
+
+### 5.3 DashboardPage (`/dashboard`)
+**Purpose:** Learning analytics and progress reset.
+
+Required behavior:
+- Fetch and map stats + mastery to bento/grid components
+- Primary endpoint: `GET /api/dashboard/stats`
+- Secondary endpoints (optional views):
+  - `GET /api/dashboard/mastery`
+  - `GET /api/dashboard/recent-quizzes`
+- Reset action: `DELETE /api/dashboard/reset`
+- Show skeleton loaders for stats/mastery sections
+- Show confirmation flow for reset + success/error toasts
+
+### 5.4 NotesPage (`/notes`)
+**Purpose:** Manage notes + note-scoped assistant chat.
+
+Required behavior:
+- Two-panel layout:
+  - left: note list CRUD UI
+  - right: note editor + contextual chat
+- Chat calls `POST /api/chat`
+- Assistant messages include TTS play controls
+- On language change, retranslate existing assistant messages
+
+### 5.5 ChatPage (`/chat`)
+**Purpose:** Full-page AI tutor conversation.
+
+Required behavior:
+- Message thread + composer + send action
+- Call `POST /api/chat` for replies
+- TTS button per assistant message
+- Enforce single active audio playback (global audio controller)
+- Re-translate visible history when language changes
+
+### 5.6 QuizPage (`/quiz`)
+**Purpose:** Adaptive quiz lifecycle.
+
+Required behavior:
+1. Config step (tier/difficulty + options)
+2. Quiz step (one question at a time, progress)
+3. Review step (correct vs selected + explanations)
+
+Endpoints:
+- Generate: `POST /api/quiz/generate`
+- Submit: `POST /api/quiz/submit`
+- Optional history: `GET /api/quiz/history`
+
+Also include:
+- skeleton/loading states while generating/submitting
+- error toasts
+- optional whiteboard hint panel integration (`POST /api/whiteboard/hint`)
+
+### 5.7 StudyPage (`/study`)
+**Purpose:** AI-generated study materials.
+
+Required behavior:
+- Tabbed UI:
+  - Cheatsheet (`POST /api/generate/cheatsheet`)
+  - Flashcards (`POST /api/generate/flashcards`)
+  - Diagram (`POST /api/generate/diagram`, render Mermaid)
+- Allow language-aware generation payload
+- TTS on generated text blocks where relevant
+
+### 5.8 PlannerPage (`/planner`)
+**Purpose:** Schedule and spaced repetition planning.
+
+Required behavior:
+- Create plan: `POST /api/planner/create`
+- Fetch tasks and metadata: `GET /api/planner/tasks`
+- Complete task: `POST /api/planner/tasks/{task_id}/complete`
+- Render calendar/timetable style task visualization
+- Show loading/empty/error states
+
+### 5.9 ChallengePage (`/challenge`)
+**Purpose:** Multiplayer challenge room flow.
+
+Required behavior:
+- Create room: `POST /api/challenge/create`
+- Join room: `POST /api/challenge/join`
+- Room state: `GET /api/challenge/{code}`
+- Start room (host): `POST /api/challenge/{code}/start`
+- Submit answers: `POST /api/challenge/{code}/submit`
+- Leaderboard: `GET /api/challenge/{code}/leaderboard`
+- Display participant statuses and gate start appropriately
+
+---
+
+## 6) API Endpoint Catalog (FastAPI)
+
+> All routes below are under `/api/*` unless noted.
+> Most endpoints require `Authorization: Bearer <token>`.
+
+### 6.1 Health
+- `GET /` (no `/api` prefix) → service status
+
+### 6.2 Auth
+- `POST /auth/register`
+- `POST /auth/login`
+- `GET /auth/me`
+
+Auth response shape:
+```json
+{
+  "user_id": "uuid",
+  "name": "Jane",
+  "email": "jane@example.com",
+  "token": "..."
+}
 ```
 
-### Run the Backend
+### 6.3 Upload & Documents
+- `POST /upload` (multipart: `file`, `subject`, `topic`)
+- `GET /documents`
+- `GET /documents/{doc_id}`
+- `DELETE /documents/{doc_id}`
+- `POST /documents/{doc_id}/topics`
 
+### 6.4 Chat
+- `POST /chat`
+- `POST /chat/stream` (SSE)
+- `GET /chat/history/{document_id}`
+
+`POST /chat` request shape:
+```json
+{
+  "document_id": "uuid-or-empty",
+  "document_ids": ["uuid"],
+  "topic": "optional-topic",
+  "message": "Explain chapter 2",
+  "language": "en"
+}
+```
+
+Response shape:
+```json
+{
+  "answer": "...",
+  "sources": ["doc_id_1"],
+  "language": "en"
+}
+```
+
+### 6.5 Quiz
+- `POST /quiz/generate`
+- `POST /quiz/submit`
+- `GET /quiz/history`
+
+Generate request:
+```json
+{
+  "document_id": "uuid",
+  "tier": 1,
+  "num_questions": 5,
+  "language": "en",
+  "focus_topic": ""
+}
+```
+
+Submit request:
+```json
+{
+  "quiz_id": "uuid",
+  "document_id": "uuid",
+  "answers": [
+    { "question_id": 1, "selected_option": 2 }
+  ]
+}
+```
+
+### 6.6 Study Material Generation
+- `POST /generate/cheatsheet`
+- `POST /generate/flashcards`
+- `POST /generate/diagram`
+
+Shared request base:
+```json
+{
+  "document_id": "uuid",
+  "language": "en",
+  "focus_topic": ""
+}
+```
+
+### 6.7 TTS + Translation + Languages
+- `POST /tts`
+- `POST /translate`
+- `GET /languages`
+
+TTS response:
+```json
+{
+  "audio_url": "/static/audio/tts_xxx.mp3",
+  "language": "en"
+}
+```
+
+Translate response:
+```json
+{
+  "original_text": "...",
+  "translated_text": "...",
+  "source_language": "en",
+  "target_language": "hi"
+}
+```
+
+### 6.8 Dashboard
+- `GET /dashboard/stats`
+- `GET /dashboard/mastery`
+- `GET /dashboard/recent-quizzes`
+- `DELETE /dashboard/reset`
+
+### 6.9 Planner
+- `POST /planner/create`
+- `GET /planner/tasks`
+- `POST /planner/tasks/{task_id}/complete`
+
+### 6.10 Whiteboard
+- `POST /whiteboard/hint`
+
+### 6.11 Challenge Rooms
+- `POST /challenge/create`
+- `POST /challenge/join`
+- `POST /challenge/{code}/start`
+- `GET /challenge/{code}`
+- `POST /challenge/{code}/submit`
+- `GET /challenge/{code}/leaderboard`
+
+---
+
+## 7) Endpoint Mapping for API Client Service
+
+For consistent frontend service naming:
+
+- `auth/login` → `POST /api/auth/login`
+- `auth/register` → `POST /api/auth/register`
+- `notes/upload` → `POST /api/upload`
+- `chat/query` → `POST /api/chat`
+- `quiz/generate` → `POST /api/quiz/generate`
+- `planner/get` → `GET /api/planner/tasks`
+- `languages/list` → `GET /api/languages`
+
+---
+
+## 8) Local Development (npm + Python)
+
+### 8.1 Backend
 ```bash
-cd arcadia/backend
-python3 -m venv venv && source venv/bin/activate
+cd backend
+source arc/bin/activate
 pip install -r requirements.txt
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Verify: `http://localhost:8000/docs` opens the Swagger playground.
+Check:
+- `http://localhost:8000/` (health)
+- `http://localhost:8000/docs` (Swagger)
 
-### Run the Frontend
-
+### 8.2 Frontend
 ```bash
-cd arcadia/frontend/arcadia_app
-flutter pub get
-flutter run -d chrome           # or -d linux, -d android, etc.
+cd arcadia_react_frontend/src/frontend
+npm install
+npx vite --host 0.0.0.0 --port 5173
 ```
+
+Open:
+- `http://localhost:5173`
 
 ---
 
-## API Reference
+## 9) Project Structure (Important Paths)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/upload` | Upload PDF/image → OCR + vector indexing |
-| `GET` | `/api/documents` | List all uploaded documents |
-| `DELETE` | `/api/documents/{id}` | Remove a document |
-| `POST` | `/api/chat` | RAG chatbot query |
-| `POST` | `/api/quiz/generate` | Generate adaptive quiz for a tier |
-| `POST` | `/api/quiz/submit` | Submit answers → score + mastery update |
-| `POST` | `/api/generate/cheatsheet` | AI-generated one-page summary |
-| `POST` | `/api/generate/flashcards` | AI-generated flashcard deck |
-| `POST` | `/api/generate/diagram` | Mermaid.js concept diagram |
-| `POST` | `/api/tts` | Text-to-speech (returns cached MP3 URL) |
-| `POST` | `/api/translate` | Translate text between languages |
-| `GET` | `/api/dashboard/stats` | Mastery scores & progress data |
-| `DELETE` | `/api/dashboard/reset` | Wipe all quiz/mastery/chat history |
-
-### Example Requests & Responses
-
-**Chat:**
-```json
-// POST /api/chat
-{ "document_id": "uuid", "message": "Explain F=ma", "language": "en" }
-
-// → 200
-{ "answer": "## Newton's Second Law\n...", "sources": ["chunk-uuid"] }
-```
-
-**Translate:**
-```json
-// POST /api/translate
-{ "text": "Newton's Second Law states...", "target_language": "hi", "source_language": "en" }
-
-// → 200
-{ "translated_text": "न्यूटन का दूसरा नियम..." }
-```
-
-**TTS:**
-```json
-// POST /api/tts
-{ "text": "Hello world", "language": "en" }
-
-// → 200
-{ "audio_url": "/static/audio/tts_abc123.mp3", "language": "en" }
-```
-
-**Reset Progress:**
-```json
-// DELETE /api/dashboard/reset
-// → 200
-{ "status": "reset_complete", "deleted": { "quiz_attempts": 5, "mastery_scores": 3, "chat_history": 42, "audio_files": 12 } }
-```
-
----
-
-## Project Structure
-
-```
-arcadia/
+```text
+Arcadia/
 ├── backend/
-│   ├── config.py                 # Mode toggle (local/azure), all settings
-│   ├── main.py                   # FastAPI app, CORS, startup
-│   ├── requirements.txt
-│   ├── models/
-│   │   ├── database.py           # SQLAlchemy ORM (4 tables)
-│   │   └── schemas.py            # Pydantic request/response schemas
-│   ├── services/
-│   │   ├── ocr_service.py        # Tesseract / PyPDF2 text extraction
-│   │   ├── rag_service.py        # ChromaDB chunking, indexing, retrieval
-│   │   ├── llm_service.py        # Ollama prompt templates + generation
-│   │   ├── quiz_service.py       # 3-tier quiz engine + mastery scoring
-│   │   ├── tts_service.py        # gTTS with MD5 caching
-│   │   ├── translate_service.py  # deep-translator (chunked for long text)
-│   │   └── generate_service.py   # Cheatsheet / flashcard / diagram orchestration
+│   ├── main.py
+│   ├── config.py
 │   ├── routers/
-│   │   ├── upload.py             # Document upload + OCR + indexing
-│   │   ├── chat.py               # RAG chat + streaming
-│   │   ├── quiz.py               # Quiz generation + submission
-│   │   ├── generate.py           # Study material generation
-│   │   ├── tts.py                # TTS + translation endpoints
-│   │   └── dashboard.py          # Stats + progress reset
-│   ├── data/                     # Runtime: uploads/, chroma_db/, arcadia.db
-│   └── static/audio/             # Cached TTS MP3 files
+│   │   ├── auth.py
+│   │   ├── upload.py
+│   │   ├── chat.py
+│   │   ├── quiz.py
+│   │   ├── generate.py
+│   │   ├── tts.py
+│   │   ├── dashboard.py
+│   │   ├── planner.py
+│   │   ├── whiteboard.py
+│   │   └── challenge.py
+│   └── models/schemas.py
 │
-├── frontend/arcadia_app/
-│   ├── lib/
-│   │   ├── main.dart
-│   │   ├── config.dart           # API URL, supported languages
-│   │   ├── theme.dart            # Material 3 theming
-│   │   ├── models/models.dart    # Data classes (ChatMessage w/ originalContent)
-│   │   ├── services/api_service.dart  # HTTP client singleton
-│   │   └── screens/
-│   │       ├── home_screen.dart
-│   │       ├── upload_screen.dart
-│   │       ├── chat_screen.dart          # RAG chat + TTS toggle + re-translation
-│   │       ├── quiz_screen.dart
-│   │       ├── study_materials_screen.dart  # Cheatsheet/flashcards + TTS toggle
-│   │       └── dashboard_screen.dart        # Mastery chart + reset button
-│   └── pubspec.yaml
+├── arcadia_react_frontend/
+│   └── src/frontend/
+│       ├── .env
+│       ├── vite.config.js
+│       └── src/
+│           ├── App.tsx
+│           ├── pages/
+│           ├── store/useAppStore.ts
+│           └── services/api.ts
 │
-├── README.md
-├── ARCHITECTURE_ARTIFACTS.md     # Mermaid diagrams
-└── setup.sh
+└── README.md
 ```
 
 ---
 
-## How It Works — Deep Dive
+## 10) Notes for AI Code Generation
 
-### Adaptive Quiz Engine
+If you are an AI generating frontend code for Arcadia:
+- implement pages based on Section 5 contracts,
+- use endpoint catalog in Section 6,
+- use service naming in Section 7,
+- always include token auth, loading states, and toast-based error handling,
+- do not hardcode `http://localhost:8000` in page components; use `api.ts` + Vite proxy.
 
-<p align="center">
-  <img src="assets/flowcharts/03_Quiz_Engine.png" alt="Quiz Engine Flow" width="80%"/>
-</p>
-
-The quiz system follows **Bloom's Taxonomy** with three tiers:
-
-| Tier | Level | Example Question | Unlock Threshold |
-|------|-------|-----------------|-----------------|
-| 1 | **Recall** | "What is the formula for force?" | Default |
-| 2 | **Application** | "A 5kg object accelerates at 3m/s². Calculate the force." | 70% mastery |
-| 3 | **Analysis** | "Compare Newton's 2nd and 3rd laws in collision scenarios." | 80% mastery |
-
-**Mastery scoring:** Exponentially weighted average  
-$$M_{new} = 0.6 \times M_{old} + 0.4 \times S_{current}$$
-
-This rewards consistency — a single good score doesn't instantly max out mastery.
-
-### TTS Play/Stop Toggle
-
-<p align="center">
-  <img src="assets/flowcharts/06_TTS_Flow.png" alt="TTS Toggle Flow" width="80%"/>
-</p>
-
-Both the chat screen and study materials screen support TTS toggling:
-
-- **Tap speaker** → POST `/api/tts` → play audio via `audioplayers` package
-- **Tap again while playing** → `audioPlayer.stop()` → icon reverts
-- **Audio finishes naturally** → `onPlayerComplete` event resets state
-- **Tap speaker on a different message** → stops current, starts new
-
-The backend caches MP3 files by MD5 hash — identical text is never synthesized twice.
-
-### Multilingual & Live Re-translation
-
-<p align="center">
-  <img src="assets/flowcharts/05_Multilingual.png" alt="Multilingual Flow" width="80%"/>
-</p>
-
-Every chat message stores two versions:
-- `content` — what's displayed (may be translated)
-- `originalContent` — always English (best LLM quality)
-
-**On language switch:**
-1. If switching to English → instant restore from `originalContent` (zero API calls)
-2. If switching to any other language → loop all assistant messages, call `/api/translate` for each
-3. A progress indicator shows during bulk translation
-
-This means the user can switch between all 9 languages at any time and every past message updates.
-
-### Progress Reset
-
-<p align="center">
-  <img src="assets/flowcharts/08_Progress_Reset.png" alt="Progress Reset Flow" width="80%"/>
-</p>
-
-### Database Schema
-
-<p align="center">
-  <img src="assets/flowcharts/07_DB_Schema.png" alt="Database Schema" width="80%"/>
-</p>
-
-### User Journey
-
-<p align="center">
-  <img src="assets/flowcharts/09_User_Journey.png" alt="User Journey" width="80%"/>
-</p>
-
----
+This README should be treated as the canonical integration spec for React frontend parity with FastAPI backend.
