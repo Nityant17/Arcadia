@@ -2,6 +2,7 @@
 Planner Router — timetable + spaced repetition schedule.
 """
 import datetime
+import re
 import uuid
 from typing import List
 
@@ -19,14 +20,69 @@ router = APIRouter()
 
 class SubjectInput(BaseModel):
     subject: str
-    exam_date: datetime.date
-    weekly_hours: float = Field(default=4, ge=1, le=40)
+    exam_date: str | datetime.date | datetime.datetime
+    weekly_hours: float | int | str = 4
 
 
 class PlanRequest(BaseModel):
-    user_id: str
+    user_id: str = ""
     title: str = "Exam Study Plan"
     subjects: List[SubjectInput]
+
+
+def _parse_exam_date(value: str | datetime.date | datetime.datetime) -> datetime.date:
+    if isinstance(value, datetime.datetime):
+        return value.date()
+    if isinstance(value, datetime.date):
+        return value
+
+    text = str(value or "").strip()
+    if not text:
+        return datetime.date.today() + datetime.timedelta(days=30)
+
+    date_part = text.split("T", 1)[0]
+    try:
+        return datetime.date.fromisoformat(date_part)
+    except ValueError:
+        return datetime.date.today() + datetime.timedelta(days=30)
+
+
+def _parse_weekly_hours(value: float | int | str) -> float:
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        parsed = 4.0
+    return min(40.0, max(1.0, parsed))
+
+
+def _extract_topics_from_text(text: str) -> list[str]:
+    lines = [line.strip() for line in (text or "").splitlines()]
+    candidates: list[str] = []
+
+    for raw in lines[:500]:
+        if len(raw) < 4 or len(raw) > 100:
+            continue
+        if raw.lower().startswith(("http://", "https://")):
+            continue
+
+        cleaned = re.sub(r"^[\-•*\d\.)\s]+", "", raw).strip()
+        cleaned = re.sub(r"\s+", " ", cleaned)
+        if len(cleaned) < 4 or len(cleaned) > 90:
+            continue
+
+        lower = cleaned.lower()
+        looks_heading = bool(
+            re.match(r"^(chapter|section|unit|topic)\b", lower)
+            or re.match(r"^\d+(\.\d+)*\s+[a-zA-Z]", cleaned)
+            or (len(cleaned.split()) <= 10 and cleaned[:1].isupper() and cleaned.count(".") <= 1)
+        )
+        if not looks_heading:
+            continue
+
+        if cleaned not in candidates:
+            candidates.append(cleaned)
+
+    return candidates[:12]
 
 
 @router.post("/planner/create")
@@ -39,7 +95,25 @@ def create_plan(
     if not request.subjects:
         raise HTTPException(400, "At least one subject is required")
 
-    unique_subjects = list({s.subject.strip() for s in request.subjects if s.subject.strip()})
+    normalized_subjects: List[SubjectInput] = []
+    for subject in request.subjects:
+        subject_name = (subject.subject or "").strip()
+        if not subject_name:
+            continue
+        normalized_subjects.append(
+            SubjectInput(
+                subject=subject_name,
+                exam_date=_parse_exam_date(subject.exam_date),
+                weekly_hours=_parse_weekly_hours(subject.weekly_hours),
+            )
+        )
+
+    if not normalized_subjects:
+        raise HTTPException(400, "At least one valid subject is required")
+
+    request.subjects = normalized_subjects
+
+    unique_subjects = list(dict.fromkeys(s.subject.strip() for s in request.subjects if s.subject.strip()))
     if not unique_subjects:
         raise HTTPException(400, "At least one valid subject is required")
 
@@ -48,7 +122,11 @@ def create_plan(
         StudyTask.status == "pending",
     ).delete(synchronize_session=False)
 
-    docs = db.query(Document).filter(Document.subject.in_(unique_subjects)).all()
+    docs = (
+        db.query(Document)
+        .filter(Document.subject.in_(unique_subjects))
+        .all()
+    )
     docs_by_subject = {subject: [] for subject in unique_subjects}
     for d in docs:
         docs_by_subject.setdefault(d.subject, []).append(d)
@@ -119,9 +197,14 @@ def create_plan(
         subject_docs = docs_by_subject.get(subject_name, [])
         doc_topics = []
         for doc in subject_docs:
-            topic_label = (doc.topic or "").strip()
-            if topic_label and topic_label not in doc_topics:
-                doc_topics.append(topic_label)
+            extracted_topics = _extract_topics_from_text(doc.extracted_text or "")
+            for topic_label in extracted_topics:
+                if topic_label and topic_label not in doc_topics:
+                    doc_topics.append(topic_label)
+
+            fallback_topic = (doc.topic or "").strip()
+            if fallback_topic and fallback_topic not in doc_topics:
+                doc_topics.append(fallback_topic)
         weak_topics = weak_topics_by_subject.get(subject_name, [])
         topic_cycle = weak_topics + [t for t in doc_topics if t not in weak_topics]
 

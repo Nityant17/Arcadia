@@ -19,9 +19,10 @@ router = APIRouter()
 
 
 class WhiteboardHintRequest(BaseModel):
-    image_base64: str
+    image_base64: str = ""
     question: str = ""
     topic: str = ""
+    rough_work_text: str = ""
 
 
 @router.post("/whiteboard/hint")
@@ -29,21 +30,31 @@ async def whiteboard_hint(
     request: WhiteboardHintRequest,
     current_user: User = Depends(get_current_user),
 ):
-    try:
-        raw = base64.b64decode(request.image_base64)
-    except Exception:
-        raise HTTPException(400, "Invalid image data")
+    image_payload = (request.image_base64 or "").strip()
+    manual_work = (request.rough_work_text or "").strip()
 
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
-        tmp.write(raw)
-        tmp_path = Path(tmp.name)
+    if not image_payload and not manual_work:
+        raise HTTPException(400, "Provide a rough-work image or typed rough work")
 
-    try:
-        ocr_text = ocr_service.extract_text(str(tmp_path))
-    finally:
-        tmp_path.unlink(missing_ok=True)
+    ocr_text = ""
+    if image_payload:
+        try:
+            raw = base64.b64decode(image_payload)
+        except Exception:
+            raise HTTPException(400, "Invalid image data")
 
-    safety = safety_service.check_text((request.question or "") + "\n" + (ocr_text or ""))
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
+            tmp.write(raw)
+            tmp_path = Path(tmp.name)
+
+        try:
+            ocr_text = ocr_service.extract_text(str(tmp_path))
+        finally:
+            tmp_path.unlink(missing_ok=True)
+
+    safety = safety_service.check_text(
+        (request.question or "") + "\n" + (ocr_text or "") + "\n" + manual_work
+    )
     if not safety.allowed:
         raise HTTPException(400, safety.reason)
 
@@ -55,6 +66,7 @@ async def whiteboard_hint(
         f"Question: {request.question}\n"
         f"Topic: {request.topic}\n"
         f"Student rough work extracted via OCR:\n{ocr_text}\n\n"
+        f"Student typed rough work:\n{manual_work}\n\n"
         "Give 2-4 hints based on student's work and likely mistake patterns."
     )
 
