@@ -27,6 +27,17 @@ class Document(Base):
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
 
+class DocumentInsight(Base):
+    __tablename__ = "document_insights"
+
+    id = Column(String, primary_key=True)
+    document_id = Column(String, nullable=False, unique=True)
+    topics_json = Column(JSON, default=[])
+    summary_text = Column(Text, default="")
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow,
+                        onupdate=datetime.datetime.utcnow)
+
+
 class QuizAttempt(Base):
     __tablename__ = "quiz_attempts"
 
@@ -147,6 +158,20 @@ class ChallengeParticipant(Base):
     total_questions = Column(Integer, default=0)
     joined_at = Column(DateTime, default=datetime.datetime.utcnow)
     submitted_at = Column(DateTime, nullable=True)
+
+
+class StudyMaterial(Base):
+    __tablename__ = "study_materials"
+
+    id = Column(String, primary_key=True)
+    user_id = Column(String, nullable=False)
+    document_id = Column(String, nullable=False)
+    language = Column(String, default="en")
+    focus_topic = Column(String, default="")
+    material_type = Column(String, nullable=False)  # cheatsheet | flashcards | diagram
+    payload_json = Column(JSON, default={})
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow,
+                        onupdate=datetime.datetime.utcnow)
 
 
 # ─── Init ─────────────────────────────────────────────────────

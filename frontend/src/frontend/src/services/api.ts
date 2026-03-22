@@ -63,6 +63,28 @@ export interface TranslateResponse {
   target_language: string;
 }
 
+export interface StoredStudyMaterialsResponse {
+  document_id: string;
+  language: string;
+  focus_topic: string;
+  cheatsheet?: {
+    document_id: string;
+    title: string;
+    content: string;
+    language: string;
+  } | null;
+  flashcards?: {
+    document_id: string;
+    cards: Array<{ front: string; back: string }>;
+    language: string;
+  } | null;
+  diagram?: {
+    document_id: string;
+    title: string;
+    mermaid_code: string;
+  } | null;
+}
+
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || "/api",
 });
@@ -106,9 +128,9 @@ export const apiClient = {
 
   deleteDocument: (docId: string) => api.delete(`/documents/${docId}`),
 
-  extractTopics: (docId: string) =>
-    api.post<{ document_id: string; topics: TopicItem[] }>(
-      `/documents/${docId}/topics`,
+  extractTopics: (docId: string, force = false) =>
+    api.post<{ document_id: string; topics: TopicItem[]; summary: string }>(
+      `/documents/${docId}/topics${force ? "?force=true" : ""}`,
     ),
 
   chat: (payload: ChatRequest) => api.post<ChatResponse>("/chat", payload),
@@ -189,27 +211,53 @@ export const apiClient = {
       mastery_score: number;
     }>("/quiz/submit", payload),
 
-  generateCheatsheet: (payload: {
-    document_id: string;
-    language: string;
-    focus_topic: string;
-  }) => api.post<{ title: string; content: string }>("/generate/cheatsheet", payload),
-
-  generateFlashcards: (payload: {
+  getStoredStudyMaterials: (payload: {
     document_id: string;
     language: string;
     focus_topic: string;
   }) =>
-    api.post<{ cards: Array<{ front: string; back: string }> }>(
-      "/generate/flashcards",
+    api.get<StoredStudyMaterialsResponse>(
+      `/generate/stored/${payload.document_id}?language=${encodeURIComponent(payload.language)}&focus_topic=${encodeURIComponent(payload.focus_topic || "")}`,
+    ),
+
+  generateCheatsheet: (
+    payload: {
+      document_id: string;
+      language: string;
+      focus_topic: string;
+    },
+    force = false,
+  ) =>
+    api.post<{ title: string; content: string }>(
+      `/generate/cheatsheet${force ? "?force=true" : ""}`,
       payload,
     ),
 
-  generateDiagram: (payload: {
-    document_id: string;
-    language: string;
-    focus_topic: string;
-  }) => api.post<{ title: string; mermaid_code: string }>("/generate/diagram", payload),
+  generateFlashcards: (
+    payload: {
+      document_id: string;
+      language: string;
+      focus_topic: string;
+    },
+    force = false,
+  ) =>
+    api.post<{ cards: Array<{ front: string; back: string }> }>(
+      `/generate/flashcards${force ? "?force=true" : ""}`,
+      payload,
+    ),
+
+  generateDiagram: (
+    payload: {
+      document_id: string;
+      language: string;
+      focus_topic: string;
+    },
+    force = false,
+  ) =>
+    api.post<{ title: string; mermaid_code: string }>(
+      `/generate/diagram${force ? "?force=true" : ""}`,
+      payload,
+    ),
 
   createChallengeRoom: (payload: {
     document_id: string;

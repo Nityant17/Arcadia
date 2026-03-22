@@ -88,15 +88,9 @@ export default function NotesPage() {
         const topics = response.data.topics;
         setExtractedTopics(topics);
 
-        const composed = topics
-          .filter((item) => item.summary?.trim())
-          .slice(0, 8)
-          .map((item) => `• ${item.title}: ${item.summary.trim()}`)
-          .join("\n\n");
-
         setNoteSummaries((prev) => ({
           ...prev,
-          [selectedNote.id]: composed || selectedNote.preview || "No summary available for this note.",
+          [selectedNote.id]: response.data.summary || selectedNote.preview || "No summary available for this note.",
         }));
       } catch {
         setNoteSummaries((prev) => ({
@@ -162,16 +156,11 @@ export default function NotesPage() {
 
     setExtractingTopics(true);
     try {
-      const response = await apiClient.extractTopics(selectedNote.id);
+      const response = await apiClient.extractTopics(selectedNote.id, true);
       setExtractedTopics(response.data.topics);
-      const composed = response.data.topics
-        .filter((item) => item.summary?.trim())
-        .slice(0, 8)
-        .map((item) => `• ${item.title}: ${item.summary.trim()}`)
-        .join("\n\n");
       setNoteSummaries((prev) => ({
         ...prev,
-        [selectedNote.id]: composed || selectedNote.preview || "No summary available for this note.",
+        [selectedNote.id]: response.data.summary || selectedNote.preview || "No summary available for this note.",
       }));
       if (response.data.topics.length > 0) {
         setUploadTopic(response.data.topics[0].title);

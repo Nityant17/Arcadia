@@ -97,6 +97,7 @@ export default function StudyPage() {
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [documentId, setDocumentId] = useState("");
   const [focusTopic, setFocusTopic] = useState("");
+  const [debouncedFocusTopic, setDebouncedFocusTopic] = useState("");
   const [topicsLoading, setTopicsLoading] = useState(false);
   const [topics, setTopics] = useState<Array<{ title: string; summary: string }>>([]);
 
@@ -110,6 +111,7 @@ export default function StudyPage() {
     null,
   );
   const [diagramSvg, setDiagramSvg] = useState("");
+  const [restoringMaterials, setRestoringMaterials] = useState(false);
 
   useEffect(() => {
     const loadDocuments = async () => {
@@ -153,6 +155,53 @@ export default function StudyPage() {
     setFlashcardRevealed(false);
   }, [flashcards]);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedFocusTopic(focusTopic);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [focusTopic]);
+
+  useEffect(() => {
+    const loadStored = async () => {
+      if (!documentId) return;
+
+      setRestoringMaterials(true);
+      setCheatsheetTitle("");
+      setCheatsheetContent("");
+      setFlashcards([]);
+      setDiagram(null);
+
+      try {
+        const response = await apiClient.getStoredStudyMaterials({
+          document_id: documentId,
+          language: currentLanguage?.id ?? "en",
+          focus_topic: debouncedFocusTopic,
+        });
+
+        if (response.data.cheatsheet) {
+          setCheatsheetTitle(response.data.cheatsheet.title || "Generated Cheatsheet");
+          setCheatsheetContent(response.data.cheatsheet.content || "");
+        }
+        if (response.data.flashcards) {
+          setFlashcards(response.data.flashcards.cards || []);
+        }
+        if (response.data.diagram) {
+          setDiagram({
+            title: response.data.diagram.title,
+            mermaid_code: response.data.diagram.mermaid_code,
+          });
+        }
+      } catch {
+        // Keep clean defaults when no cache is available or request fails.
+      } finally {
+        setRestoringMaterials(false);
+      }
+    };
+
+    void loadStored();
+  }, [documentId, currentLanguage?.id, debouncedFocusTopic]);
+
   const cheatsheetHtml = useMemo(() => {
     if (!cheatsheetContent.trim()) return "";
     return markdownToHtml(cheatsheetContent);
@@ -170,7 +219,7 @@ export default function StudyPage() {
         document_id: documentId,
         language: currentLanguage?.id ?? "en",
         focus_topic: focusTopic,
-      });
+      }, true);
 
       setCheatsheetTitle(response.data.title);
       setCheatsheetContent(response.data.content);
@@ -194,7 +243,7 @@ export default function StudyPage() {
         document_id: documentId,
         language: currentLanguage?.id ?? "en",
         focus_topic: focusTopic,
-      });
+      }, true);
 
       setFlashcards(response.data.cards);
       toast.success("Flashcards generated");
@@ -217,7 +266,7 @@ export default function StudyPage() {
         document_id: documentId,
         language: currentLanguage?.id ?? "en",
         focus_topic: focusTopic,
-      });
+      }, true);
 
       setDiagram(response.data);
       toast.success("Diagram generated");
@@ -343,7 +392,9 @@ export default function StudyPage() {
             </Button>
           </div>
 
-          {cheatsheetHtml ? (
+          {restoringMaterials && !cheatsheetHtml ? (
+            <div className="text-sm text-muted-foreground">Loading saved cheatsheet...</div>
+          ) : cheatsheetHtml ? (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <h4 className="font-semibold text-foreground">{cheatsheetTitle || "Generated Cheatsheet"}</h4>
@@ -398,7 +449,9 @@ export default function StudyPage() {
             </Button>
           </div>
 
-          {flashcards.length > 0 ? (
+          {restoringMaterials && flashcards.length === 0 ? (
+            <div className="text-sm text-muted-foreground">Loading saved flashcards...</div>
+          ) : flashcards.length > 0 ? (
             <div className="space-y-4">
               <div className="text-sm text-muted-foreground text-center">
                 {flashcardIndex + 1} / {flashcards.length}
@@ -481,7 +534,9 @@ export default function StudyPage() {
             Diagram
           </Button>
 
-          {diagram ? (
+          {restoringMaterials && !diagram ? (
+            <div className="text-sm text-muted-foreground">Loading saved diagram...</div>
+          ) : diagram ? (
             <div className="glass-card rounded-2xl p-5 space-y-3">
               <h3 className="font-semibold text-foreground">{diagram.title}</h3>
               {diagramSvg ? (

@@ -1,4 +1,3 @@
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { apiClient, type PlannerTask } from "@/services/api";
 import { Link } from "@tanstack/react-router";
@@ -121,14 +120,17 @@ export default function BentoGrid() {
     return "Needs review focus";
   }, [avgScore, quizCount]);
 
+  const moduleCardClass =
+    "glass-card rounded-2xl p-5 transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/10 hover:border-arcadia-teal/60 hover:shadow-2xl hover:shadow-arcadia-teal/50";
+
   return (
     <section className="space-y-4" data-ocid="bento.section">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="glass-card rounded-2xl p-5">
-          <Badge className="bg-white/5 text-arcadia-teal border-white/10 mb-3 w-fit">
-            <Trophy className="w-4 h-4" />
-            <span className="ml-1.5">Daily Challenge</span>
-          </Badge>
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className={moduleCardClass}>
+          <div className="flex items-center gap-2 mb-3 text-foreground">
+            <Trophy className="w-4 h-4 text-arcadia-teal" />
+            <span className="text-sm font-semibold">Daily Challenge</span>
+          </div>
           <div className="flex items-center gap-4 mb-3">
             <div className="relative w-20 h-20 rounded-full grid place-items-center border border-white/10 bg-white/5">
               <div className="absolute inset-2 rounded-full border-4 border-[oklch(0.78_0.16_196)]/30" />
@@ -145,11 +147,11 @@ export default function BentoGrid() {
           </Button>
         </motion.div>
 
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, delay: 0.04 }} className="glass-card rounded-2xl p-5">
-          <Badge className="bg-white/5 text-arcadia-teal border-white/10 mb-3 w-fit">
-            <TrendingUp className="w-4 h-4" />
-            <span className="ml-1.5">My Progress</span>
-          </Badge>
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, delay: 0.04 }} className={moduleCardClass}>
+          <div className="flex items-center gap-2 mb-3 text-foreground">
+            <TrendingUp className="w-4 h-4 text-arcadia-teal" />
+            <span className="text-sm font-semibold">My Progress</span>
+          </div>
           <div className="grid grid-cols-3 gap-2 text-center mb-3">
             <div className="glass rounded-xl py-2">
               <div className="text-lg font-bold text-arcadia-teal">{levelLabel}</div>
@@ -180,12 +182,12 @@ export default function BentoGrid() {
           <p className="text-[11px] text-muted-foreground">{progressLabel}</p>
         </motion.div>
 
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, delay: 0.08 }} className="glass-card rounded-2xl p-5">
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, delay: 0.08 }} className={moduleCardClass}>
           <div className="flex items-center justify-between mb-3">
-            <Badge className="bg-white/5 text-arcadia-teal border-white/10 w-fit">
-              <Calendar className="w-4 h-4" />
-              <span className="ml-1.5">Upcoming Sessions</span>
-            </Badge>
+            <div className="flex items-center gap-2 text-foreground">
+              <Calendar className="w-4 h-4 text-arcadia-teal" />
+              <span className="text-sm font-semibold">Upcoming Sessions</span>
+            </div>
             <span className="text-[10px] text-muted-foreground bg-white/5 border border-white/10 rounded-full px-2 py-0.5">Planner</span>
           </div>
           <div className="space-y-2 min-h-[140px]">
@@ -208,11 +210,11 @@ export default function BentoGrid() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, delay: 0.12 }} className="glass-card rounded-2xl p-5">
-          <Badge className="bg-white/5 text-arcadia-teal border-white/10 mb-3 w-fit">
-            <MessageSquare className="w-4 h-4" />
-            <span className="ml-1.5">AI Tutor Chat</span>
-          </Badge>
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, delay: 0.12 }} className={moduleCardClass}>
+          <div className="flex items-center gap-2 mb-3 text-foreground">
+            <MessageSquare className="w-4 h-4 text-arcadia-teal" />
+            <span className="text-sm font-semibold">AI Tutor Chat</span>
+          </div>
           <div className="space-y-2">
             <div className="text-xs rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-muted-foreground">
               <span className="text-arcadia-teal">Tutor:</span> Ready to continue with your uploaded notes?
@@ -234,12 +236,12 @@ export default function BentoGrid() {
           </div>
         </motion.div>
 
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, delay: 0.16 }} className="glass-card rounded-2xl p-5">
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, delay: 0.16 }} className={moduleCardClass}>
           <div className="flex items-center justify-between mb-3">
-            <Badge className="bg-white/5 text-arcadia-teal border-white/10 w-fit">
-              <FileText className="w-4 h-4" />
-              <span className="ml-1.5">Recent Notes</span>
-            </Badge>
+            <div className="flex items-center gap-2 text-foreground">
+              <FileText className="w-4 h-4 text-arcadia-teal" />
+              <span className="text-sm font-semibold">Recent Notes</span>
+            </div>
             <span className="text-muted-foreground">›</span>
           </div>
           <div className="space-y-2 min-h-[78px]">
@@ -256,11 +258,11 @@ export default function BentoGrid() {
           </div>
         </motion.div>
 
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, delay: 0.2 }} className="glass-card rounded-2xl p-5">
-          <Badge className="bg-white/5 text-arcadia-teal border-white/10 mb-3 w-fit">
-            <Sparkles className="w-4 h-4" />
-            <span className="ml-1.5">New Study Module</span>
-          </Badge>
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, delay: 0.2 }} className={moduleCardClass}>
+          <div className="flex items-center gap-2 mb-3 text-foreground">
+            <Sparkles className="w-4 h-4 text-arcadia-teal" />
+            <span className="text-sm font-semibold">New Study Module</span>
+          </div>
           <p className="text-sm text-foreground">{pickSubjectBadge(leadTask?.subject || "General")} {leadTask?.subject || "General Study"}</p>
           <p className="text-xs text-muted-foreground mt-1">Master weak areas with guided exercises.</p>
           <p className="text-[10px] text-arcadia-purple mt-3">Study Module</p>

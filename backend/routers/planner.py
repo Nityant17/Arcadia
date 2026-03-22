@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from models.database import get_db, StudyPlan, StudyTask, WeakTopic, Document
+from models.database import get_db, StudyPlan, StudyTask, WeakTopic, Document, QuizAttempt, ChatHistory
 from models.database import User
 from routers.auth import get_current_user
 
@@ -301,10 +301,32 @@ def get_tasks(user_id: str = "", current_user: User = Depends(get_current_user),
         .group_by(func.date(StudyTask.due_date))
         .all()
     )
+    upload_rows = (
+        db.query(func.date(Document.created_at), func.count(Document.id))
+        .group_by(func.date(Document.created_at))
+        .all()
+    )
+    quiz_rows = (
+        db.query(func.date(QuizAttempt.created_at), func.count(QuizAttempt.id))
+        .group_by(func.date(QuizAttempt.created_at))
+        .all()
+    )
+    chat_rows = (
+        db.query(func.date(ChatHistory.created_at), func.count(ChatHistory.id))
+        .group_by(func.date(ChatHistory.created_at))
+        .all()
+    )
+
     heatmap = {}
     for day, count in activity_rows:
         heatmap[str(day)] = heatmap.get(str(day), 0) + int(count or 0)
     for day, count in completion_rows:
+        heatmap[str(day)] = heatmap.get(str(day), 0) + int(count or 0)
+    for day, count in upload_rows:
+        heatmap[str(day)] = heatmap.get(str(day), 0) + int(count or 0)
+    for day, count in quiz_rows:
+        heatmap[str(day)] = heatmap.get(str(day), 0) + int(count or 0)
+    for day, count in chat_rows:
         heatmap[str(day)] = heatmap.get(str(day), 0) + int(count or 0)
 
     return {

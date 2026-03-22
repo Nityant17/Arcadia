@@ -9,7 +9,7 @@ from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
 from sqlalchemy.orm import Session
 
 from config import UPLOAD_DIR
-from models.database import get_db, Document
+from models.database import get_db, Document, DocumentInsight
 from models.schemas import DocumentResponse, DocumentListResponse, TopicsResponse, TopicItem
 from routers.auth import get_current_user
 from services.ocr_service import ocr_service
@@ -156,7 +156,12 @@ async def delete_document(doc_id: str, current_user = Depends(get_current_user),
 
 
 @router.post("/documents/{doc_id}/topics", response_model=TopicsResponse)
-async def extract_topics(doc_id: str, current_user = Depends(get_current_user), db: Session = Depends(get_db)):
+async def extract_topics(
+    doc_id: str,
+    force: bool = False,
+    current_user = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """Extract chapters/topics from a document using the LLM."""
     doc = db.query(Document).filter(Document.id == doc_id).first()
     if not doc:
@@ -165,6 +170,15 @@ async def extract_topics(doc_id: str, current_user = Depends(get_current_user), 
     context = doc.extracted_text or ""
     if not context:
         raise HTTPException(422, "No text content available for this document")
+
+    cached_insight = db.query(DocumentInsight).filter(DocumentInsight.document_id == doc_id).first()
+    if cached_insight and not force:
+        cached_topics = cached_insight.topics_json or []
+        return TopicsResponse(
+            document_id=doc_id,
+            topics=[TopicItem(title=t.get("title", ""), summary=t.get("summary", "")) for t in cached_topics],
+            summary=cached_insight.summary_text or "",
+        )
 
     # Truncate for LLM context window
     if len(context) > 8000:
@@ -179,7 +193,31 @@ async def extract_topics(doc_id: str, current_user = Depends(get_current_user), 
         # Fallback: return generic topics
         topics = [{"title": "Full Document", "summary": "Complete document content"}]
 
+    normalized_topics = [
+        TopicItem(title=t.get("title", ""), summary=t.get("summary", ""))
+        for t in topics
+    ]
+    composed_summary = "\n\n".join(
+        [f"• {item.title}: {item.summary.strip()}" for item in normalized_topics if item.summary and item.summary.strip()]
+    )
+    if not composed_summary:
+        composed_summary = doc.extracted_text[:600] if doc.extracted_text else ""
+
+    serialized_topics = [{"title": item.title, "summary": item.summary} for item in normalized_topics]
+    if cached_insight:
+        cached_insight.topics_json = serialized_topics
+        cached_insight.summary_text = composed_summary
+    else:
+        db.add(DocumentInsight(
+            id=str(uuid.uuid4()),
+            document_id=doc_id,
+            topics_json=serialized_topics,
+            summary_text=composed_summary,
+        ))
+    db.commit()
+
     return TopicsResponse(
         document_id=doc_id,
-        topics=[TopicItem(title=t.get("title", ""), summary=t.get("summary", "")) for t in topics],
+        topics=normalized_topics,
+        summary=composed_summary,
     )

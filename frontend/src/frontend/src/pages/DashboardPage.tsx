@@ -54,10 +54,10 @@ function toLocalDateKey(date: Date) {
 }
 
 function activityColor(value: number) {
-  if (value >= 6) return "bg-arcadia-teal/90";
-  if (value >= 3) return "bg-arcadia-teal/60";
-  if (value >= 1) return "bg-arcadia-teal/30";
-  return "bg-white/5";
+  if (value >= 6) return "bg-arcadia-teal";
+  if (value >= 3) return "bg-arcadia-teal/85";
+  if (value >= 1) return "bg-arcadia-teal/65";
+  return "bg-white/10";
 }
 
 function progressColor(value: number) {
@@ -105,10 +105,26 @@ export default function DashboardPage() {
         })),
       );
 
-      setActivityHeatmap(plannerRes.data.activity_heatmap);
-      setPendingTasks(
-        plannerRes.data.tasks.filter((task) => task.status === "pending").length,
+      const pendingCount = plannerRes.data.tasks.filter((task) => task.status === "pending").length;
+      setPendingTasks(pendingCount);
+
+      const todayKey = toLocalDateKey(new Date());
+      const heatmapMap = new Map(
+        plannerRes.data.activity_heatmap.map((point) => [point.date, point.count]),
       );
+      const hasEngagement =
+        (payload.stats.total_documents || 0) > 0 ||
+        (payload.stats.total_quizzes_taken || 0) > 0 ||
+        pendingCount > 0;
+      if (hasEngagement && !heatmapMap.has(todayKey)) {
+        heatmapMap.set(todayKey, 1);
+      }
+      setActivityHeatmap(
+        Array.from(heatmapMap.entries())
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([date, count]) => ({ date, count })),
+      );
+
       setWeakTopics(
         plannerRes.data.weak_topics
           .sort((a, b) => b.weakness_score - a.weakness_score)
@@ -182,13 +198,16 @@ export default function DashboardPage() {
     mondayThisWeek.setDate(today.getDate() - ((today.getDay() + 6) % 7));
     mondayThisWeek.setHours(0, 0, 0, 0);
 
-    const firstDay = new Date(mondayThisWeek);
-    firstDay.setDate(mondayThisWeek.getDate() - 77);
+    const sundayThisWeek = new Date(mondayThisWeek);
+    sundayThisWeek.setDate(mondayThisWeek.getDate() + 6);
+
+    const firstDay = new Date(sundayThisWeek);
+    firstDay.setDate(sundayThisWeek.getDate() - 167);
 
     const dateMap = new Map(activityHeatmap.map((point) => [point.date, point.count]));
     const cells: Array<{ key: string; date: string; count: number }> = [];
 
-    for (let offset = 0; offset < 84; offset += 1) {
+    for (let offset = 0; offset < 168; offset += 1) {
       const day = new Date(firstDay);
       day.setDate(firstDay.getDate() + offset);
       const key = toLocalDateKey(day);
@@ -197,20 +216,6 @@ export default function DashboardPage() {
 
     return cells;
   }, [activityHeatmap]);
-
-  const heatmapMonths = useMemo(() => {
-    let lastMonth = "";
-    return Array.from({ length: 12 }, (_, weekIndex) => {
-      const firstCell = heatmapGrid[weekIndex * 7];
-      if (!firstCell) return "";
-      const month = new Date(`${firstCell.date}T00:00:00`).toLocaleDateString(undefined, { month: "short" });
-      if (month === lastMonth) {
-        return "";
-      }
-      lastMonth = month;
-      return month;
-    });
-  }, [heatmapGrid]);
 
   return (
     <motion.div
@@ -311,43 +316,38 @@ export default function DashboardPage() {
               <Calendar className="w-4 h-4" />
               <span className="ml-1.5">Activity Heatmap</span>
             </Badge>
-            <span className="text-xs text-muted-foreground">Last 12 weeks</span>
+            <span className="text-xs text-muted-foreground">Last 24 weeks</span>
           </div>
           {analyticsLoading ? (
             <Skeleton className="h-24 w-full bg-white/10 rounded-xl" />
           ) : (
             <div className="space-y-2">
-              <div className="grid grid-cols-12 gap-1 px-5">
-                {heatmapMonths.map((month, index) => (
-                  <div key={`month-${index}`} className="text-[10px] text-muted-foreground text-left truncate">
-                    {index % 2 === 0 ? month : ""}
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex items-start gap-2">
+              <div className="flex items-start justify-center gap-2 overflow-x-auto pb-1">
                 <div className="grid grid-rows-7 gap-1 pt-0.5 text-[10px] text-muted-foreground">
-                  <span className="h-3">Mon</span>
-                  <span className="h-3" />
-                  <span className="h-3">Wed</span>
-                  <span className="h-3" />
-                  <span className="h-3">Fri</span>
-                  <span className="h-3" />
-                  <span className="h-3">Sun</span>
+                  <span className="h-[18px]">M</span>
+                  <span className="h-[18px]" />
+                  <span className="h-[18px]">W</span>
+                  <span className="h-[18px]" />
+                  <span className="h-[18px]">F</span>
+                  <span className="h-[18px]" />
+                  <span className="h-[18px]">S</span>
                 </div>
 
-                <div className="grid grid-cols-12 gap-1">
-                  {Array.from({ length: 12 }, (_, weekIndex) => (
+                <div
+                  className="grid gap-1"
+                  style={{ gridTemplateColumns: "repeat(24, max-content)" }}
+                >
+                  {Array.from({ length: 24 }, (_, weekIndex) => (
                     <div key={`week-${weekIndex}`} className="grid grid-rows-7 gap-1">
                       {Array.from({ length: 7 }, (_, dayIndex) => {
                         const cell = heatmapGrid[weekIndex * 7 + dayIndex];
-                        if (!cell) return <div key={`empty-${weekIndex}-${dayIndex}`} className="w-3 h-3" />;
+                        if (!cell) return <div key={`empty-${weekIndex}-${dayIndex}`} className="w-[18px] h-[18px]" />;
 
                         return (
                           <div
                             key={cell.key}
                             title={`${cell.date}: ${cell.count} activities`}
-                            className={`w-3 h-3 rounded-sm border border-white/5 ${activityColor(cell.count)}`}
+                            className={`w-[18px] h-[18px] rounded-[4px] ${cell.count > 0 ? "border border-arcadia-teal/35 shadow-sm shadow-arcadia-teal/20" : "border border-white/5"} ${activityColor(cell.count)}`}
                           />
                         );
                       })}

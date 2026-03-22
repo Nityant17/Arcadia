@@ -187,3 +187,4 @@ class TopicItem(BaseModel):
 class TopicsResponse(BaseModel):
     document_id: str
     topics: List[TopicItem]
+    summary: str = ""
