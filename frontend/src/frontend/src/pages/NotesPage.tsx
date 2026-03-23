@@ -178,7 +178,7 @@ export default function NotesPage() {
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="flex gap-4 h-[calc(100vh-120px)]"
+      className="flex gap-4 h-[calc(100dvh-7rem)] lg:h-[calc(100dvh-3rem)]"
       data-ocid="notes.page"
     >
       <div className="w-80 shrink-0 glass rounded-2xl flex flex-col overflow-hidden">

@@ -1,4 +1,9 @@
 import { Button } from "@/components/ui/button";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAudioPlayer } from "@/hooks/useAudioPlayer";
@@ -6,15 +11,50 @@ import { type ChatMessage, useChatMessages } from "@/hooks/useChatMessages";
 import { apiClient, type DocumentItem } from "@/services/api";
 import { useAppStore } from "@/store/useAppStore";
 import {
+  FileText,
   Loader2,
   MessageSquare,
   Send,
-  StopCircle,
   Volume2,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+
+function parseCitation(source: string, index: number) {
+  const compact = source.trim();
+  const [titlePart, ...rest] = compact.split(/\s+-\s+/);
+  const title = titlePart || `Source ${index + 1}`;
+  const pageLike = rest.find((item) => /page\s*\d+/i.test(item));
+  return {
+    label: `[${index + 1}] ${title}${pageLike ? ` - ${pageLike}` : ""}`,
+    preview: compact,
+  };
+}
+
+function WaveformIcon({ active }: { active: boolean }) {
+  if (!active) {
+    return <Volume2 className="w-4 h-4" />;
+  }
+
+  return (
+    <span className="inline-flex items-end gap-[2px] h-4" aria-hidden>
+      <span className="w-[2px] h-2 rounded-full bg-cyan-300 animate-pulse" />
+      <span
+        className="w-[2px] h-3 rounded-full bg-cyan-400 animate-pulse"
+        style={{ animationDelay: "120ms" }}
+      />
+      <span
+        className="w-[2px] h-2 rounded-full bg-cyan-300 animate-pulse"
+        style={{ animationDelay: "240ms" }}
+      />
+      <span
+        className="w-[2px] h-4 rounded-full bg-cyan-400 animate-pulse"
+        style={{ animationDelay: "360ms" }}
+      />
+    </span>
+  );
+}
 
 export default function ChatPage() {
   const { currentLanguage } = useAppStore();
@@ -71,6 +111,7 @@ export default function ChatPage() {
           content: message.content,
           originalContent: message.content,
           language: "en",
+          sources: [],
         }));
 
         setAllMessages(history);
@@ -142,6 +183,7 @@ export default function ChatPage() {
         content: response.data.answer,
         originalContent: response.data.answer,
         language: response.data.language || currentLanguage?.id || "en",
+        sources: response.data.sources || [],
       });
     } catch {
       toast.error("Failed to send chat message");
@@ -163,16 +205,19 @@ export default function ChatPage() {
     }
   }
 
+  const hasInput = input.trim().length > 0;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="flex flex-col h-[calc(100vh-120px)] glass rounded-2xl overflow-hidden"
+      className="relative flex flex-col h-[calc(100dvh-7rem)] lg:h-[calc(100dvh-3rem)] rounded-2xl border border-white/10 bg-slate-950/35 backdrop-blur-xl overflow-hidden"
       data-ocid="chat.page"
     >
-      <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
+      <div className="px-6 py-4 border-b border-white/10 flex items-start justify-between gap-4">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-3 mb-3">
           <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[oklch(0.78_0.16_196)]/30 to-[oklch(0.60_0.20_264)]/30 flex items-center justify-center border border-white/10">
             <MessageSquare className="w-4 h-4 text-arcadia-teal" />
           </div>
@@ -184,25 +229,40 @@ export default function ChatPage() {
           </div>
         </div>
 
-        <select
-          value={activeDocumentId}
-          onChange={(event) => setActiveDocumentId(event.target.value)}
-          className="arc-select bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-foreground max-w-[280px]"
-        >
-          {documents.length === 0 ? (
-            <option value="">No documents uploaded</option>
-          ) : (
-            documents.map((document) => (
-              <option key={document.id} value={document.id}>
-                {document.original_name || document.filename}
-              </option>
-            ))
-          )}
-        </select>
+          <div className="flex items-center gap-2 overflow-x-auto pr-2 pb-1">
+            {documents.length === 0 ? (
+              <div className="text-xs text-muted-foreground rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
+                No source documents uploaded
+              </div>
+            ) : (
+              documents.map((document) => {
+                const isActive = activeDocumentId === document.id;
+                return (
+                  <button
+                    key={document.id}
+                    type="button"
+                    onClick={() => setActiveDocumentId(document.id)}
+                    className={`shrink-0 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs border transition-all ${
+                      isActive
+                        ? "border-cyan-500/40 bg-cyan-500/12 text-cyan-200 shadow-[0_0_20px_rgba(6,182,212,0.18)]"
+                        : "border-white/10 bg-white/5 text-muted-foreground hover:text-foreground hover:bg-white/10"
+                    }`}
+                    data-ocid={`chat.document.${document.id}`}
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                    <span className="max-w-[190px] truncate">
+                      {document.original_name || document.filename}
+                    </span>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
       </div>
 
       <ScrollArea className="flex-1 px-6">
-        <div className="py-4 flex flex-col gap-4">
+        <div className="py-4 pb-36 flex flex-col gap-4">
           {historyLoading ? (
             <>
               <Skeleton className="h-10 w-56 rounded-2xl bg-white/10" />
@@ -214,21 +274,46 @@ export default function ChatPage() {
             </div>
           ) : (
             messages.map((message) => (
-              <div
+              <motion.div
                 key={message.id}
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.24 }}
                 className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
               >
                 {message.isTranslating ? (
                   <Skeleton className="h-10 w-56 rounded-2xl bg-white/10" />
                 ) : (
                   <div
-                    className={`group relative max-w-[70%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                    className={`group relative max-w-[74%] px-3 py-2 text-sm leading-relaxed ${
                       message.role === "user"
-                        ? "bg-gradient-to-br from-[oklch(0.78_0.16_196)]/50 to-[oklch(0.62_0.18_240)]/40 text-foreground"
-                        : "glass-card text-foreground"
+                        ? "rounded-full border border-white/15 bg-white/6 text-foreground"
+                        : "text-foreground"
                     }`}
                   >
-                    {message.content}
+                    <div>{message.content}</div>
+                    {message.role === "assistant" && (message.sources?.length || 0) > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {message.sources?.map((source, index) => {
+                          const citation = parseCitation(source, index);
+                          return (
+                            <HoverCard key={`${message.id}-source-${index}`}>
+                              <HoverCardTrigger asChild>
+                                <button
+                                  type="button"
+                                  className="rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-[11px] text-cyan-200 hover:border-cyan-500/40 hover:bg-cyan-500/10 transition-all"
+                                >
+                                  {citation.label}
+                                </button>
+                              </HoverCardTrigger>
+                              <HoverCardContent className="w-80 border-white/15 bg-slate-950/95 text-foreground backdrop-blur-xl">
+                                <p className="text-xs leading-relaxed text-muted-foreground">{citation.preview}</p>
+                              </HoverCardContent>
+                            </HoverCard>
+                          );
+                        })}
+                      </div>
+                    )}
                     {message.role === "assistant" && (
                       <button
                         type="button"
@@ -241,37 +326,35 @@ export default function ChatPage() {
                                 currentLanguage?.id ?? "en",
                               )
                         }
-                        className="absolute -right-8 top-2.5 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-arcadia-teal"
+                        className="absolute -right-10 top-1 opacity-0 group-hover:opacity-100 transition-opacity rounded-full border border-white/10 bg-slate-950/70 p-1.5 text-muted-foreground hover:text-cyan-300 hover:border-cyan-500/40"
                         data-ocid={`chat.tts.${message.id}`}
                       >
-                        {playingId === message.id && isPlaying ? (
-                          <StopCircle className="w-4 h-4" />
-                        ) : loadingId === message.id ? (
+                        {loadingId === message.id ? (
                           <Loader2 className="w-4 h-4 animate-spin" />
                         ) : (
-                          <Volume2 className="w-4 h-4" />
+                          <WaveformIcon active={playingId === message.id && isPlaying} />
                         )}
                       </button>
                     )}
                   </div>
                 )}
-              </div>
+              </motion.div>
             ))
           )}
 
           {sending && (
             <div className="flex justify-start">
-              <div className="glass-card rounded-2xl px-4 py-3 flex gap-1.5 items-center">
+              <div className="rounded-full border border-cyan-500/25 bg-cyan-500/8 shadow-[0_0_20px_rgba(6,182,212,0.2)] px-4 py-2.5 flex gap-1.5 items-center">
                 <span
-                  className="w-1.5 h-1.5 rounded-full bg-arcadia-teal animate-bounce"
+                  className="w-1.5 h-1.5 rounded-full bg-cyan-300 animate-pulse"
                   style={{ animationDelay: "0ms" }}
                 />
                 <span
-                  className="w-1.5 h-1.5 rounded-full bg-arcadia-teal animate-bounce"
+                  className="w-1.5 h-1.5 rounded-full bg-cyan-300 animate-pulse"
                   style={{ animationDelay: "150ms" }}
                 />
                 <span
-                  className="w-1.5 h-1.5 rounded-full bg-arcadia-teal animate-bounce"
+                  className="w-1.5 h-1.5 rounded-full bg-cyan-300 animate-pulse"
                   style={{ animationDelay: "300ms" }}
                 />
               </div>
@@ -281,29 +364,42 @@ export default function ChatPage() {
         </div>
       </ScrollArea>
 
-      <div className="border-t border-white/10 px-6 py-4 flex gap-3 items-end">
-        <textarea
-          ref={textareaRef}
-          className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-[oklch(0.78_0.16_196)] resize-none min-h-[40px] max-h-[120px] leading-relaxed"
-          placeholder="Type a message…"
-          value={input}
-          onChange={handleTextareaChange}
-          onKeyDown={handleKeyDown}
-          rows={1}
-          data-ocid="chat.input"
-        />
-        <Button
-          onClick={handleSend}
-          disabled={sending || !input.trim()}
-          className="bg-arcadia-teal text-[#0B1020] hover:bg-arcadia-cyan h-10 w-10 p-0 shrink-0"
-          data-ocid="chat.send.button"
-        >
-          {sending ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <Send className="w-4 h-4" />
-          )}
-        </Button>
+      <div className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 w-[min(860px,calc(100%-2rem))]">
+        <div className="pointer-events-auto rounded-2xl border border-white/12 bg-slate-950/60 backdrop-blur-2xl px-4 py-3 focus-within:border-cyan-500/50 focus-within:shadow-[0_0_30px_rgba(6,182,212,0.2)] transition-all">
+          <div className="flex gap-3 items-end">
+            <textarea
+              ref={textareaRef}
+              className="flex-1 bg-transparent border-0 rounded-xl px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none resize-none min-h-[38px] max-h-[120px] leading-relaxed"
+              placeholder="Ask Arcadia anything..."
+              value={input}
+              onChange={handleTextareaChange}
+              onKeyDown={handleKeyDown}
+              rows={1}
+              data-ocid="chat.input"
+            />
+            <motion.button
+              type="button"
+              onClick={handleSend}
+              disabled={sending || !hasInput}
+              animate={
+                !sending && hasInput
+                  ? {
+                      boxShadow: [
+                        "0 0 0 rgba(6,182,212,0)",
+                        "0 0 16px rgba(6,182,212,0.35)",
+                        "0 0 0 rgba(6,182,212,0)",
+                      ],
+                    }
+                  : { boxShadow: "0 0 0 rgba(6,182,212,0)" }
+              }
+              transition={{ duration: 1.6, repeat: hasInput && !sending ? Number.POSITIVE_INFINITY : 0 }}
+              className="h-10 w-10 shrink-0 rounded-xl border border-cyan-500/35 bg-cyan-500/20 text-cyan-100 disabled:opacity-45 disabled:cursor-not-allowed hover:bg-cyan-500/30 transition-all"
+              data-ocid="chat.send.button"
+            >
+              {sending ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : <Send className="w-4 h-4 mx-auto" />}
+            </motion.button>
+          </div>
+        </div>
       </div>
     </motion.div>
   );

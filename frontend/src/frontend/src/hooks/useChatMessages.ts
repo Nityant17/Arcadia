@@ -8,6 +8,7 @@ export interface ChatMessage {
   originalContent: string;
   language: string;
   isTranslating?: boolean;
+  sources?: string[];
 }
 
 export function useChatMessages(initial: ChatMessage[] = []) {
