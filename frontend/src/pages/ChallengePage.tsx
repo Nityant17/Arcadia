@@ -1,10 +1,11 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { CardPattern, generateRandomString } from "@/components/ui/evervault-card";
 import { apiClient, getApiErrorMessage, type DocumentItem } from "@/services/api";
 import { useAppStore } from "@/store/useAppStore";
 import { CheckCircle2, Clock, Copy, Loader2, LogOut, Users, Zap } from "lucide-react";
-import { motion } from "motion/react";
-import { useEffect, useState } from "react";
+import { motion, useMotionValue } from "motion/react";
+import { useEffect, useState, type MouseEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 
 type Screen = "menu" | "join-form" | "room";
@@ -15,6 +16,33 @@ interface Participant {
   isHost: boolean;
   status: "waiting" | "ready";
   score: number;
+}
+
+function ChallengeCard({ children }: { children: ReactNode }) {
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+  const [randomString, setRandomString] = useState(() => generateRandomString(7000));
+
+  function onMouseMove(event: MouseEvent<HTMLDivElement>) {
+    const { left, top } = event.currentTarget.getBoundingClientRect();
+    mouseX.set(event.clientX - left);
+    mouseY.set(event.clientY - top);
+    setRandomString(generateRandomString(7000));
+  }
+
+  return (
+    <div
+      onMouseMove={onMouseMove}
+      className="group/card relative rounded-3xl bg-slate-950/40 backdrop-blur-xl border border-white/10 overflow-hidden hover:border-cyan-500/30 transition-all min-h-[17.75rem] h-full"
+    >
+      <CardPattern mouseX={mouseX} mouseY={mouseY} randomString={randomString} />
+      <div className="relative z-10 p-4 h-full flex items-center">
+        <div className="rounded-2xl border border-white/10 bg-black/65 backdrop-blur-sm p-4 space-y-3 w-full max-w-[30rem] mx-auto">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function ParticipantRow({ participant }: { participant: Participant }) {
@@ -206,12 +234,14 @@ export default function ChallengePage() {
           Create or join a multiplayer quiz room.
         </p>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl">
-          <div className="rounded-3xl bg-slate-950/40 backdrop-blur-xl border border-white/10 p-6 space-y-4 hover:border-cyan-500/30 transition-all">
-            <div className="w-12 h-12 rounded-2xl bg-[oklch(0.78_0.16_196)]/20 flex items-center justify-center border border-[oklch(0.78_0.16_196)]/25">
-              <Zap className="w-6 h-6 text-arcadia-teal" />
+        <div className="grid grid-cols-1 md:grid-cols-2 md:auto-rows-fr gap-6 w-full">
+          <ChallengeCard>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[oklch(0.78_0.16_196)]/20 flex items-center justify-center border border-[oklch(0.78_0.16_196)]/25">
+                <Zap className="w-5 h-5 text-arcadia-teal" />
+              </div>
+              <h3 className="font-semibold text-foreground text-lg">Create Room</h3>
             </div>
-            <h3 className="font-semibold text-foreground text-lg">Create Room</h3>
 
             <select
               value={documentId}
@@ -237,13 +267,15 @@ export default function ChallengePage() {
               {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
               Create Challenge Room
             </Button>
-          </div>
+          </ChallengeCard>
 
-          <div className="rounded-3xl bg-slate-950/40 backdrop-blur-xl border border-white/10 p-6 space-y-4 hover:border-cyan-500/30 transition-all">
-            <div className="w-12 h-12 rounded-2xl bg-[oklch(0.60_0.20_264)]/20 flex items-center justify-center border border-[oklch(0.60_0.20_264)]/25">
-              <Users className="w-6 h-6 text-arcadia-purple" />
+          <ChallengeCard>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[oklch(0.60_0.20_264)]/20 flex items-center justify-center border border-[oklch(0.60_0.20_264)]/25">
+                <Users className="w-5 h-5 text-arcadia-purple" />
+              </div>
+              <h3 className="font-semibold text-foreground text-lg">Join Room</h3>
             </div>
-            <h3 className="font-semibold text-foreground text-lg">Join Room</h3>
 
             <input
               className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-center text-xl font-bold tracking-[0.4em] text-foreground placeholder:text-muted-foreground placeholder:tracking-normal focus:outline-none focus:border-[oklch(0.78_0.16_196)] uppercase"
@@ -263,7 +295,7 @@ export default function ChallengePage() {
               {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
               Join Challenge Room
             </Button>
-          </div>
+          </ChallengeCard>
         </div>
       </motion.div>
     );
