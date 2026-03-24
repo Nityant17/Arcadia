@@ -34,18 +34,8 @@ const Wrapper = styled.div`
     position: relative;
     height: 100%;
     margin-left: 10px;
-  }
-  .words::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(
-      #0a0a0a 10%,
-      transparent 30%,
-      transparent 70%,
-      #0a0a0a 90%
-    );
-    z-index: 20;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 20%, black 80%, transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0%, black 20%, black 80%, transparent 100%);
   }
   .word {
     display: block;

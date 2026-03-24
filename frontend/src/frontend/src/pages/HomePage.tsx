@@ -192,7 +192,7 @@ export default function HomePage() {
                   key={pill}
                   type="button"
                   onClick={() => handleOmnibarSubmit(pill)}
-                  className="rounded-full border border-cyan-400/35 bg-cyan-500/10 px-3 py-1.5 text-xs text-cyan-200 shadow-[0_0_16px_rgba(6,182,212,0.15)] transition-all hover:border-cyan-300/70 hover:bg-cyan-500/20 hover:shadow-[0_0_24px_rgba(6,182,212,0.28)]"
+                  className="text-xs text-cyan-400 bg-cyan-950/30 border border-cyan-500/30 rounded-full px-3 py-1 hover:bg-cyan-500/20 hover:shadow-[0_0_15px_rgba(6,182,212,0.4)] transition-all cursor-pointer"
                 >
                   {pill}
                 </button>
@@ -252,11 +252,14 @@ export default function HomePage() {
             </button>
           </motion.section>
 
-          <motion.section variants={cardVariants} className={`${rowCardClass} md:col-span-1`}>
+          <motion.section variants={cardVariants} className={`${rowCardClass} md:col-span-1 relative overflow-hidden`}>
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+              <div className="h-28 w-28 rounded-full bg-cyan-500/10 blur-2xl animate-pulse" />
+            </div>
             <h2 className="text-lg font-semibold bg-gradient-to-r from-cyan-400 to-blue-600 bg-clip-text text-transparent">
               Workspace
             </h2>
-            <div className="mt-4 flex items-center justify-center">
+            <div className="relative z-10 mt-4 flex items-center justify-center">
               <QuickActionsOrb />
             </div>
           </motion.section>
