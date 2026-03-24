@@ -226,7 +226,7 @@ export default function DashboardPage() {
       data-ocid="dashboard.page"
     >
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+        <h1 className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-blue-600 bg-clip-text text-transparent">Dashboard</h1>
         <p className="text-muted-foreground text-sm mt-1">
           {currentLanguage?.flag} {currentLanguage?.name} · Learning analytics
         </p>
@@ -236,7 +236,7 @@ export default function DashboardPage() {
         {statCards.map((card) => (
           <div
             key={card.label}
-            className="glass-card rounded-2xl p-5 flex items-center gap-4"
+            className="rounded-2xl bg-slate-950/40 backdrop-blur-xl border border-white/10 p-5 flex items-center gap-4 hover:border-cyan-500/30 transition-all"
           >
             <div
               className={`w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center border border-white/10 ${card.color}`}
@@ -264,7 +264,7 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      <div className="glass rounded-3xl p-6">
+      <div className="rounded-3xl bg-slate-950/40 backdrop-blur-xl border border-white/10 p-6">
         <div className="flex items-center justify-between mb-5">
           <h2 className="font-semibold text-foreground">Topic Mastery</h2>
           <button
@@ -283,7 +283,8 @@ export default function DashboardPage() {
             ))}
           </div>
         ) : mastery.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground text-sm">
+          <div className="rounded-2xl border border-dashed border-white/20 bg-slate-950/40 py-8 text-center text-sm text-muted-foreground">
+            <TrendingUp className="mx-auto mb-2 h-5 w-5 text-cyan-300/60 drop-shadow-[0_0_14px_rgba(6,182,212,0.3)]" />
             No mastery data yet. Take a quiz to build progress.
           </div>
         ) : (
@@ -310,7 +311,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="glass-card rounded-2xl p-5 lg:col-span-2">
+        <div className="rounded-2xl bg-slate-950/40 backdrop-blur-xl border border-white/10 p-5 lg:col-span-2">
           <div className="flex items-center justify-between mb-3">
             <Badge className="bg-white/5 text-arcadia-teal border-white/10 w-fit">
               <Calendar className="w-4 h-4" />
@@ -368,16 +369,19 @@ export default function DashboardPage() {
           )}
         </div>
 
-        <div className="glass-card rounded-2xl p-5">
+        <div className="rounded-2xl bg-slate-950/40 backdrop-blur-xl border border-white/10 p-5">
           <h2 className="font-semibold text-foreground mb-3">Weak Areas</h2>
           {analyticsLoading ? (
             <Skeleton className="h-20 w-full bg-white/10 rounded-xl" />
           ) : weakTopics.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No weak-topic data yet. Complete more quizzes for targeted guidance.</p>
+            <div className="rounded-xl border border-dashed border-white/20 bg-slate-950/40 p-4 text-center">
+              <BookOpen className="mx-auto mb-2 h-5 w-5 text-cyan-300/60 drop-shadow-[0_0_14px_rgba(6,182,212,0.3)]" />
+              <p className="text-sm text-muted-foreground">No weak-topic data yet. Complete more quizzes for targeted guidance.</p>
+            </div>
           ) : (
             <div className="space-y-2">
               {weakTopics.map((topic) => (
-                <div key={topic.topic} className="bg-white/5 rounded-lg px-3 py-2">
+                <div key={topic.topic} className="bg-slate-950/40 backdrop-blur-xl border border-white/10 rounded-lg px-3 py-2 hover:border-cyan-500/30 transition-all">
                   <div className="text-sm text-foreground truncate">{topic.topic}</div>
                   <div className="text-xs text-muted-foreground">Weakness: {topic.weakness}%</div>
                 </div>
@@ -387,7 +391,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="glass-card rounded-2xl p-6 border border-white/10">
+      <div className="rounded-2xl bg-slate-950/40 backdrop-blur-xl border border-white/10 p-6">
         <h2 className="font-semibold text-foreground mb-1">Reset Progress</h2>
         <p className="text-sm text-muted-foreground mb-4">
           This clears quiz attempts, mastery, and chat history.
@@ -403,7 +407,7 @@ export default function DashboardPage() {
               Reset Progress
             </Button>
           </AlertDialogTrigger>
-          <AlertDialogContent className="glass border-white/15 bg-[#0B1020]/95">
+          <AlertDialogContent className="rounded-2xl bg-slate-950/80 backdrop-blur-xl border border-white/15">
             <AlertDialogHeader>
               <AlertDialogTitle className="text-foreground">Are you sure?</AlertDialogTitle>
               <AlertDialogDescription className="text-muted-foreground">

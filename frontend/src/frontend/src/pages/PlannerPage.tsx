@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { apiClient, type PlannerSubjectStat, type PlannerTask } from "@/services/api";
-import { Loader2 } from "lucide-react";
+import { CalendarClock, Loader2 } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -65,7 +65,7 @@ function CellModal({
       }}
     >
       <div
-        className="glass rounded-2xl p-6 w-80 space-y-4"
+        className="rounded-2xl bg-slate-950/40 backdrop-blur-xl border border-white/10 p-6 w-80 space-y-4"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => e.stopPropagation()}
       >
@@ -330,7 +330,7 @@ export default function PlannerPage() {
     >
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Planner</h1>
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-blue-600 bg-clip-text text-transparent">Planner</h1>
           <p className="text-muted-foreground text-sm mt-1">
             Set exam date + weekly hours per subject, then click Plan For Me.
           </p>
@@ -368,7 +368,7 @@ export default function PlannerPage() {
         </div>
       </div>
 
-      <div className="glass rounded-2xl p-4 mb-4">
+      <div className="rounded-2xl bg-slate-950/40 backdrop-blur-xl border border-white/10 p-4 mb-4">
         <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">
           AI Planning Inputs
         </div>
@@ -376,9 +376,12 @@ export default function PlannerPage() {
           Choose the subjects you want to include, then set exam date and weekly hours for each selected subject.
         </p>
         {availableSubjects.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Upload notes first. Arcadia will detect subjects and generate a timetable automatically.
-          </p>
+          <div className="rounded-xl border border-dashed border-white/20 bg-slate-950/40 p-5 text-center">
+            <CalendarClock className="mx-auto mb-2 h-5 w-5 text-cyan-300/60 drop-shadow-[0_0_14px_rgba(6,182,212,0.3)]" />
+            <p className="text-sm text-muted-foreground">
+              Upload notes first. Arcadia will detect subjects and generate a timetable automatically.
+            </p>
+          </div>
         ) : (
           <>
             <div className="flex items-center gap-2 mb-3">
@@ -409,7 +412,7 @@ export default function PlannerPage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {availableSubjects.map((subject) => (
-              <div key={subject.subject} className={`glass-card rounded-xl p-3 space-y-2 border ${selectedSubjects[subject.subject] ? "border-[oklch(0.78_0.16_196)]/30" : "border-white/10 opacity-80"}`}>
+              <div key={subject.subject} className={`rounded-xl bg-slate-950/40 backdrop-blur-xl p-3 space-y-2 border ${selectedSubjects[subject.subject] ? "border-[oklch(0.78_0.16_196)]/30" : "border-white/10 opacity-80"} hover:border-cyan-500/30 transition-all`}>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
@@ -474,7 +477,7 @@ export default function PlannerPage() {
         )}
       </div>
 
-      <div className="glass-card rounded-2xl p-4 mb-4">
+      <div className="rounded-2xl bg-slate-950/40 backdrop-blur-xl border border-white/10 p-4 mb-4">
         <div className="flex items-center justify-between mb-3">
           <div className="text-sm font-semibold text-foreground">Week View</div>
           <div className="flex items-center gap-2">
@@ -491,11 +494,14 @@ export default function PlannerPage() {
         </div>
 
         {upcomingTasks.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No tasks in this week. Use Prev/Next or click Plan For Me to generate your timetable.</p>
+          <div className="rounded-xl border border-dashed border-white/20 bg-slate-950/40 p-5 text-center">
+            <CalendarClock className="mx-auto mb-2 h-5 w-5 text-cyan-300/60 drop-shadow-[0_0_14px_rgba(6,182,212,0.3)]" />
+            <p className="text-sm text-muted-foreground">No tasks in this week. Use Prev/Next or click Plan For Me to generate your timetable.</p>
+          </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             {upcomingTasks.map((task) => (
-              <div key={task.id} className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-foreground">
+              <div key={task.id} className="bg-slate-950/40 backdrop-blur-xl border border-white/10 rounded-lg px-3 py-2 text-sm text-foreground hover:border-cyan-500/30 transition-all">
                 <div className="font-medium truncate">{task.subject} · {task.focus_topic || "General"}</div>
                 <div className="text-xs text-arcadia-teal truncate">{task.task_type.replaceAll("_", " ")}</div>
                 <div className="text-xs text-muted-foreground">{new Date(task.due_date).toLocaleString()}</div>
@@ -516,7 +522,7 @@ export default function PlannerPage() {
         />
       )}
 
-      <div className="glass rounded-2xl overflow-x-auto">
+      <div className="rounded-2xl bg-slate-950/40 backdrop-blur-xl border border-white/10 overflow-x-auto">
         <table className="w-full min-w-[700px] border-collapse">
           <thead>
             <tr>

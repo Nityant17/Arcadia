@@ -4,7 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAudioPlayer } from "@/hooks/useAudioPlayer";
 import { apiClient, type DocumentItem } from "@/services/api";
 import { useAppStore } from "@/store/useAppStore";
-import { ChevronLeft, ChevronRight, Loader2, ScanText, StopCircle, Volume2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, ScanText, Sparkles, StopCircle, Volume2 } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -306,7 +306,7 @@ export default function StudyPage() {
       className="space-y-4"
     >
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Study Workspace</h1>
+        <h1 className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-blue-600 bg-clip-text text-transparent">Study Workspace</h1>
         <p className="text-muted-foreground text-sm mt-1">
           {currentLanguage?.flag} {currentLanguage?.name}
         </p>
@@ -420,7 +420,7 @@ export default function StudyPage() {
                   )}
                 </button>
               </div>
-              <div className="glass-card rounded-2xl p-4">
+              <div className="rounded-2xl bg-slate-950/40 backdrop-blur-xl border border-white/10 p-4">
                 <div className="flex items-center justify-between mb-3">
                   <Badge className="bg-white/5 text-muted-foreground border-white/10">Markdown Rendered</Badge>
                 </div>
@@ -432,7 +432,10 @@ export default function StudyPage() {
               </div>
             </div>
           ) : (
-            <div className="text-sm text-muted-foreground">No cheatsheet generated yet.</div>
+            <div className="rounded-2xl border border-dashed border-white/20 bg-slate-950/40 p-6 text-center text-sm text-muted-foreground">
+              <Sparkles className="mx-auto mb-2 h-5 w-5 text-cyan-300/60 drop-shadow-[0_0_14px_rgba(6,182,212,0.3)]" />
+              No cheatsheet generated yet.
+            </div>
           )}
         </TabsContent>
 
@@ -459,7 +462,7 @@ export default function StudyPage() {
               <button
                 type="button"
                 onClick={() => setFlashcardRevealed((prev) => !prev)}
-                className="w-full max-w-md mx-auto glass-card rounded-3xl p-8 min-h-[220px] flex flex-col items-center justify-center text-center border border-white/10"
+                className="w-full max-w-md mx-auto rounded-3xl bg-slate-950/40 backdrop-blur-xl border border-white/10 p-8 min-h-[220px] flex flex-col items-center justify-center text-center hover:border-cyan-500/30 transition-all"
               >
                 <div className="text-4xl font-semibold text-foreground leading-snug">
                   {flashcardRevealed
@@ -519,7 +522,10 @@ export default function StudyPage() {
               </div>
             </div>
           ) : (
-            <div className="text-sm text-muted-foreground">No flashcards generated yet.</div>
+            <div className="rounded-2xl border border-dashed border-white/20 bg-slate-950/40 p-6 text-center text-sm text-muted-foreground">
+              <Sparkles className="mx-auto mb-2 h-5 w-5 text-cyan-300/60 drop-shadow-[0_0_14px_rgba(6,182,212,0.3)]" />
+              No flashcards generated yet.
+            </div>
           )}
         </TabsContent>
 
@@ -537,7 +543,7 @@ export default function StudyPage() {
           {restoringMaterials && !diagram ? (
             <div className="text-sm text-muted-foreground">Loading saved diagram...</div>
           ) : diagram ? (
-            <div className="glass-card rounded-2xl p-5 space-y-3">
+            <div className="rounded-2xl bg-slate-950/40 backdrop-blur-xl border border-white/10 p-5 space-y-3">
               <h3 className="font-semibold text-foreground">{diagram.title}</h3>
               {diagramSvg ? (
                 <div
@@ -552,7 +558,10 @@ export default function StudyPage() {
               )}
             </div>
           ) : (
-            <div className="text-sm text-muted-foreground">No diagram generated yet.</div>
+            <div className="rounded-2xl border border-dashed border-white/20 bg-slate-950/40 p-6 text-center text-sm text-muted-foreground">
+              <Sparkles className="mx-auto mb-2 h-5 w-5 text-cyan-300/60 drop-shadow-[0_0_14px_rgba(6,182,212,0.3)]" />
+              No diagram generated yet.
+            </div>
           )}
         </TabsContent>
       </Tabs>

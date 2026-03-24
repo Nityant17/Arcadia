@@ -7,20 +7,33 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAppStore } from "@/store/useAppStore";
 import { Link, useLocation } from "@tanstack/react-router";
-import { ChevronDown, ChevronLeft, Menu } from "lucide-react";
+import {
+  BrainIcon,
+  CalendarClockIcon,
+  ChevronDown,
+  ChevronLeft,
+  HomeIcon,
+  LayoutDashboardIcon,
+  Menu,
+  MessageSquareIcon,
+  NotebookPenIcon,
+  PuzzleIcon,
+  SwordsIcon,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
 
 const NAV_LINKS = [
-  { label: "Home", to: "/home" },
-  { label: "Dashboard", to: "/dashboard" },
-  { label: "Notes", to: "/notes" },
-  { label: "Chat", to: "/chat" },
-  { label: "Quiz", to: "/quiz" },
-  { label: "Study Materials", to: "/study" },
-  { label: "Planner", to: "/planner" },
-  { label: "Challenge", to: "/challenge" },
-];
+  { label: "Home", to: "/home", icon: HomeIcon },
+  { label: "Dashboard", to: "/dashboard", icon: LayoutDashboardIcon },
+  { label: "Notes", to: "/notes", icon: NotebookPenIcon },
+  { label: "Chat", to: "/chat", icon: MessageSquareIcon },
+  { label: "Quiz", to: "/quiz", icon: PuzzleIcon },
+  { label: "Study Materials", to: "/study", icon: BrainIcon },
+  { label: "Planner", to: "/planner", icon: CalendarClockIcon },
+  { label: "Challenge", to: "/challenge", icon: SwordsIcon },
+] satisfies Array<{ label: string; to: string; icon: LucideIcon }>;
 
 interface AppShellProps {
   children: ReactNode;
@@ -77,11 +90,12 @@ export default function AppShell({ children }: AppShellProps) {
           <div className="space-y-1 flex-1">
             {NAV_LINKS.map((link) => {
               const isActive = location.pathname === link.to;
+              const Icon = link.icon;
               return (
                 <Link
                   key={link.to}
                   to={link.to}
-                  className={`block px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
+                  className={`group relative flex items-center ${collapsed ? "justify-center" : "justify-start"} gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
                     isActive
                       ? "text-foreground bg-white/12 border border-cyan-500/30 shadow-[0_0_20px_rgba(6,182,212,0.15)]"
                       : "text-muted-foreground hover:text-foreground hover:bg-white/8"
@@ -89,7 +103,13 @@ export default function AppShell({ children }: AppShellProps) {
                   data-ocid={`nav.${link.label.toLowerCase().replace(/\s+/g, "-")}.link`}
                   title={collapsed ? link.label : undefined}
                 >
-                  {collapsed ? link.label.charAt(0) : link.label}
+                  <Icon className="h-4 w-4 shrink-0" />
+                  {!collapsed && <span>{link.label}</span>}
+                  {collapsed && (
+                    <span className="pointer-events-none absolute left-full ml-2 whitespace-nowrap rounded-md border border-white/10 bg-slate-950/95 px-2 py-1 text-xs text-foreground opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
+                      {link.label}
+                    </span>
+                  )}
                 </Link>
               );
             })}
@@ -98,8 +118,9 @@ export default function AppShell({ children }: AppShellProps) {
           <div className="mt-3 pt-3 border-t border-white/10 space-y-2">
             <DropdownMenu>
               <DropdownMenuTrigger
-                className="w-full flex items-center gap-2 px-2 py-2 rounded-xl border border-white/10 bg-white/5 text-sm font-medium hover:bg-white/10 transition-all"
+                className={`w-full flex items-center ${collapsed ? "justify-center" : "justify-start"} gap-2 px-2 py-2 rounded-xl border border-white/10 bg-white/5 text-sm font-medium hover:bg-white/10 transition-all`}
                 data-ocid="nav.language.select"
+                title={collapsed ? currentLanguage?.name : undefined}
               >
                 <span>{currentLanguage?.flag}</span>
                 {!collapsed && (
@@ -132,6 +153,7 @@ export default function AppShell({ children }: AppShellProps) {
                   type="button"
                   className={`w-full flex items-center ${collapsed ? "justify-center" : "justify-start"} gap-2 px-2 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all`}
                   data-ocid="nav.avatar.button"
+                  title={collapsed ? (currentUser?.name ?? "Profile") : undefined}
                 >
                   <Avatar className="w-8 h-8 border border-white/20 bg-white/5 backdrop-blur-xl">
                     <AvatarFallback className="bg-gradient-to-br from-[oklch(0.78_0.16_196)] to-[oklch(0.60_0.20_264)] text-white text-xs font-bold">

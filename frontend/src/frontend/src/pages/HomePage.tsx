@@ -1,14 +1,12 @@
-import { MacbookScroll } from "@/components/ui/macbook-scroll";
 import { PlaceholdersAndVanishInput } from "@/components/ui/placeholders-and-vanish-input";
 import { Button } from "@/components/ui/button";
 import { apiClient } from "@/services/api";
 import { useAppStore } from "@/store/useAppStore";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import {
   ArrowRight,
   CloudUpload,
   Flame,
-  Image,
   MessageSquare,
   Sparkles,
 } from "lucide-react";
@@ -27,13 +25,8 @@ function getMasteryColor(percent: number) {
   return "text-arcadia-purple";
 }
 
-function NeonBadgeLogo() {
-  return (
-    <div className="h-10 w-10 -rotate-12 rounded-xl bg-cyan-400/20 border border-cyan-300/40 shadow-[0_0_14px_rgba(6,182,212,0.35)]" />
-  );
-}
-
 export default function HomePage() {
+  const navigate = useNavigate();
   const { currentUser } = useAppStore();
   const [loading, setLoading] = useState(true);
   const [dragActive, setDragActive] = useState(false);
@@ -128,21 +121,14 @@ export default function HomePage() {
   const cardBaseClass =
     "rounded-3xl bg-slate-950/40 backdrop-blur-xl border border-white/10 p-6 hover:border-cyan-500/30 hover:shadow-[0_0_20px_rgba(6,182,212,0.15)] transition-all";
 
+  const handleOmnibarSubmit = (value: string) => {
+    if (!value.trim()) return;
+    window.sessionStorage.setItem("arcadia:pending-chat-query", value.trim());
+    void navigate({ to: "/chat" });
+  };
+
   return (
     <div className="space-y-5" data-ocid="home.neon.page">
-      <MacbookScroll
-        title={
-          <span>
-            Arcadia RAG Pipeline Workspace
-            <br />
-            Grounded tutoring from your real notes.
-          </span>
-        }
-        badge={<NeonBadgeLogo />}
-        src="/chat-preview.webp"
-        showGradient={false}
-      />
-
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
@@ -158,6 +144,82 @@ export default function HomePage() {
           </p>
         </div>
       </motion.div>
+
+      <motion.section
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        className="mx-auto w-full max-w-5xl rounded-3xl border border-white/10 bg-slate-950/60 p-6 md:p-8 backdrop-blur-2xl transition-all focus-within:border-cyan-500/50 focus-within:shadow-[0_0_30px_rgba(6,182,212,0.2)]"
+      >
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="text-xl md:text-2xl font-semibold bg-gradient-to-r from-cyan-400 to-blue-600 bg-clip-text text-transparent">
+            Command Center
+          </h2>
+          <Sparkles className="h-5 w-5 text-cyan-300" />
+        </div>
+
+        <PlaceholdersAndVanishInput
+          placeholders={[
+            "Ask Arcadia anything about your notes...",
+            "Summarize chapter 3 in 6 bullets",
+            "Generate a Tier 2 challenge from my weak topics",
+          ]}
+          onSubmit={handleOmnibarSubmit}
+          className="mt-2"
+        />
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".pdf,.png,.jpg,.jpeg,.webp,.bmp,.tiff,.txt"
+          className="hidden"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) {
+              void uploadFileToBackend(file);
+            }
+          }}
+        />
+
+        <button
+          type="button"
+          onDragEnter={(event) => {
+            event.preventDefault();
+            setDragActive(true);
+          }}
+          onDragOver={(event) => {
+            event.preventDefault();
+            setDragActive(true);
+          }}
+          onDragLeave={(event) => {
+            event.preventDefault();
+            setDragActive(false);
+          }}
+          onDrop={(event) => {
+            event.preventDefault();
+            const file = event.dataTransfer.files?.[0];
+            if (file) {
+              void uploadFileToBackend(file);
+            }
+          }}
+          onClick={() => fileInputRef.current?.click()}
+          className={`mt-4 w-full rounded-2xl border border-dashed p-5 text-center transition-all ${
+            dragActive
+              ? "border-cyan-400/80 bg-cyan-500/10 shadow-[0_0_24px_rgba(6,182,212,0.28)]"
+              : "border-white/20 bg-white/5 hover:border-cyan-400/50"
+          }`}
+        >
+          <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full border border-cyan-400/30 bg-cyan-500/10 shadow-[0_0_22px_rgba(6,182,212,0.22)]">
+            <CloudUpload className="h-5 w-5 animate-pulse text-cyan-300" />
+          </div>
+          <p className="text-sm text-foreground">
+            Ask Arcadia a question, or drop a PDF here to begin.
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {uploading ? "Uploading..." : "Drop file or click to upload"}
+          </p>
+        </button>
+      </motion.section>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 auto-rows-[minmax(190px,auto)]">
         <motion.section
@@ -181,9 +243,7 @@ export default function HomePage() {
               "Summarize chapter 3 in 6 bullets",
               "Generate a Tier 2 challenge from my weak topics",
             ]}
-            onSubmit={() => {
-              toast.info("Search prompt captured. Open Chat to run it.");
-            }}
+            onSubmit={handleOmnibarSubmit}
             className="mt-5"
           />
 
@@ -195,77 +255,6 @@ export default function HomePage() {
               {stats.totalQuizzes} quizzes completed
             </span>
           </div>
-        </motion.section>
-
-        <motion.section
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, delay: 0.05 }}
-          whileHover={{ scale: 1.01, y: -3 }}
-          className={`${cardBaseClass} flex flex-col gap-4 min-h-[260px]`}
-          data-ocid="home.bento.quick-upload"
-        >
-          <div>
-            <h3 className="text-lg font-semibold bg-gradient-to-r from-cyan-400 to-blue-600 bg-clip-text text-transparent">
-              Quick Upload
-            </h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Drag & drop PDFs/images into Arcadia.
-            </p>
-          </div>
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".pdf,.png,.jpg,.jpeg,.webp,.bmp,.tiff,.txt"
-            className="hidden"
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              if (file) {
-                void uploadFileToBackend(file);
-              }
-            }}
-          />
-
-          <button
-            type="button"
-            onDragEnter={(event) => {
-              event.preventDefault();
-              setDragActive(true);
-            }}
-            onDragOver={(event) => {
-              event.preventDefault();
-              setDragActive(true);
-            }}
-            onDragLeave={(event) => {
-              event.preventDefault();
-              setDragActive(false);
-            }}
-            onDrop={(event) => {
-              event.preventDefault();
-              const file = event.dataTransfer.files?.[0];
-              if (file) {
-                void uploadFileToBackend(file);
-              }
-            }}
-            onClick={() => fileInputRef.current?.click()}
-            className={`rounded-2xl border border-dashed p-4 text-left transition-all min-h-[150px] flex flex-col items-center justify-center ${
-              dragActive
-                ? "border-cyan-400/80 shadow-[0_0_20px_rgba(6,182,212,0.35)] bg-cyan-500/10"
-                : "border-white/20 bg-white/5 hover:border-cyan-400/50"
-            }`}
-          >
-            <div className="mb-2 rounded-full border border-cyan-400/30 bg-cyan-500/10 p-2 text-cyan-300">
-              <CloudUpload className="h-5 w-5" />
-            </div>
-            <div className="text-sm text-foreground text-center min-h-8">
-              <span>{uploading ? "Uploading..." : "Drop files here or click to upload"}</span>
-            </div>
-            <div className="mt-2 flex items-center justify-center gap-2 text-xs text-muted-foreground">
-              <Image className="h-3.5 w-3.5" />
-              <span>PDF, PNG, JPG, TXT</span>
-            </div>
-          </button>
         </motion.section>
 
         <motion.section
@@ -377,8 +366,11 @@ export default function HomePage() {
             })}
 
             {!loading && recentNotes.length === 0 && (
-              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-6 text-sm text-muted-foreground">
-                No recent notes yet. Upload your first document to unlock AI chat.
+              <div className="rounded-2xl border border-dashed border-white/20 bg-slate-950/40 px-4 py-6 text-center">
+                <MessageSquare className="mx-auto mb-2 h-5 w-5 text-cyan-300/60 drop-shadow-[0_0_14px_rgba(6,182,212,0.3)]" />
+                <p className="text-sm text-muted-foreground">
+                  No recent notes yet. Upload your first document to unlock AI chat.
+                </p>
               </div>
             )}
           </div>

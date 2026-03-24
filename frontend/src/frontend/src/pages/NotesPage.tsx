@@ -178,10 +178,16 @@ export default function NotesPage() {
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="flex gap-4 h-[calc(100dvh-7rem)] lg:h-[calc(100dvh-3rem)]"
+      className="space-y-4"
       data-ocid="notes.page"
     >
-      <div className="w-80 shrink-0 glass rounded-2xl flex flex-col overflow-hidden">
+      <div>
+        <h1 className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-blue-600 bg-clip-text text-transparent">Notes</h1>
+        <p className="text-muted-foreground text-sm mt-1">Manage uploads, summaries, and AI topic extraction.</p>
+      </div>
+
+      <div className="flex gap-4 h-[calc(100dvh-11rem)] lg:h-[calc(100dvh-7rem)]">
+      <div className="w-80 shrink-0 rounded-2xl bg-slate-950/40 backdrop-blur-xl border border-white/10 flex flex-col overflow-hidden">
         <div className="px-4 pt-4 pb-3 border-b border-white/10">
           <div className="text-sm font-semibold text-foreground flex items-center gap-2 mb-3">
             <FileText className="w-4 h-4 text-arcadia-teal" /> Notes
@@ -243,8 +249,9 @@ export default function NotesPage() {
                 <Skeleton className="h-10 w-full bg-white/10 rounded-xl" />
               </>
             ) : notes.length === 0 ? (
-              <div className="text-xs text-muted-foreground px-2 py-3">
-                No notes uploaded yet.
+              <div className="rounded-xl border border-dashed border-white/20 bg-slate-950/40 px-3 py-5 text-center">
+                <FileText className="mx-auto mb-2 h-4 w-4 text-cyan-300/60 drop-shadow-[0_0_12px_rgba(6,182,212,0.28)]" />
+                <p className="text-xs text-muted-foreground">No notes uploaded yet.</p>
               </div>
             ) : (
               notes.map((note) => (
@@ -254,7 +261,7 @@ export default function NotesPage() {
                   className={`group w-full flex items-center justify-between rounded-xl px-3 py-2.5 text-left transition-all ${
                     note.id === selectedId
                       ? "bg-[oklch(0.78_0.16_196)]/15 border border-[oklch(0.78_0.16_196)]/30"
-                      : "hover:bg-white/5 border border-transparent"
+                      : "bg-slate-950/40 backdrop-blur-xl border border-white/10 hover:border-cyan-500/30"
                   }`}
                   onClick={() => setSelectedId(note.id)}
                   data-ocid={`notes.item.${note.id}`}
@@ -280,7 +287,7 @@ export default function NotesPage() {
         </ScrollArea>
       </div>
 
-      <div className="flex-1 flex flex-col glass rounded-2xl overflow-hidden">
+      <div className="flex-1 flex flex-col rounded-2xl bg-slate-950/40 backdrop-blur-xl border border-white/10 overflow-hidden">
         {selectedNote ? (
           <>
             <div className="p-4 border-b border-white/10 flex items-center justify-between gap-3">
@@ -317,13 +324,16 @@ export default function NotesPage() {
               <div className="border-l border-white/10 p-4 overflow-auto">
                 <div className="text-sm font-semibold text-foreground mb-2">AI Topics</div>
                 {extractedTopics.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">
-                    Click Extract Topics to let Arcadia analyze this note and suggest focus areas.
-                  </p>
+                  <div className="rounded-xl border border-dashed border-white/20 bg-slate-950/40 p-4 text-center">
+                    <ScanText className="mx-auto mb-2 h-4 w-4 text-cyan-300/60 drop-shadow-[0_0_12px_rgba(6,182,212,0.28)]" />
+                    <p className="text-xs text-muted-foreground">
+                      Click Extract Topics to let Arcadia analyze this note and suggest focus areas.
+                    </p>
+                  </div>
                 ) : (
                   <div className="space-y-2">
                     {extractedTopics.map((item) => (
-                      <div key={item.title} className="glass-card rounded-xl p-3">
+                      <div key={item.title} className="rounded-xl bg-slate-950/40 backdrop-blur-xl border border-white/10 p-3 hover:border-cyan-500/30 transition-all">
                         <div className="text-sm font-medium text-foreground">{item.title}</div>
                         <div className="text-xs text-muted-foreground mt-1">{item.summary}</div>
                       </div>
@@ -335,12 +345,13 @@ export default function NotesPage() {
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center">
-            <div className="text-center text-muted-foreground">
-              <FileText className="w-10 h-10 mx-auto mb-3 opacity-30" />
+            <div className="w-full max-w-md rounded-2xl border border-dashed border-white/20 bg-slate-950/40 px-6 py-8 text-center text-muted-foreground">
+              <FileText className="mx-auto mb-3 h-8 w-8 text-cyan-300/60 drop-shadow-[0_0_14px_rgba(6,182,212,0.3)]" />
               <p className="text-sm">Upload and select a note to begin.</p>
             </div>
           </div>
         )}
+      </div>
       </div>
     </motion.div>
   );

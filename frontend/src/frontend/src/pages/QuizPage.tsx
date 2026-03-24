@@ -356,8 +356,8 @@ export default function QuizPage() {
         className="max-w-2xl mx-auto space-y-6"
         data-ocid="quiz.page"
       >
-        <div className="glass rounded-3xl p-8 space-y-4">
-          <h1 className="text-2xl font-bold text-foreground">Adaptive Quiz</h1>
+        <div className="rounded-3xl bg-slate-950/40 backdrop-blur-xl border border-white/10 p-8 space-y-4">
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-blue-600 bg-clip-text text-transparent">Adaptive Quiz</h1>
           <p className="text-muted-foreground text-sm">
             {currentLanguage?.flag} {currentLanguage?.name}
           </p>
@@ -430,10 +430,10 @@ export default function QuizPage() {
                 type="button"
                 onClick={() => setTier(item.id)}
                 aria-pressed={tier === item.id}
-                className={`glass-card rounded-2xl p-5 text-left border transition-all ${
+                className={`rounded-2xl bg-slate-950/40 backdrop-blur-xl border border-white/10 p-5 text-left transition-all ${
                   tier === item.id
                     ? `${item.active} ring-2 ring-[oklch(0.78_0.16_196)]/55 shadow-[0_0_24px_rgba(34,211,238,0.24)] scale-[1.02]`
-                    : "border-white/10 hover:border-white/20"
+                    : "hover:border-cyan-500/30"
                 }`}
               >
                 <div className={`mb-3 ${tier === item.id ? "text-foreground" : "text-arcadia-teal"}`}>{item.icon}</div>
@@ -482,7 +482,7 @@ export default function QuizPage() {
           className="h-1 bg-white/10 [&>div]:bg-arcadia-teal"
         />
 
-        <div className="glass rounded-3xl p-8">
+        <div className="rounded-3xl bg-slate-950/40 backdrop-blur-xl border border-white/10 p-8">
           <p className="text-lg font-semibold text-foreground mb-6">{question.question}</p>
           <div className="grid gap-3">
             {question.options.map((option, index) => (
@@ -491,7 +491,7 @@ export default function QuizPage() {
                 type="button"
                 onClick={() => pick(index)}
                 disabled={answers[currentQ] !== null || loadingSubmit}
-                className="glass-card border border-white/10 rounded-xl px-4 py-3 text-sm text-left transition-all cursor-pointer hover:border-white/25"
+                className="rounded-xl bg-slate-950/40 backdrop-blur-xl border border-white/10 px-4 py-3 text-sm text-left transition-all cursor-pointer hover:border-cyan-500/30"
               >
                 <span className="text-muted-foreground mr-2">
                   {["A", "B", "C", "D"][index]}.
@@ -574,7 +574,7 @@ export default function QuizPage() {
             </Button>
 
             {hintText && (
-              <div className="glass-card rounded-xl p-3 text-sm text-muted-foreground whitespace-pre-wrap">
+              <div className="rounded-xl bg-slate-950/40 backdrop-blur-xl border border-white/10 p-3 text-sm text-muted-foreground whitespace-pre-wrap">
                 {hintText}
               </div>
             )}
@@ -582,7 +582,7 @@ export default function QuizPage() {
         </div>
 
         {loadingSubmit && (
-          <div className="glass-card rounded-xl p-3 text-sm text-muted-foreground flex items-center gap-2">
+          <div className="rounded-xl bg-slate-950/40 backdrop-blur-xl border border-white/10 p-3 text-sm text-muted-foreground flex items-center gap-2">
             <Loader2 className="w-4 h-4 animate-spin" /> Submitting quiz...
           </div>
         )}
@@ -597,7 +597,7 @@ export default function QuizPage() {
       transition={{ duration: 0.4 }}
       className="max-w-2xl mx-auto space-y-4"
     >
-      <div className="glass rounded-3xl p-8 text-center">
+      <div className="rounded-3xl bg-slate-950/40 backdrop-blur-xl border border-white/10 p-8 text-center">
         <div className="text-4xl font-bold text-foreground mb-1">
           {score}/{results.length}
         </div>
@@ -622,7 +622,7 @@ export default function QuizPage() {
 
       <div className="space-y-3">
         {results.map((result) => (
-          <div key={result.question_id} className="glass-card rounded-2xl p-5">
+          <div key={result.question_id} className="rounded-2xl bg-slate-950/40 backdrop-blur-xl border border-white/10 p-5 hover:border-cyan-500/30 transition-all">
             <div className="flex items-start gap-3 mb-3">
               {result.is_correct ? (
                 <CheckCircle2 className="w-5 h-5 text-arcadia-teal shrink-0 mt-0.5" />

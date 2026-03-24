@@ -19,7 +19,7 @@ interface Participant {
 
 function ParticipantRow({ participant }: { participant: Participant }) {
   return (
-    <div className="flex items-center justify-between glass-card rounded-xl px-4 py-3">
+    <div className="flex items-center justify-between rounded-xl bg-slate-950/40 backdrop-blur-xl border border-white/10 px-4 py-3 hover:border-cyan-500/30 transition-all">
       <div className="flex items-center gap-3">
         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[oklch(0.78_0.16_196)]/40 to-[oklch(0.60_0.20_264)]/40 flex items-center justify-center text-sm font-bold text-foreground">
           {participant.name.charAt(0)}
@@ -201,13 +201,13 @@ export default function ChallengePage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
       >
-        <h1 className="text-2xl font-bold text-foreground mb-2">Challenge Lobby</h1>
+        <h1 className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-blue-600 bg-clip-text text-transparent mb-2">Challenge Lobby</h1>
         <p className="text-muted-foreground text-sm mb-8">
           Create or join a multiplayer quiz room.
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl">
-          <div className="glass-card rounded-3xl p-6 space-y-4 border border-white/10">
+          <div className="rounded-3xl bg-slate-950/40 backdrop-blur-xl border border-white/10 p-6 space-y-4 hover:border-cyan-500/30 transition-all">
             <div className="w-12 h-12 rounded-2xl bg-[oklch(0.78_0.16_196)]/20 flex items-center justify-center border border-[oklch(0.78_0.16_196)]/25">
               <Zap className="w-6 h-6 text-arcadia-teal" />
             </div>
@@ -239,7 +239,7 @@ export default function ChallengePage() {
             </Button>
           </div>
 
-          <div className="glass-card rounded-3xl p-6 space-y-4 border border-white/10">
+          <div className="rounded-3xl bg-slate-950/40 backdrop-blur-xl border border-white/10 p-6 space-y-4 hover:border-cyan-500/30 transition-all">
             <div className="w-12 h-12 rounded-2xl bg-[oklch(0.60_0.20_264)]/20 flex items-center justify-center border border-[oklch(0.60_0.20_264)]/25">
               <Users className="w-6 h-6 text-arcadia-purple" />
             </div>
@@ -278,9 +278,9 @@ export default function ChallengePage() {
       transition={{ duration: 0.4 }}
       className="max-w-xl mx-auto space-y-4"
     >
-      <div className="glass rounded-3xl p-6 space-y-4">
+      <div className="rounded-3xl bg-slate-950/40 backdrop-blur-xl border border-white/10 p-6 space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="font-bold text-foreground">Room {code}</h2>
+          <h2 className="font-bold bg-gradient-to-r from-cyan-400 to-blue-600 bg-clip-text text-transparent">Room {code}</h2>
           <button
             type="button"
             onClick={() => {
@@ -303,7 +303,10 @@ export default function ChallengePage() {
             <ParticipantRow key={participant.id} participant={participant} />
           ))}
           {participants.length === 0 && (
-            <div className="text-sm text-muted-foreground">Waiting for participants...</div>
+            <div className="rounded-xl border border-dashed border-white/20 bg-slate-950/40 p-4 text-center text-sm text-muted-foreground">
+              <Users className="mx-auto mb-2 h-5 w-5 text-cyan-300/60 drop-shadow-[0_0_14px_rgba(6,182,212,0.3)]" />
+              Waiting for participants...
+            </div>
           )}
         </div>
 
