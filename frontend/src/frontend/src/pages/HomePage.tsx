@@ -1,7 +1,7 @@
 import { ArcadiaHero } from "@/components/ui/ArcadiaHero";
 import { Flashcard } from "@/components/ui/Flashcard";
 import { PlaceholdersAndVanishInput } from "@/components/ui/placeholders-and-vanish-input";
-import { QuickActionsOrb } from "@/components/ui/QuickActionsOrb";
+import { QuickToolsGrid, type QuickToolId } from "@/components/ui/QuickToolsGrid";
 import { TaskChecklist } from "@/components/ui/TaskChecklist";
 import { Button } from "@/components/ui/button";
 import { getPinnedFlashcards, togglePinnedFlashcard, type PinnedFlashcardItem } from "@/lib/pinnedFlashcards";
@@ -38,10 +38,11 @@ const cardVariants = {
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const { currentUser } = useAppStore();
+  const { currentLanguage } = useAppStore();
   const [loading, setLoading] = useState(true);
   const [dragActive, setDragActive] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [quickToolBusy, setQuickToolBusy] = useState<QuickToolId | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [recentNotes, setRecentNotes] = useState<
     Array<{
@@ -170,6 +171,104 @@ export default function HomePage() {
   const handleTogglePinnedFlashcard = (card: PinnedFlashcardItem) => {
     togglePinnedFlashcard(card);
     setPinnedFlashcards(getPinnedFlashcards());
+  };
+
+  const handleQuickToolClick = async (toolId: QuickToolId) => {
+    if (quickToolBusy) return;
+
+    const requireDocument = () => {
+      if (!selectedAskNoteId) {
+        toast.error("Upload and select a note first");
+        return null;
+      }
+      return selectedAskNoteId;
+    };
+
+    if (toolId === "upload") {
+      fileInputRef.current?.click();
+      return;
+    }
+
+    if (toolId === "ask") {
+      handleOmnibarSubmit("Summarize my selected note");
+      return;
+    }
+
+    if (toolId === "quiz") {
+      if (!askableNotes.length) {
+        toast.error("Upload a note before starting a quiz");
+        void navigate({ to: "/notes" });
+        return;
+      }
+      void navigate({ to: "/quiz" });
+      return;
+    }
+
+    if (toolId === "study") {
+      if (!askableNotes.length) {
+        toast.error("Upload a note before opening study tools");
+        void navigate({ to: "/notes" });
+        return;
+      }
+      void navigate({ to: "/study" });
+      return;
+    }
+
+    if (toolId === "planner") {
+      void navigate({ to: "/planner" });
+      return;
+    }
+
+    if (toolId === "challenge") {
+      if (!askableNotes.length) {
+        toast.error("Upload a note before starting a challenge");
+        void navigate({ to: "/notes" });
+        return;
+      }
+      void navigate({ to: "/challenge" });
+      return;
+    }
+
+    if (toolId === "dashboard") {
+      void navigate({ to: "/dashboard" });
+      return;
+    }
+
+    const docId = requireDocument();
+    if (!docId) return;
+
+    if (toolId === "topics") {
+      setQuickToolBusy(toolId);
+      try {
+        const response = await apiClient.extractTopics(docId, true);
+        toast.success(`Extracted ${response.data.topics.length} topics`);
+      } catch {
+        toast.error("Failed to extract topics");
+      } finally {
+        setQuickToolBusy(null);
+      }
+      return;
+    }
+
+    if (toolId === "cheatsheet") {
+      setQuickToolBusy(toolId);
+      try {
+        await apiClient.generateCheatsheet(
+          {
+            document_id: docId,
+            language: currentLanguage?.id ?? "en",
+            focus_topic: "",
+          },
+          true,
+        );
+        toast.success("Cheatsheet generated. Opening Study.");
+        void navigate({ to: "/study" });
+      } catch {
+        toast.error("Failed to generate cheatsheet");
+      } finally {
+        setQuickToolBusy(null);
+      }
+    }
   };
 
   const suggestionPills = [
@@ -332,15 +431,15 @@ export default function HomePage() {
             </button>
           </motion.section>
 
-          <motion.section variants={cardVariants} className={`${rowCardClass} md:col-span-1 relative overflow-hidden`}>
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-              <div className="h-28 w-28 rounded-full bg-cyan-500/10 blur-2xl animate-pulse" />
-            </div>
+          <motion.section
+            variants={cardVariants}
+            className={`${rowCardClass} md:col-span-1 relative overflow-visible flex flex-col items-center justify-center`}
+          >
             <h2 className="text-lg font-semibold bg-gradient-to-r from-cyan-400 to-blue-600 bg-clip-text text-transparent">
-              Workspace
+              Utilities
             </h2>
             <div className="relative z-10 mt-4 flex items-center justify-center">
-              <QuickActionsOrb />
+              <QuickToolsGrid onToolClick={(toolId) => void handleQuickToolClick(toolId)} disabled={uploading || quickToolBusy !== null} />
             </div>
           </motion.section>
         </div>
@@ -421,7 +520,7 @@ export default function HomePage() {
               <button
                 type="button"
                 onClick={() => setIsDailyGoalsEditing((previous) => !previous)}
-                className="rounded-md border border-white/20 bg-white/5 px-2 py-1 text-xs text-slate-200 transition-colors hover:border-cyan-400/60 hover:text-cyan-200"
+                className="rounded-md border border-cyan-500/40 bg-cyan-500/15 px-2 py-1 text-xs text-cyan-200 transition-all hover:bg-cyan-500/25 hover:shadow-[0_0_16px_rgba(6,182,212,0.25)]"
               >
                 {isDailyGoalsEditing ? "Done" : "Edit"}
               </button>
@@ -440,8 +539,7 @@ export default function HomePage() {
             </h2>
             <Button
               asChild
-              variant="outline"
-              className="rounded-full border-white/20 bg-white/5 hover:bg-white/10"
+              className="rounded-full border border-cyan-500/40 bg-cyan-500/15 text-cyan-200 hover:bg-cyan-500/25 hover:shadow-[0_0_20px_rgba(6,182,212,0.25)] transition-all"
             >
               <Link to="/study">Open Study Materials</Link>
             </Button>
