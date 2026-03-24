@@ -9,7 +9,18 @@ from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
 from sqlalchemy.orm import Session
 
 from config import UPLOAD_DIR
-from models.database import get_db, Document, DocumentInsight
+from models.database import (
+    get_db,
+    Document,
+    DocumentInsight,
+    QuizAttempt,
+    MasteryScore,
+    ChatHistory,
+    WeakTopic,
+    StudyMaterial,
+    ChallengeRoom,
+    ChallengeParticipant,
+)
 from models.schemas import (
     DocumentResponse,
     DocumentListResponse,
@@ -186,7 +197,7 @@ async def get_document(doc_id: str, current_user = Depends(get_current_user), db
 
 @router.delete("/documents/{doc_id}")
 async def delete_document(doc_id: str, current_user = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Delete a document and its vector embeddings."""
+    """Delete a document and all related data (embeddings, generated materials, quiz/chat traces)."""
     doc = db.query(Document).filter(Document.id == doc_id).first()
     if not doc:
         raise HTTPException(404, "Document not found")
@@ -198,7 +209,24 @@ async def delete_document(doc_id: str, current_user = Depends(get_current_user),
     file_path = UPLOAD_DIR / doc.filename
     file_path.unlink(missing_ok=True)
 
-    # Remove from DB
+    # Remove all related rows from DB
+    challenge_room_ids = [
+        room.id
+        for room in db.query(ChallengeRoom.id).filter(ChallengeRoom.document_id == doc_id).all()
+    ]
+    if challenge_room_ids:
+        db.query(ChallengeParticipant).filter(ChallengeParticipant.room_id.in_(challenge_room_ids)).delete(
+            synchronize_session=False
+        )
+
+    db.query(ChallengeRoom).filter(ChallengeRoom.document_id == doc_id).delete(synchronize_session=False)
+    db.query(StudyMaterial).filter(StudyMaterial.document_id == doc_id).delete(synchronize_session=False)
+    db.query(DocumentInsight).filter(DocumentInsight.document_id == doc_id).delete(synchronize_session=False)
+    db.query(ChatHistory).filter(ChatHistory.document_id == doc_id).delete(synchronize_session=False)
+    db.query(QuizAttempt).filter(QuizAttempt.document_id == doc_id).delete(synchronize_session=False)
+    db.query(MasteryScore).filter(MasteryScore.document_id == doc_id).delete(synchronize_session=False)
+    db.query(WeakTopic).filter(WeakTopic.document_id == doc_id).delete(synchronize_session=False)
+
     db.delete(doc)
     db.commit()
 

@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TextHoverEffect } from "@/components/ui/text-hover-effect";
+import { Meteors } from "@/components/ui/meteors";
 import { useAppStore } from "@/store/useAppStore";
 import { apiClient } from "@/services/api";
 import { useNavigate } from "@tanstack/react-router";
@@ -72,11 +73,15 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center relative overflow-hidden">
+    <div className="min-h-screen w-full relative flex items-center justify-center overflow-hidden bg-slate-950">
+      <div className="absolute inset-0 w-full h-full z-0 overflow-hidden">
+        <Meteors number={90} className="z-0" />
+      </div>
+
       {/* Background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-[#070A12] via-[#0B1020] to-[#0F172A]" />
-      <div className="blob-teal absolute top-[-100px] left-[-100px] w-[500px] h-[500px]" />
-      <div className="blob-purple absolute bottom-[-100px] right-[-100px] w-[600px] h-[600px]" />
+      <div className="absolute inset-0 -z-10 bg-gradient-to-br from-[#070A12] via-[#0B1020] to-[#0F172A]" />
+      <div className="blob-teal absolute -z-10 top-[-100px] left-[-100px] w-[500px] h-[500px]" />
+      <div className="blob-purple absolute -z-10 bottom-[-100px] right-[-100px] w-[600px] h-[600px]" />
 
       <div className="relative z-10 w-full px-4 flex flex-col items-center">
         <div className="h-[12rem] md:h-[16rem] w-full max-w-3xl flex items-center justify-center mb-4">
@@ -87,7 +92,7 @@ export default function AuthPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: "easeOut" }}
-          className="w-full max-w-md rounded-3xl p-8 bg-slate-950/40 backdrop-blur-2xl border border-white/10 shadow-2xl hover:border-cyan-500/20 transition-all duration-500"
+          className="w-full max-w-md rounded-3xl p-8 bg-slate-900/60 backdrop-blur-xl border border-white/10 shadow-2xl hover:border-cyan-500/20 transition-all duration-500"
         >
           <Tabs
             defaultValue="login"

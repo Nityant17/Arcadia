@@ -109,12 +109,21 @@ export default {
           from: { opacity: "0" },
           to: { opacity: "1" },
         },
+        meteor: {
+          "0%": { transform: "rotate(215deg) translateX(0)", opacity: "1" },
+          "70%": { opacity: "1" },
+          "100%": {
+            transform: "rotate(215deg) translateX(-1200px)",
+            opacity: "0",
+          },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "fade-up": "fade-up 0.5s ease-out forwards",
         "fade-in": "fade-in 0.3s ease-out forwards",
+        "meteor-effect": "meteor 5s linear infinite",
       },
     },
   },

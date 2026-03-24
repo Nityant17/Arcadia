@@ -48,21 +48,22 @@ export const TextHoverEffect = ({
         <motion.radialGradient
           id={gradientId}
           gradientUnits="userSpaceOnUse"
-          r="34%"
+          r="46%"
           initial={{ cx: "50%", cy: "50%" }}
           animate={maskPosition}
           transition={{ duration: duration ?? 0.12, ease: "easeOut" }}
         >
-          <stop offset="0%" stopColor="#06b6d4" stopOpacity="1" />
-          <stop offset="45%" stopColor="#3b82f6" stopOpacity="0.98" />
-          <stop offset="82%" stopColor="#a855f7" stopOpacity="0.95" />
+          <stop offset="0%" stopColor="#67e8f9" stopOpacity="1" />
+          <stop offset="36%" stopColor="#22d3ee" stopOpacity="1" />
+          <stop offset="70%" stopColor="#60a5fa" stopOpacity="0.98" />
+          <stop offset="88%" stopColor="#a855f7" stopOpacity="0.95" />
           <stop offset="100%" stopColor="#a855f7" stopOpacity="0" />
         </motion.radialGradient>
 
         <motion.radialGradient
           id={revealMaskId}
           gradientUnits="userSpaceOnUse"
-          r="36%"
+          r="48%"
           initial={{ cx: "50%", cy: "50%" }}
           animate={maskPosition}
           transition={{ duration: duration ?? 0.08, ease: "easeOut" }}
@@ -94,9 +95,9 @@ export const TextHoverEffect = ({
         textAnchor="middle"
         dominantBaseline="middle"
         strokeWidth="1"
-        stroke="#64748b"
+        stroke="#93c5fd"
         className="fill-transparent font-[helvetica] font-bold"
-        style={{ opacity: 0.34, fontSize: "150px" }}
+        style={{ opacity: 0.58, fontSize: "150px" }}
         initial={{ strokeDashoffset: 1000, strokeDasharray: 1000 }}
         animate={{
           strokeDashoffset: 0,
@@ -115,10 +116,14 @@ export const TextHoverEffect = ({
         textAnchor="middle"
         dominantBaseline="middle"
         stroke={`url(#${gradientId})`}
-        strokeWidth="1"
+        strokeWidth="1.8"
         mask={`url(#${textMaskId})`}
         className="fill-transparent font-[helvetica] font-bold"
-        style={{ opacity: hovered ? 1 : 0, fontSize: "150px" }}
+        style={{
+          opacity: hovered ? 1 : 0,
+          fontSize: "150px",
+          filter: "drop-shadow(0 0 14px rgba(56,189,248,0.75))",
+        }}
       >
         {text}
       </text>

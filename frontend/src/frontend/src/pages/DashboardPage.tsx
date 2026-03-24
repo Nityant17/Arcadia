@@ -53,11 +53,22 @@ function toLocalDateKey(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
-function activityColor(value: number) {
-  if (value >= 6) return "bg-arcadia-teal";
-  if (value >= 3) return "bg-arcadia-teal/85";
-  if (value >= 1) return "bg-arcadia-teal/65";
-  return "bg-white/10";
+function getHeatmapLevel(value: number, maxValue: number) {
+  if (value <= 0 || maxValue <= 0) return 0;
+
+  const normalized = value / maxValue;
+  if (normalized <= 0.25) return 1;
+  if (normalized <= 0.5) return 2;
+  if (normalized <= 0.75) return 3;
+  return 4;
+}
+
+function heatmapCellClass(level: number) {
+  if (level === 4) return "bg-cyan-300/80 border-cyan-300/45";
+  if (level === 3) return "bg-cyan-400/60 border-cyan-400/35";
+  if (level === 2) return "bg-cyan-500/40 border-cyan-500/30";
+  if (level === 1) return "bg-cyan-600/25 border-cyan-600/25";
+  return "bg-white/5 border-white/10";
 }
 
 function progressColor(value: number) {
@@ -198,11 +209,8 @@ export default function DashboardPage() {
     mondayThisWeek.setDate(today.getDate() - ((today.getDay() + 6) % 7));
     mondayThisWeek.setHours(0, 0, 0, 0);
 
-    const sundayThisWeek = new Date(mondayThisWeek);
-    sundayThisWeek.setDate(mondayThisWeek.getDate() + 6);
-
-    const firstDay = new Date(sundayThisWeek);
-    firstDay.setDate(sundayThisWeek.getDate() - 167);
+    const firstDay = new Date(mondayThisWeek);
+    firstDay.setDate(mondayThisWeek.getDate() - (23 * 7));
 
     const dateMap = new Map(activityHeatmap.map((point) => [point.date, point.count]));
     const cells: Array<{ key: string; date: string; count: number }> = [];
@@ -216,6 +224,16 @@ export default function DashboardPage() {
 
     return cells;
   }, [activityHeatmap]);
+
+  const heatmapMaxCount = useMemo(() => {
+    let maxCount = 0;
+    for (const cell of heatmapGrid) {
+      if (cell.count > maxCount) {
+        maxCount = cell.count;
+      }
+    }
+    return maxCount;
+  }, [heatmapGrid]);
 
   return (
     <motion.div
@@ -342,13 +360,22 @@ export default function DashboardPage() {
                     <div key={`week-${weekIndex}`} className="grid grid-rows-7 gap-1">
                       {Array.from({ length: 7 }, (_, dayIndex) => {
                         const cell = heatmapGrid[weekIndex * 7 + dayIndex];
-                        if (!cell) return <div key={`empty-${weekIndex}-${dayIndex}`} className="w-[18px] h-[18px]" />;
+                        if (!cell) {
+                          return (
+                            <div
+                              key={`empty-${weekIndex}-${dayIndex}`}
+                              className="w-[18px] h-[18px] rounded-[4px] border border-white/10 bg-white/5"
+                            />
+                          );
+                        }
+
+                        const level = getHeatmapLevel(cell.count, heatmapMaxCount);
 
                         return (
                           <div
                             key={cell.key}
                             title={`${cell.date}: ${cell.count} activities`}
-                            className={`w-[18px] h-[18px] rounded-[4px] ${cell.count > 0 ? "border border-arcadia-teal/35 shadow-sm shadow-arcadia-teal/20" : "border border-white/5"} ${activityColor(cell.count)}`}
+                            className={`w-[18px] h-[18px] rounded-[4px] border ${heatmapCellClass(level)} transition-colors`}
                           />
                         );
                       })}
@@ -359,10 +386,11 @@ export default function DashboardPage() {
 
               <div className="flex items-center justify-end gap-2 text-[10px] text-muted-foreground pr-1">
                 <span>Less</span>
-                <div className="w-3 h-3 rounded-sm bg-white/5 border border-white/5" />
-                <div className="w-3 h-3 rounded-sm bg-arcadia-teal/30 border border-white/5" />
-                <div className="w-3 h-3 rounded-sm bg-arcadia-teal/60 border border-white/5" />
-                <div className="w-3 h-3 rounded-sm bg-arcadia-teal/90 border border-white/5" />
+                <div className="w-3 h-3 rounded-sm border bg-white/5 border-white/10" />
+                <div className="w-3 h-3 rounded-sm border bg-cyan-600/25 border-cyan-600/25" />
+                <div className="w-3 h-3 rounded-sm border bg-cyan-500/40 border-cyan-500/30" />
+                <div className="w-3 h-3 rounded-sm border bg-cyan-400/60 border-cyan-400/35" />
+                <div className="w-3 h-3 rounded-sm border bg-cyan-300/80 border-cyan-300/45" />
                 <span>More</span>
               </div>
             </div>
