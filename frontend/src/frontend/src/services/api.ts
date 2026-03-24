@@ -14,8 +14,15 @@ export interface DocumentItem {
   original_name: string;
   subject: string;
   topic: string;
+  is_starred: boolean;
   created_at: string;
   extracted_text_preview?: string;
+}
+
+export interface PinnedItem {
+  id: string;
+  label: string;
+  to: string;
 }
 
 export interface TopicItem {
@@ -124,7 +131,14 @@ export const apiClient = {
   listDocuments: () =>
     api.get<{ documents: DocumentItem[]; total: number }>("/documents"),
 
+  listPinnedDocuments: () => api.get<PinnedItem[]>("/documents/pinned"),
+
   getDocument: (docId: string) => api.get<DocumentItem>(`/documents/${docId}`),
+
+  setDocumentStar: (docId: string, starred: boolean) =>
+    api.patch<{ id: string; is_starred: boolean }>(`/documents/${docId}/star`, {
+      starred,
+    }),
 
   deleteDocument: (docId: string) => api.delete(`/documents/${docId}`),
 

@@ -2,10 +2,12 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiClient, type DocumentItem } from "@/services/api";
+import { useAppStore } from "@/store/useAppStore";
 import {
   FileText,
   Loader2,
   ScanText,
+  Star,
   Trash2,
   Upload,
 } from "lucide-react";
@@ -18,6 +20,7 @@ interface Note {
   filename: string;
   subject: string;
   topic: string;
+  isStarred: boolean;
   uploadDate: string;
   preview: string;
 }
@@ -28,6 +31,7 @@ function mapDocumentToNote(document: DocumentItem): Note {
     filename: document.original_name || document.filename,
     subject: document.subject,
     topic: document.topic,
+    isStarred: document.is_starred,
     uploadDate: document.created_at,
     preview: document.extracted_text_preview || "",
   };
@@ -38,10 +42,12 @@ function compactText(value: string) {
 }
 
 export default function NotesPage() {
+  const refreshPinnedItems = useAppStore((s) => s.refreshPinnedItems);
   const [notes, setNotes] = useState<Note[]>([]);
   const [selectedId, setSelectedId] = useState<string>("");
   const [loadingNotes, setLoadingNotes] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [starringId, setStarringId] = useState<string | null>(null);
 
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadSubject, setUploadSubject] = useState("General");
@@ -51,6 +57,7 @@ export default function NotesPage() {
   const [extractedTopics, setExtractedTopics] = useState<Array<{ title: string; summary: string }>>([]);
   const [extractingTopics, setExtractingTopics] = useState(false);
   const [noteSummaries, setNoteSummaries] = useState<Record<string, string>>({});
+  const [noteTopics, setNoteTopics] = useState<Record<string, Array<{ title: string; summary: string }>>>({});
   const [loadingSummary, setLoadingSummary] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -61,9 +68,11 @@ export default function NotesPage() {
     try {
       const response = await apiClient.listDocuments();
       const mapped = response.data.documents.map(mapDocumentToNote);
+      const preferredNoteId = new URLSearchParams(window.location.search).get("noteId") ?? "";
       setNotes(mapped);
       if (mapped.length > 0) {
-        setSelectedId((prev) => prev || mapped[0].id);
+        const preferredExists = preferredNoteId && mapped.some((note) => note.id === preferredNoteId);
+        setSelectedId((prev) => prev || (preferredExists ? preferredNoteId : mapped[0].id));
       } else {
         setSelectedId("");
       }
@@ -79,24 +88,41 @@ export default function NotesPage() {
   }, []);
 
   useEffect(() => {
-    setExtractedTopics([]);
-  }, [selectedId]);
+    if (!selectedNote) {
+      setExtractedTopics([]);
+      return;
+    }
+    setExtractedTopics(noteTopics[selectedNote.id] || []);
+  }, [selectedNote, noteTopics]);
 
   useEffect(() => {
     const loadSummary = async () => {
-      if (!selectedNote || noteSummaries[selectedNote.id]) return;
+      if (!selectedNote) return;
+
+      if (noteSummaries[selectedNote.id] && noteTopics[selectedNote.id]) {
+        setExtractedTopics(noteTopics[selectedNote.id]);
+        return;
+      }
 
       setLoadingSummary(true);
       try {
         const response = await apiClient.extractTopics(selectedNote.id);
         const topics = response.data.topics;
         setExtractedTopics(topics);
+        setNoteTopics((prev) => ({
+          ...prev,
+          [selectedNote.id]: topics,
+        }));
 
         setNoteSummaries((prev) => ({
           ...prev,
           [selectedNote.id]: response.data.summary || selectedNote.preview || "No summary available for this note.",
         }));
       } catch {
+        setNoteTopics((prev) => ({
+          ...prev,
+          [selectedNote.id]: [],
+        }));
         setNoteSummaries((prev) => ({
           ...prev,
           [selectedNote.id]: selectedNote.preview || "No summary available for this note.",
@@ -149,14 +175,45 @@ export default function NotesPage() {
       await apiClient.deleteDocument(id);
       const remaining = notes.filter((note) => note.id !== id);
       setNotes(remaining);
+      setNoteSummaries((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+      setNoteTopics((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
       if (selectedId === id) {
         setSelectedId(remaining[0]?.id ?? "");
       }
+      await refreshPinnedItems();
       toast.success("Note deleted");
     } catch {
       toast.error("Failed to delete note");
     } finally {
       setDeletingId(null);
+    }
+  }
+
+  async function toggleStar(note: Note) {
+    if (starringId) return;
+    setStarringId(note.id);
+    try {
+      const nextStarState = !note.isStarred;
+      await apiClient.setDocumentStar(note.id, nextStarState);
+      setNotes((prev) =>
+        prev.map((item) =>
+          item.id === note.id ? { ...item, isStarred: nextStarState } : item,
+        ),
+      );
+      await refreshPinnedItems();
+      toast.success(nextStarState ? "Note starred" : "Note unstarred");
+    } catch {
+      toast.error("Failed to update note star");
+    } finally {
+      setStarringId(null);
     }
   }
 
@@ -167,6 +224,10 @@ export default function NotesPage() {
     try {
       const response = await apiClient.extractTopics(selectedNote.id, true);
       setExtractedTopics(response.data.topics);
+      setNoteTopics((prev) => ({
+        ...prev,
+        [selectedNote.id]: response.data.topics,
+      }));
       setNoteSummaries((prev) => ({
         ...prev,
         [selectedNote.id]: response.data.summary || selectedNote.preview || "No summary available for this note.",
@@ -284,6 +345,23 @@ export default function NotesPage() {
                     type="button"
                     onClick={(event) => {
                       event.stopPropagation();
+                      void toggleStar(note);
+                    }}
+                    disabled={starringId === note.id}
+                    className={`mt-0.5 shrink-0 rounded-lg p-1.5 transition-colors ${
+                      note.isStarred
+                        ? "text-yellow-300 hover:bg-yellow-400/10"
+                        : "text-slate-500 hover:bg-white/5 hover:text-yellow-300"
+                    }`}
+                    aria-label={`${note.isStarred ? "Unstar" : "Star"} note ${note.filename}`}
+                    data-ocid={`notes.star.${note.id}`}
+                  >
+                    <Star className={`h-3.5 w-3.5 ${note.isStarred ? "fill-current" : ""}`} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
                       void deleteNote(note.id);
                     }}
                     disabled={deletingId === note.id}
@@ -335,7 +413,7 @@ export default function NotesPage() {
               </div>
 
               <div className="border-l border-white/10 p-4 overflow-auto">
-                <div className="text-sm font-semibold text-foreground mb-2">AI Topics</div>
+                <div className="text-sm font-semibold text-foreground mb-2">All Topics</div>
                 {extractedTopics.length === 0 ? (
                   <div className="rounded-xl border border-dashed border-white/20 bg-slate-950/40 p-4 text-center">
                     <ScanText className="mx-auto mb-2 h-4 w-4 text-cyan-300/60 drop-shadow-[0_0_12px_rgba(6,182,212,0.28)]" />

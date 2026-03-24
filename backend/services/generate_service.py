@@ -20,9 +20,9 @@ class GenerateService:
             chunks = rag_service.query(focus_topic, document_id=document_id, top_k=10)
             context = "\n\n".join(c["text"] for c in chunks) if chunks else ""
             if not context:
-                context = rag_service.get_document_text(document_id) or ""
+                context = rag_service.get_document_text_with_fallback(document_id) or ""
         else:
-            context = rag_service.get_document_text(document_id)
+            context = rag_service.get_document_text_with_fallback(document_id)
         if not context:
             raise ValueError(f"No content found for document '{document_id}'")
 
@@ -57,9 +57,9 @@ class GenerateService:
             chunks = rag_service.query(focus_topic, document_id=document_id, top_k=8)
             context = "\n\n".join(c["text"] for c in chunks) if chunks else ""
             if not context:
-                context = rag_service.get_document_text(document_id) or ""
+                context = rag_service.get_document_text_with_fallback(document_id) or ""
         else:
-            context = rag_service.get_document_text(document_id)
+            context = rag_service.get_document_text_with_fallback(document_id)
         if not context:
             raise ValueError(f"No content found for document '{document_id}'")
 
@@ -93,7 +93,7 @@ class GenerateService:
 
     async def generate_diagram(self, document_id: str) -> Dict:
         """Generate a Mermaid.js diagram from document content."""
-        context = rag_service.get_document_text(document_id)
+        context = rag_service.get_document_text_with_fallback(document_id)
         if not context:
             raise ValueError(f"No content found for document '{document_id}'")
 

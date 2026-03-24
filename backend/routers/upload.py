@@ -10,7 +10,15 @@ from sqlalchemy.orm import Session
 
 from config import UPLOAD_DIR
 from models.database import get_db, Document, DocumentInsight
-from models.schemas import DocumentResponse, DocumentListResponse, TopicsResponse, TopicItem
+from models.schemas import (
+    DocumentResponse,
+    DocumentListResponse,
+    TopicsResponse,
+    TopicItem,
+    DocumentStarUpdateRequest,
+    DocumentStarUpdateResponse,
+    PinnedDocumentItem,
+)
 from routers.auth import get_current_user
 from services.ocr_service import ocr_service
 from services.rag_service import rag_service
@@ -66,7 +74,11 @@ async def upload_document(
         raise HTTPException(400, safety.reason)
 
     # Index in ChromaDB
-    chunk_count = rag_service.index_document(doc_id, extracted_text, subject, topic)
+    try:
+        chunk_count = rag_service.index_document(doc_id, extracted_text, subject, topic)
+    except Exception as e:
+        save_path.unlink(missing_ok=True)
+        raise HTTPException(422, f"Failed to index extracted text: {e}")
 
     # Save to database
     doc = Document(
@@ -88,6 +100,7 @@ async def upload_document(
         original_name=doc.original_name,
         subject=doc.subject,
         topic=doc.topic,
+        is_starred=bool(doc.is_starred),
         chunk_count=doc.chunk_count,
         extracted_text_preview=extracted_text[:300] + "..." if len(extracted_text) > 300 else extracted_text,
         created_at=doc.created_at,
@@ -106,6 +119,7 @@ async def list_documents(current_user = Depends(get_current_user), db: Session =
                 original_name=d.original_name,
                 subject=d.subject,
                 topic=d.topic,
+                is_starred=bool(d.is_starred),
                 chunk_count=d.chunk_count,
                 extracted_text_preview=d.extracted_text[:300] + "..." if d.extracted_text and len(d.extracted_text) > 300 else (d.extracted_text or ""),
                 created_at=d.created_at,
@@ -114,6 +128,41 @@ async def list_documents(current_user = Depends(get_current_user), db: Session =
         ],
         total=len(docs),
     )
+
+
+@router.get("/documents/pinned", response_model=list[PinnedDocumentItem])
+async def list_pinned_documents(current_user = Depends(get_current_user), db: Session = Depends(get_db)):
+    docs = (
+        db.query(Document)
+        .filter(Document.is_starred.is_(True))
+        .order_by(Document.created_at.desc())
+        .all()
+    )
+    return [
+        PinnedDocumentItem(
+            id=d.id,
+            label=d.original_name,
+            to=f"/notes?noteId={d.id}",
+        )
+        for d in docs
+    ]
+
+
+@router.patch("/documents/{doc_id}/star", response_model=DocumentStarUpdateResponse)
+async def set_document_star(
+    doc_id: str,
+    payload: DocumentStarUpdateRequest,
+    current_user = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    doc = db.query(Document).filter(Document.id == doc_id).first()
+    if not doc:
+        raise HTTPException(404, "Document not found")
+
+    doc.is_starred = payload.starred
+    db.commit()
+
+    return DocumentStarUpdateResponse(id=doc.id, is_starred=bool(doc.is_starred))
 
 
 @router.get("/documents/{doc_id}", response_model=DocumentResponse)
@@ -128,6 +177,7 @@ async def get_document(doc_id: str, current_user = Depends(get_current_user), db
         original_name=doc.original_name,
         subject=doc.subject,
         topic=doc.topic,
+        is_starred=bool(doc.is_starred),
         chunk_count=doc.chunk_count,
         extracted_text_preview=doc.extracted_text[:500] if doc.extracted_text else "",
         created_at=doc.created_at,

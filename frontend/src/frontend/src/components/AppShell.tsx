@@ -12,6 +12,7 @@ import {
   CalendarClockIcon,
   ChevronDown,
   ChevronLeft,
+  FileText,
   HomeIcon,
   LayoutDashboardIcon,
   LogOut,
@@ -19,28 +20,39 @@ import {
   MessageSquareIcon,
   NotebookPenIcon,
   PuzzleIcon,
+  Star,
   SwordsIcon,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
 
-const NAV_LINKS = [
+const CORE_NAV_LINKS = [
   { label: "Home", to: "/home", icon: HomeIcon },
   { label: "Dashboard", to: "/dashboard", icon: LayoutDashboardIcon },
   { label: "Notes", to: "/notes", icon: NotebookPenIcon },
   { label: "Chat", to: "/chat", icon: MessageSquareIcon },
+] satisfies Array<{ label: string; to: string; icon: LucideIcon }>;
+
+const LEARNING_NAV_LINKS = [
   { label: "Quiz", to: "/quiz", icon: PuzzleIcon },
   { label: "Study Materials", to: "/study", icon: BrainIcon },
   { label: "Planner", to: "/planner", icon: CalendarClockIcon },
   { label: "Challenge", to: "/challenge", icon: SwordsIcon },
 ] satisfies Array<{ label: string; to: string; icon: LucideIcon }>;
 
-interface AppShellProps {
-  children: ReactNode;
+interface PinnedItem {
+  id: string;
+  label: string;
+  to: string;
 }
 
-export default function AppShell({ children }: AppShellProps) {
+interface AppShellProps {
+  children: ReactNode;
+  pinnedItems?: PinnedItem[];
+}
+
+export default function AppShell({ children, pinnedItems = [] }: AppShellProps) {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const {
@@ -66,7 +78,9 @@ export default function AppShell({ children }: AppShellProps) {
         <nav className="flex h-full w-full flex-col px-3 py-3">
           <Link
             to="/home"
-            className="flex items-center gap-2 px-2 py-2 mb-2"
+            className={`flex items-center py-2 mb-2 ${
+              collapsed ? "justify-center px-0" : "gap-2 px-2"
+            }`}
             data-ocid="nav.link"
           >
             <div
@@ -88,46 +102,108 @@ export default function AppShell({ children }: AppShellProps) {
             {collapsed ? <Menu className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
           </button>
 
-          <div className="space-y-1 flex-1">
-            {NAV_LINKS.map((link) => {
-              const isActive = location.pathname === link.to;
-              const Icon = link.icon;
-              return (
-                <Link
-                  key={link.to}
-                  to={link.to}
-                  className={`group relative flex items-center ${collapsed ? "justify-center" : "justify-start"} gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
-                    isActive
-                      ? "text-foreground bg-white/12 border border-cyan-500/30 shadow-[0_0_20px_rgba(6,182,212,0.15)]"
-                      : "text-muted-foreground hover:text-foreground hover:bg-white/8"
-                  }`}
-                  data-ocid={`nav.${link.label.toLowerCase().replace(/\s+/g, "-")}.link`}
-                  title={collapsed ? link.label : undefined}
-                >
-                  <Icon className="h-4 w-4 shrink-0" />
-                  {!collapsed && <span>{link.label}</span>}
-                  {collapsed && (
-                    <span className="pointer-events-none absolute left-full ml-2 whitespace-nowrap rounded-md border border-white/10 bg-slate-950/95 px-2 py-1 text-xs text-foreground opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
-                      {link.label}
-                    </span>
-                  )}
-                </Link>
-              );
-            })}
+          <div className="flex-1 overflow-y-auto overflow-x-hidden">
+            {!collapsed && <h3 className="px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 mt-6">Core</h3>}
+            <div className="space-y-1">
+              {CORE_NAV_LINKS.map((link) => {
+                const isActive = location.pathname === link.to;
+                const Icon = link.icon;
+                return (
+                  <Link
+                    key={link.to}
+                    to={link.to}
+                    className={`group relative flex items-center ${collapsed ? "justify-center" : "justify-start"} gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
+                      isActive
+                        ? "text-foreground bg-white/12 border border-cyan-500/30 shadow-[0_0_20px_rgba(6,182,212,0.15)]"
+                        : "text-slate-300 hover:bg-white/5 hover:text-white"
+                    }`}
+                    data-ocid={`nav.${link.label.toLowerCase().replace(/\s+/g, "-")}.link`}
+                    title={collapsed ? link.label : undefined}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" />
+                    {!collapsed && <span>{link.label}</span>}
+                    {collapsed && (
+                      <span className="pointer-events-none absolute left-full ml-2 whitespace-nowrap rounded-md border border-white/10 bg-slate-950/95 px-2 py-1 text-xs text-foreground opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
+                        {link.label}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+
+            {!collapsed && <h3 className="px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 mt-6">Learning</h3>}
+            <div className="space-y-1">
+              {LEARNING_NAV_LINKS.map((link) => {
+                const isActive = location.pathname === link.to;
+                const Icon = link.icon;
+                return (
+                  <Link
+                    key={link.to}
+                    to={link.to}
+                    className={`group relative flex items-center ${collapsed ? "justify-center" : "justify-start"} gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
+                      isActive
+                        ? "text-foreground bg-white/12 border border-cyan-500/30 shadow-[0_0_20px_rgba(6,182,212,0.15)]"
+                        : "text-slate-300 hover:bg-white/5 hover:text-white"
+                    }`}
+                    data-ocid={`nav.${link.label.toLowerCase().replace(/\s+/g, "-")}.link`}
+                    title={collapsed ? link.label : undefined}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" />
+                    {!collapsed && <span>{link.label}</span>}
+                    {collapsed && (
+                      <span className="pointer-events-none absolute left-full ml-2 whitespace-nowrap rounded-md border border-white/10 bg-slate-950/95 px-2 py-1 text-xs text-foreground opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
+                        {link.label}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+
+            {!collapsed && <h3 className="px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 mt-6">Pinned</h3>}
+            <div className="space-y-1">
+              {pinnedItems.length > 0 ? (
+                pinnedItems.map((item) => (
+                  <Link
+                    key={item.id}
+                    to={item.to}
+                    className={`group relative flex items-center ${collapsed ? "justify-center" : "justify-start"} gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 text-slate-300 hover:bg-white/5 hover:text-white`}
+                    data-ocid={`nav.pinned.${item.id}.link`}
+                    title={collapsed ? item.label : undefined}
+                  >
+                    <FileText className="h-4 w-4 shrink-0" />
+                    {!collapsed && <span className="truncate">{item.label}</span>}
+                    {collapsed && (
+                      <span className="pointer-events-none absolute left-full ml-2 whitespace-nowrap rounded-md border border-white/10 bg-slate-950/95 px-2 py-1 text-xs text-foreground opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
+                        {item.label}
+                      </span>
+                    )}
+                  </Link>
+                ))
+              ) : (
+                !collapsed && (
+                  <div className="mx-4 p-3 rounded-lg border border-dashed border-white/10 text-center flex flex-col items-center justify-center gap-1 opacity-60">
+                    <Star size={14} className="text-slate-500" />
+                    <p className="text-[11px] text-slate-500">Star a note to pin it here</p>
+                  </div>
+                )
+              )}
+            </div>
           </div>
 
           <div className="mt-3 pt-3 border-t border-white/10 space-y-2">
             <DropdownMenu>
               <DropdownMenuTrigger
-                className={`w-full flex items-center ${collapsed ? "justify-center" : "justify-start"} gap-2 px-2 py-2 rounded-xl border border-white/10 bg-white/5 text-sm font-medium hover:bg-white/10 transition-all`}
+                className={`w-full flex items-center justify-center gap-2 px-2 py-2 rounded-xl border border-white/10 bg-white/5 text-sm font-medium hover:bg-white/10 transition-all`}
                 data-ocid="nav.language.select"
                 title={collapsed ? currentLanguage?.name : undefined}
               >
                 <span>{currentLanguage?.flag}</span>
                 {!collapsed && (
                   <>
-                    <span className="text-foreground truncate">{currentLanguage?.name}</span>
-                    <ChevronDown className="w-3 h-3 text-muted-foreground ml-auto" />
+                    <span className="text-foreground truncate text-center">{currentLanguage?.name}</span>
+                    <ChevronDown className="w-3 h-3 text-muted-foreground" />
                   </>
                 )}
               </DropdownMenuTrigger>
@@ -152,7 +228,7 @@ export default function AppShell({ children }: AppShellProps) {
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className={`w-full flex items-center ${collapsed ? "justify-center" : "justify-start"} gap-2 px-2 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all`}
+                  className={`w-full flex items-center justify-center gap-2 px-2 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all`}
                   data-ocid="nav.avatar.button"
                   title={collapsed ? (currentUser?.name ?? "Profile") : undefined}
                 >
@@ -162,7 +238,7 @@ export default function AppShell({ children }: AppShellProps) {
                     </AvatarFallback>
                   </Avatar>
                   {!collapsed && (
-                    <span className="text-sm text-foreground truncate">
+                    <span className="text-sm text-foreground truncate text-center">
                       {currentUser?.name ?? "Profile"}
                     </span>
                   )}
@@ -197,7 +273,7 @@ export default function AppShell({ children }: AppShellProps) {
 
       <aside className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 lg:hidden" data-ocid="nav.mobile.panel">
         <nav className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl px-2 py-2 flex items-center gap-1 max-w-[94vw] overflow-x-auto">
-          {NAV_LINKS.slice(0, 6).map((link) => {
+          {[...CORE_NAV_LINKS, ...LEARNING_NAV_LINKS].slice(0, 6).map((link) => {
             const isActive = location.pathname === link.to;
             return (
               <Link

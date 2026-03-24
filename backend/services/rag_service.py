@@ -5,11 +5,13 @@ Handles document chunking, indexing, and retrieval.
 from typing import List, Dict, Optional
 import chromadb
 from chromadb.utils import embedding_functions
+from sqlalchemy.exc import SQLAlchemyError
 
 from config import (
     CHROMA_DB_DIR, EMBEDDING_MODEL_NAME, 
     CHUNK_MAX_TOKENS, CHUNK_OVERLAP_TOKENS, RAG_TOP_K
 )
+from models.database import SessionLocal, Document
 
 
 class RAGService:
@@ -60,12 +62,35 @@ class RAGService:
             start += (max_tokens - overlap)
         return chunks
 
+    @staticmethod
+    def _normalize_chunks(chunks: List[str]) -> List[str]:
+        """Ensure all chunks are non-empty strings accepted by tokenizer."""
+        normalized: List[str] = []
+        for chunk in chunks:
+            if chunk is None:
+                continue
+
+            if not isinstance(chunk, str):
+                chunk = str(chunk)
+
+            chunk = chunk.strip()
+            if chunk:
+                normalized.append(chunk)
+
+        return normalized
+
     # ─── Indexing ──────────────────────────────────────────────
 
     def index_document(self, doc_id: str, text: str, 
                        subject: str = "General", topic: str = "") -> int:
         """Chunk and index a document. Returns number of chunks created."""
-        chunks = self.chunk_text(text)
+        if text is None:
+            return 0
+
+        if not isinstance(text, str):
+            text = str(text)
+
+        chunks = self._normalize_chunks(self.chunk_text(text))
         if not chunks:
             return 0
 
@@ -147,6 +172,28 @@ class RAGService:
         paired.sort(key=lambda x: x[1].get("chunk_index", 0))
 
         return "\n".join([p[0] for p in paired])
+
+        
+    def get_document_text_with_fallback(self, document_id: str) -> str:
+        """
+        Retrieve document text from Chroma first, then fall back to SQLite
+        documents.extracted_text when chunks are unavailable.
+        """
+        text = self.get_document_text(document_id)
+        if text:
+            return text
+
+        db = SessionLocal()
+        try:
+            document = db.query(Document).filter(Document.id == document_id).first()
+            if document and document.extracted_text:
+                return document.extracted_text
+        except SQLAlchemyError:
+            return ""
+        finally:
+            db.close()
+
+        return ""
 
     # ─── Delete ───────────────────────────────────────────────
 

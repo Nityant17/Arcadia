@@ -112,9 +112,6 @@ export default function QuizPage() {
       try {
         const response = await apiClient.extractTopics(documentId);
         setTopics(response.data.topics);
-        if (!focusTopic && response.data.topics.length > 0) {
-          setFocusTopic(response.data.topics[0].title);
-        }
       } catch {
         setTopics([]);
       }
@@ -387,6 +384,7 @@ export default function QuizPage() {
                 onChange={(event) => setFocusTopic(event.target.value)}
                 className="arc-select w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-sm text-foreground"
               >
+                <option value="">All topics (entire note)</option>
                 {topics.map((item) => (
                   <option key={item.title} value={item.title}>
                     {item.title}

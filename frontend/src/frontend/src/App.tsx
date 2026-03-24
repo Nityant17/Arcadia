@@ -66,11 +66,14 @@ const protectedRoute = createRoute({
       throw redirect({ to: "/auth" });
     }
   },
-  component: () => (
-    <AppShell>
-      <Outlet />
-    </AppShell>
-  ),
+  component: () => {
+    const pinnedItems = useAppStore((s) => s.pinnedItems);
+    return (
+      <AppShell pinnedItems={pinnedItems}>
+        <Outlet />
+      </AppShell>
+    );
+  },
 });
 
 const homeRoute = createRoute({
@@ -151,10 +154,12 @@ declare module "@tanstack/react-router" {
 
 export default function App() {
   const initLanguages = useAppStore((s) => s.initLanguages);
+  const refreshPinnedItems = useAppStore((s) => s.refreshPinnedItems);
 
   useEffect(() => {
     initLanguages();
-  }, [initLanguages]);
+    refreshPinnedItems();
+  }, [initLanguages, refreshPinnedItems]);
 
   return (
     <>

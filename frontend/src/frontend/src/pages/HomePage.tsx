@@ -1,11 +1,13 @@
 import { ArcadiaHero } from "@/components/ui/ArcadiaHero";
+import { Flashcard } from "@/components/ui/Flashcard";
 import { PlaceholdersAndVanishInput } from "@/components/ui/placeholders-and-vanish-input";
 import { QuickActionsOrb } from "@/components/ui/QuickActionsOrb";
 import { Button } from "@/components/ui/button";
+import { getPinnedFlashcards, togglePinnedFlashcard, type PinnedFlashcardItem } from "@/lib/pinnedFlashcards";
 import { apiClient } from "@/services/api";
 import { useAppStore } from "@/store/useAppStore";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { CloudUpload, Flame, MessageSquare, Trash2 } from "lucide-react";
+import { CloudUpload, Flame, MessageSquare, Star, Trash2 } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -60,6 +62,7 @@ export default function HomePage() {
     averageScore: 0,
     streak: 0,
   });
+  const [pinnedFlashcards, setPinnedFlashcards] = useState<PinnedFlashcardItem[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -90,6 +93,7 @@ export default function HomePage() {
         setRecentNotes([]);
         setStats({ totalQuizzes: 0, topicsMastered: 0, averageScore: 0, streak: 0 });
       } finally {
+        setPinnedFlashcards(getPinnedFlashcards());
         setLoading(false);
       }
     };
@@ -151,6 +155,11 @@ export default function HomePage() {
     } finally {
       setDeletingId(null);
     }
+  };
+
+  const handleTogglePinnedFlashcard = (card: PinnedFlashcardItem) => {
+    togglePinnedFlashcard(card);
+    setPinnedFlashcards(getPinnedFlashcards());
   };
 
   const suggestionPills = [
@@ -240,15 +249,47 @@ export default function HomePage() {
                 }
               }}
               onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
               className={`uiverse-cloud-upload-zone mt-4 ${dragActive ? "uiverse-cloud-upload-zone--active" : ""}`}
             >
-              <div className="uiverse-cloud-upload-icon-wrap">
-                <CloudUpload className="uiverse-cloud-upload-icon" />
-              </div>
-              <p className="text-sm text-foreground">Drop file here or click to upload</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {uploading ? "Uploading..." : "PDF, image, or text file"}
-              </p>
+              {uploading ? (
+                <div className="uiverse-wheel-and-hamster-wrap">
+                  <div
+                    aria-label="Upload in progress"
+                    role="img"
+                    className="uiverse-wheel-and-hamster"
+                  >
+                    <div className="uiverse-wheel" />
+                    <div className="uiverse-hamster">
+                      <div className="uiverse-hamster__body">
+                        <div className="uiverse-hamster__head">
+                          <div className="uiverse-hamster__ear" />
+                          <div className="uiverse-hamster__eye" />
+                          <div className="uiverse-hamster__nose" />
+                        </div>
+                        <div className="uiverse-hamster__limb uiverse-hamster__limb--fr" />
+                        <div className="uiverse-hamster__limb uiverse-hamster__limb--fl" />
+                        <div className="uiverse-hamster__limb uiverse-hamster__limb--br" />
+                        <div className="uiverse-hamster__limb uiverse-hamster__limb--bl" />
+                        <div className="uiverse-hamster__tail" />
+                      </div>
+                    </div>
+                    <div className="uiverse-spoke" />
+                  </div>
+                </div>
+              ) : (
+                <div className="uiverse-cloud-upload-icon-wrap">
+                  <CloudUpload className="uiverse-cloud-upload-icon" />
+                </div>
+              )}
+              {uploading ? (
+                <p className="text-base font-semibold text-cyan-300">Uploading...</p>
+              ) : (
+                <>
+                  <p className="text-sm text-foreground">Drop file here or click to upload</p>
+                  <p className="mt-1 text-xs text-muted-foreground">PDF, image, or text file</p>
+                </>
+              )}
             </button>
           </motion.section>
 
@@ -380,6 +421,42 @@ export default function HomePage() {
             </div>
           </motion.section>
         </div>
+
+        <motion.section variants={cardVariants} className={rowCardClass}>
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold bg-gradient-to-r from-cyan-400 to-blue-600 bg-clip-text text-transparent">
+              Pinned Flashcards
+            </h2>
+            <Button
+              asChild
+              variant="outline"
+              className="rounded-full border-white/20 bg-white/5 hover:bg-white/10"
+            >
+              <Link to="/study">Open Study Materials</Link>
+            </Button>
+          </div>
+
+          {pinnedFlashcards.length > 0 ? (
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 place-items-center">
+              {pinnedFlashcards.slice(0, 6).map((card) => (
+                <Flashcard
+                  key={card.id}
+                  question={card.question}
+                  answer={card.answer}
+                  isPinned
+                  onPin={() => handleTogglePinnedFlashcard(card)}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="mt-4 rounded-2xl border border-dashed border-white/20 bg-slate-950/40 px-4 py-6 text-center">
+              <Star className="mx-auto mb-2 h-5 w-5 text-yellow-300/70" />
+              <p className="text-sm text-muted-foreground">
+                Star flashcards in Study and they’ll appear here.
+              </p>
+            </div>
+          )}
+        </motion.section>
       </motion.div>
     </motion.div>
   );

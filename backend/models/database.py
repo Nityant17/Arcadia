@@ -2,7 +2,7 @@
 SQLite database — documents, quiz attempts, mastery scores.
 """
 import datetime
-from sqlalchemy import create_engine, Column, String, Integer, Float, DateTime, Text, JSON
+from sqlalchemy import create_engine, Column, String, Integer, Float, DateTime, Text, JSON, Boolean, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 from config import SQLITE_DB_PATH
@@ -23,6 +23,7 @@ class Document(Base):
     subject = Column(String, default="General")
     topic = Column(String, default="")
     extracted_text = Column(Text, default="")
+    is_starred = Column(Boolean, default=False)
     chunk_count = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
@@ -178,6 +179,12 @@ class StudyMaterial(Base):
 
 def init_db():
     Base.metadata.create_all(bind=engine)
+    with engine.connect() as connection:
+        table_info = connection.execute(text("PRAGMA table_info(documents)")).fetchall()
+        column_names = {row[1] for row in table_info}
+        if "is_starred" not in column_names:
+            connection.execute(text("ALTER TABLE documents ADD COLUMN is_starred BOOLEAN DEFAULT 0"))
+            connection.commit()
     print("📦 SQLite database initialized")
 
 

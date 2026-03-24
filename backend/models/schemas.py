@@ -14,6 +14,7 @@ class DocumentResponse(BaseModel):
     original_name: str
     subject: str
     topic: str
+    is_starred: bool = False
     chunk_count: int
     extracted_text_preview: str = ""
     created_at: datetime
@@ -22,6 +23,21 @@ class DocumentResponse(BaseModel):
 class DocumentListResponse(BaseModel):
     documents: List[DocumentResponse]
     total: int
+
+
+class DocumentStarUpdateRequest(BaseModel):
+    starred: bool
+
+
+class DocumentStarUpdateResponse(BaseModel):
+    id: str
+    is_starred: bool
+
+
+class PinnedDocumentItem(BaseModel):
+    id: str
+    label: str
+    to: str
 
 
 # ─── Chat ─────────────────────────────────────────────────────

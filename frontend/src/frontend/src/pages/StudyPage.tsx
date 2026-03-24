@@ -1,7 +1,9 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Flashcard } from "@/components/ui/Flashcard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAudioPlayer } from "@/hooks/useAudioPlayer";
+import { buildPinnedFlashcardId, getPinnedFlashcards, togglePinnedFlashcard } from "@/lib/pinnedFlashcards";
 import { apiClient, type DocumentItem } from "@/services/api";
 import { useAppStore } from "@/store/useAppStore";
 import { ChevronLeft, ChevronRight, Loader2, Sparkles, StopCircle, Volume2 } from "lucide-react";
@@ -105,7 +107,7 @@ export default function StudyPage() {
   const [cheatsheetContent, setCheatsheetContent] = useState("");
   const [flashcards, setFlashcards] = useState<Array<{ front: string; back: string }>>([]);
   const [flashcardIndex, setFlashcardIndex] = useState(0);
-  const [flashcardRevealed, setFlashcardRevealed] = useState(false);
+  const [pinnedFlashcards, setPinnedFlashcards] = useState<Set<string>>(new Set());
   const [diagram, setDiagram] = useState<{ title: string; mermaid_code: string } | null>(
     null,
   );
@@ -151,8 +153,22 @@ export default function StudyPage() {
 
   useEffect(() => {
     setFlashcardIndex(0);
-    setFlashcardRevealed(false);
   }, [flashcards]);
+
+  useEffect(() => {
+    if (!documentId || flashcards.length === 0) {
+      setPinnedFlashcards(new Set());
+      return;
+    }
+
+    const saved = getPinnedFlashcards();
+    const ids = new Set(
+      saved
+        .filter((item) => item.documentId === documentId)
+        .map((item) => item.id),
+    );
+    setPinnedFlashcards(ids);
+  }, [documentId, flashcards]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -171,9 +187,6 @@ export default function StudyPage() {
       try {
         const response = await apiClient.extractTopics(documentId);
         setTopics(response.data.topics);
-        if (!focusTopic && response.data.topics.length > 0) {
-          setFocusTopic(response.data.topics[0].title);
-        }
       } catch {
         setTopics([]);
       }
@@ -335,6 +348,7 @@ export default function StudyPage() {
             onChange={(event) => setFocusTopic(event.target.value)}
             className="arc-select w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2.5 text-sm text-foreground"
           >
+            <option value="">All topics (entire note)</option>
             {topics.map((item) => (
               <option key={item.title} value={item.title}>
                 {item.title}
@@ -438,18 +452,47 @@ export default function StudyPage() {
               <div className="text-sm text-muted-foreground text-center">
                 {flashcardIndex + 1} / {flashcards.length}
               </div>
-              <button
-                type="button"
-                onClick={() => setFlashcardRevealed((prev) => !prev)}
-                className="w-full max-w-md mx-auto rounded-3xl bg-slate-950/40 backdrop-blur-xl border border-white/10 p-8 min-h-[220px] flex flex-col items-center justify-center text-center hover:border-cyan-500/30 transition-all"
-              >
-                <div className="text-4xl font-semibold text-foreground leading-snug">
-                  {flashcardRevealed
-                    ? flashcards[flashcardIndex]?.back
-                    : flashcards[flashcardIndex]?.front}
-                </div>
-                <div className="text-xs text-muted-foreground mt-4">Tap to {flashcardRevealed ? "hide answer" : "reveal"}</div>
-              </button>
+              <div className="w-full flex justify-center">
+                <Flashcard
+                  question={flashcards[flashcardIndex]?.front ?? ""}
+                  answer={flashcards[flashcardIndex]?.back ?? ""}
+                  isPinned={pinnedFlashcards.has(
+                    buildPinnedFlashcardId(
+                      documentId,
+                      flashcards[flashcardIndex]?.front ?? "",
+                      flashcards[flashcardIndex]?.back ?? "",
+                    ),
+                  )}
+                  onPin={() => {
+                    const activeCard = flashcards[flashcardIndex];
+                    if (!activeCard || !documentId) return;
+
+                    const id = buildPinnedFlashcardId(
+                      documentId,
+                      activeCard.front,
+                      activeCard.back,
+                    );
+                    const isNowPinned = togglePinnedFlashcard({
+                      id,
+                      documentId,
+                      question: activeCard.front,
+                      answer: activeCard.back,
+                      language: currentLanguage?.id ?? "en",
+                      createdAt: Date.now(),
+                    });
+
+                    setPinnedFlashcards((previous) => {
+                      const updated = new Set(previous);
+                      if (isNowPinned) {
+                        updated.add(id);
+                      } else {
+                        updated.delete(id);
+                      }
+                      return updated;
+                    });
+                  }}
+                />
+              </div>
 
               <div className="flex justify-center gap-3">
                 <Button
@@ -457,7 +500,6 @@ export default function StudyPage() {
                   className="border-white/10 h-8 w-8 p-0"
                   onClick={() => {
                     setFlashcardIndex((prev) => (prev > 0 ? prev - 1 : prev));
-                    setFlashcardRevealed(false);
                   }}
                   disabled={flashcardIndex === 0}
                 >
@@ -470,7 +512,6 @@ export default function StudyPage() {
                     setFlashcardIndex((prev) =>
                       prev < flashcards.length - 1 ? prev + 1 : prev,
                     );
-                    setFlashcardRevealed(false);
                   }}
                   disabled={flashcardIndex >= flashcards.length - 1}
                 >
