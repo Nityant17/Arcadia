@@ -446,7 +446,7 @@ export default function QuizPage() {
           <Button
             onClick={generate}
             disabled={loadingGenerate || !documentId}
-            className="w-full bg-foreground text-[#0B1020] font-semibold hover:bg-white/90"
+            className="w-full sparkle-generate-button font-semibold"
           >
             {loadingGenerate ? (
               <Loader2 className="w-4 h-4 animate-spin mr-2" />
@@ -612,7 +612,7 @@ export default function QuizPage() {
           </Button>
           <Button
             onClick={generate}
-            className="bg-arcadia-teal text-[#0B1020] hover:bg-arcadia-cyan"
+            className="sparkle-generate-button"
             disabled={loadingGenerate}
           >
             Retry Tier

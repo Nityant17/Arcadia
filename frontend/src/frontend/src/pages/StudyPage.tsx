@@ -384,7 +384,7 @@ export default function StudyPage() {
             <h3 className="text-sm font-semibold text-foreground">Cheatsheets</h3>
             <Button
               variant="outline"
-              className="border-white/10 gap-2"
+              className="border-white/10 gap-2 sparkle-generate-button"
               onClick={generateCheatsheet}
               disabled={loading}
             >
@@ -444,7 +444,7 @@ export default function StudyPage() {
             <h3 className="text-sm font-semibold text-foreground">Flashcards</h3>
             <Button
               variant="outline"
-              className="border-white/10 gap-2"
+              className="border-white/10 gap-2 sparkle-generate-button"
               onClick={generateFlashcards}
               disabled={loading}
             >
@@ -532,7 +532,7 @@ export default function StudyPage() {
         <TabsContent value="diagrams" className="space-y-4">
           <Button
             variant="outline"
-            className="border-white/10 gap-2"
+            className="border-white/10 gap-2 sparkle-generate-button"
             onClick={generateDiagram}
             disabled={loading}
           >

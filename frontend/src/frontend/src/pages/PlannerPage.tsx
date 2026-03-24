@@ -347,7 +347,7 @@ export default function PlannerPage() {
             Refresh
           </Button>
           <Button
-            className="bg-arcadia-teal text-[#0B1020] hover:bg-arcadia-cyan"
+            className="sparkle-generate-button"
             onClick={generatePlan}
             disabled={generatingPlan || availableSubjects.length === 0}
             data-ocid="planner.generate.button"

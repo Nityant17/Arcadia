@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TextHoverEffect } from "@/components/ui/text-hover-effect";
 import { useAppStore } from "@/store/useAppStore";
 import { apiClient } from "@/services/api";
 import { useNavigate } from "@tanstack/react-router";
@@ -77,23 +78,17 @@ export default function AuthPage() {
       <div className="blob-teal absolute top-[-100px] left-[-100px] w-[500px] h-[500px]" />
       <div className="blob-purple absolute bottom-[-100px] right-[-100px] w-[600px] h-[600px]" />
 
-      <motion.div
-        initial={{ opacity: 0, y: 24 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: "easeOut" }}
-        className="relative z-10 w-full max-w-md px-4"
-      >
-        {/* Logo */}
-        <div className="flex items-center justify-center gap-3 mb-8">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[oklch(0.78_0.16_196)] to-[oklch(0.60_0.20_264)] flex items-center justify-center shadow-lg">
-            <span className="text-white font-bold text-lg">A</span>
-          </div>
-          <span className="text-2xl font-bold text-foreground tracking-tight">
-            Arcadia
-          </span>
+      <div className="relative z-10 w-full px-4 flex flex-col items-center">
+        <div className="h-[12rem] md:h-[16rem] w-full max-w-3xl flex items-center justify-center mb-4">
+          <TextHoverEffect text="ARCADIA" />
         </div>
 
-        <div className="glass rounded-3xl p-8">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+          className="w-full max-w-md rounded-3xl p-8 bg-slate-950/40 backdrop-blur-2xl border border-white/10 shadow-2xl hover:border-cyan-500/20 transition-all duration-500"
+        >
           <Tabs
             defaultValue="login"
             onValueChange={() => setError(null)}
@@ -137,7 +132,7 @@ export default function AuthPage() {
                     placeholder="alex@example.com"
                     value={loginEmail}
                     onChange={(e) => setLoginEmail(e.target.value)}
-                    className="bg-white/5 border-white/10 text-foreground placeholder:text-muted-foreground focus:border-[oklch(0.78_0.16_196)] focus:ring-[oklch(0.78_0.16_196)]"
+                    className="bg-white/5 border border-white/10 text-white placeholder:text-neutral-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
                     data-ocid="auth.login.input"
                   />
                 </div>
@@ -150,14 +145,14 @@ export default function AuthPage() {
                     placeholder="••••••••"
                     value={loginPassword}
                     onChange={(e) => setLoginPassword(e.target.value)}
-                    className="bg-white/5 border-white/10 text-foreground placeholder:text-muted-foreground focus:border-[oklch(0.78_0.16_196)] focus:ring-[oklch(0.78_0.16_196)]"
+                    className="bg-white/5 border border-white/10 text-white placeholder:text-neutral-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
                     data-ocid="auth.password.input"
                   />
                 </div>
                 <Button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-foreground text-[#0B1020] font-semibold hover:bg-white/90 mt-2"
+                  className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-semibold hover:opacity-90 hover:shadow-[0_0_20px_rgba(6,182,212,0.4)] transition-all mt-2"
                   data-ocid="auth.login.submit_button"
                 >
                   {loading ? (
@@ -180,7 +175,7 @@ export default function AuthPage() {
                     placeholder="Alex Chen"
                     value={regName}
                     onChange={(e) => setRegName(e.target.value)}
-                    className="bg-white/5 border-white/10 text-foreground placeholder:text-muted-foreground"
+                    className="bg-white/5 border border-white/10 text-white placeholder:text-neutral-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
                     data-ocid="auth.register.name.input"
                   />
                 </div>
@@ -191,7 +186,7 @@ export default function AuthPage() {
                     placeholder="alex@example.com"
                     value={regEmail}
                     onChange={(e) => setRegEmail(e.target.value)}
-                    className="bg-white/5 border-white/10 text-foreground placeholder:text-muted-foreground"
+                    className="bg-white/5 border border-white/10 text-white placeholder:text-neutral-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
                     data-ocid="auth.register.email.input"
                   />
                 </div>
@@ -204,14 +199,14 @@ export default function AuthPage() {
                     placeholder="••••••••"
                     value={regPassword}
                     onChange={(e) => setRegPassword(e.target.value)}
-                    className="bg-white/5 border-white/10 text-foreground placeholder:text-muted-foreground"
+                    className="bg-white/5 border border-white/10 text-white placeholder:text-neutral-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
                     data-ocid="auth.register.password.input"
                   />
                 </div>
                 <Button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-foreground text-[#0B1020] font-semibold hover:bg-white/90 mt-2"
+                  className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-semibold hover:opacity-90 hover:shadow-[0_0_20px_rgba(6,182,212,0.4)] transition-all mt-2"
                   data-ocid="auth.register.submit_button"
                 >
                   {loading ? (
@@ -222,12 +217,12 @@ export default function AuthPage() {
               </form>
             </TabsContent>
           </Tabs>
-        </div>
+        </motion.div>
 
         <p className="text-center text-muted-foreground text-xs mt-6">
           © {new Date().getFullYear()} Arcadia
         </p>
-      </motion.div>
+      </div>
     </div>
   );
 }
