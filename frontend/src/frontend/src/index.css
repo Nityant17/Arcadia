@@ -184,3 +184,164 @@ select option,
   color: oklch(var(--foreground));
   background-color: #0b1020;
 }
+
+.uiverse-delete-button {
+  width: 50px;
+  height: 50px;
+  border-radius: 9999px;
+  background-color: rgb(20, 20, 20);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.164);
+  cursor: pointer;
+  transition-duration: 0.3s;
+  overflow: hidden;
+  position: relative;
+  color: white;
+}
+
+.uiverse-delete-button .uiverse-delete-icon {
+  width: 12px;
+  height: 12px;
+  transition-duration: 0.3s;
+}
+
+.uiverse-delete-button:hover {
+  width: 140px;
+  border-radius: 9999px;
+  transition-duration: 0.3s;
+  background-color: rgb(255, 69, 69);
+  align-items: center;
+}
+
+.uiverse-delete-button:hover .uiverse-delete-icon {
+  width: 18px;
+  height: 18px;
+  transition-duration: 0.3s;
+  transform: translateY(60%);
+}
+
+.uiverse-delete-button::before {
+  position: absolute;
+  top: -20px;
+  content: "Delete";
+  color: white;
+  transition-duration: 0.3s;
+  font-size: 2px;
+}
+
+.uiverse-delete-button:hover::before {
+  font-size: 13px;
+  opacity: 1;
+  transform: translateY(30px);
+  transition-duration: 0.3s;
+}
+
+.uiverse-delete-button--sm {
+  width: 38px;
+  height: 38px;
+}
+
+.uiverse-delete-button--sm:hover {
+  width: 112px;
+}
+
+.uiverse-delete-button--sm::before {
+  font-size: 1px;
+}
+
+.uiverse-delete-button--sm:hover::before {
+  font-size: 11px;
+  transform: translateY(22px);
+}
+
+.uiverse-delete-button--xs {
+  width: 30px;
+  height: 30px;
+}
+
+.uiverse-delete-button--xs:hover {
+  width: 96px;
+}
+
+.uiverse-delete-button--xs .uiverse-delete-icon {
+  width: 11px;
+  height: 11px;
+}
+
+.uiverse-delete-button--xs:hover .uiverse-delete-icon {
+  width: 15px;
+  height: 15px;
+  transform: translateY(56%);
+}
+
+.uiverse-delete-button--xs::before {
+  font-size: 1px;
+}
+
+.uiverse-delete-button--xs:hover::before {
+  font-size: 10px;
+  transform: translateY(18px);
+}
+
+.uiverse-logout-btn {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 38px;
+  height: 38px;
+  border: none;
+  border-radius: 9999px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition-duration: 0.3s;
+  box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.199);
+  background-color: rgb(255, 65, 65);
+}
+
+.uiverse-logout-sign {
+  width: 100%;
+  transition-duration: 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.uiverse-logout-text {
+  position: absolute;
+  right: 0%;
+  width: 0%;
+  opacity: 0;
+  color: white;
+  font-size: 0.95em;
+  font-weight: 600;
+  transition-duration: 0.3s;
+  white-space: nowrap;
+}
+
+.uiverse-logout-btn:hover {
+  width: 108px;
+  border-radius: 40px;
+  transition-duration: 0.3s;
+}
+
+.uiverse-logout-btn:hover .uiverse-logout-sign {
+  width: 30%;
+  transition-duration: 0.3s;
+  padding-left: 20px;
+}
+
+.uiverse-logout-btn:hover .uiverse-logout-text {
+  opacity: 1;
+  width: 70%;
+  transition-duration: 0.3s;
+  padding-right: 10px;
+}
+
+.uiverse-logout-btn:active {
+  transform: translate(2px, 2px);
+}

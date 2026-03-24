@@ -14,6 +14,7 @@ import {
   ChevronLeft,
   HomeIcon,
   LayoutDashboardIcon,
+  LogOut,
   Menu,
   MessageSquareIcon,
   NotebookPenIcon,
@@ -177,13 +178,19 @@ export default function AppShell({ children }: AppShellProps) {
                 >
                   {currentUser?.email ?? "Not signed in"}
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={logout}
-                  className="cursor-pointer text-destructive hover:bg-white/10"
-                  data-ocid="nav.logout.button"
-                >
-                  Sign out
-                </DropdownMenuItem>
+                <div className="px-2 py-1.5" data-ocid="nav.logout.button">
+                  <button
+                    type="button"
+                    onClick={logout}
+                    className="uiverse-logout-btn"
+                    aria-label="Sign out"
+                  >
+                    <span className="uiverse-logout-sign">
+                      <LogOut className="h-[14px] w-[14px] text-white" />
+                    </span>
+                    <span className="uiverse-logout-text">Sign out</span>
+                  </button>
+                </div>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

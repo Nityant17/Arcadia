@@ -9,6 +9,7 @@ import {
   Flame,
   MessageSquare,
   Sparkles,
+  Trash2,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
@@ -31,6 +32,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [dragActive, setDragActive] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [recentNotes, setRecentNotes] = useState<
     Array<{
       id: string;
@@ -119,7 +121,7 @@ export default function HomePage() {
   const masteryColor = getMasteryColor(progress);
 
   const cardBaseClass =
-    "rounded-3xl bg-slate-950/40 backdrop-blur-xl border border-white/10 p-6 hover:border-cyan-500/30 hover:shadow-[0_0_20px_rgba(6,182,212,0.15)] transition-all";
+    "rounded-3xl bg-slate-950/45 backdrop-blur-xl border border-white/10 p-6 transition-all duration-300 hover:scale-[1.01] hover:bg-slate-900/60 hover:border-cyan-400/35 hover:shadow-[inset_0px_0px_20px_rgba(6,182,212,0.15)]";
 
   const handleOmnibarSubmit = (value: string) => {
     if (!value.trim()) return;
@@ -127,14 +129,30 @@ export default function HomePage() {
     void navigate({ to: "/chat" });
   };
 
+  const handleDeleteRecentNote = async (id: string) => {
+    if (deletingId) return;
+
+    setDeletingId(id);
+    try {
+      await apiClient.deleteDocument(id);
+      setRecentNotes((prev) => prev.filter((note) => note.id !== id));
+      toast.success("Note deleted");
+    } catch {
+      toast.error("Failed to delete note");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   return (
-    <div className="space-y-5" data-ocid="home.neon.page">
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35 }}
-        className="flex items-center justify-between"
-      >
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+      className="space-y-5"
+      data-ocid="home.neon.page"
+    >
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl md:text-3xl font-semibold tracking-tight bg-gradient-to-r from-cyan-400 to-blue-600 bg-clip-text text-transparent">
             Welcome back, {currentUser?.name ?? "Scholar"}
@@ -143,14 +161,9 @@ export default function HomePage() {
             Control your notes, mastery, and challenges from one canvas.
           </p>
         </div>
-      </motion.div>
+      </div>
 
-      <motion.section
-        initial={{ opacity: 0, y: 14 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="mx-auto w-full max-w-5xl rounded-3xl border border-white/10 bg-slate-950/60 p-6 md:p-8 backdrop-blur-2xl transition-all focus-within:border-cyan-500/50 focus-within:shadow-[0_0_30px_rgba(6,182,212,0.2)]"
-      >
+      <section className="mx-auto w-full max-w-5xl rounded-3xl border border-white/10 bg-slate-950/60 p-6 md:p-8 backdrop-blur-2xl transition-all focus-within:border-cyan-500/50 focus-within:shadow-[0_0_30px_rgba(6,182,212,0.2)]">
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="text-xl md:text-2xl font-semibold bg-gradient-to-r from-cyan-400 to-blue-600 bg-clip-text text-transparent">
             Command Center
@@ -219,50 +232,96 @@ export default function HomePage() {
             {uploading ? "Uploading..." : "Drop file or click to upload"}
           </p>
         </button>
-      </motion.section>
+      </section>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 auto-rows-[minmax(190px,auto)]">
+      <motion.div
+        className="grid grid-cols-1 lg:grid-cols-3 gap-4 auto-rows-[minmax(190px,auto)]"
+        variants={{
+          hidden: {},
+          show: {
+            transition: {
+              staggerChildren: 0.1,
+            },
+          },
+        }}
+        initial="hidden"
+        animate="show"
+      >
         <motion.section
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35 }}
-          whileHover={{ scale: 1.01, y: -3 }}
+          variants={{
+            hidden: { opacity: 0, y: 20 },
+            show: { opacity: 1, y: 0, transition: { duration: 0.35 } },
+          }}
           className={`${cardBaseClass} lg:col-span-2`}
-          data-ocid="home.bento.search"
+          data-ocid="home.bento.recent-activity"
         >
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-xl font-semibold bg-gradient-to-r from-cyan-400 to-blue-600 bg-clip-text text-transparent">
-              Ask Arcadia
-            </h2>
-            <Sparkles className="h-5 w-5 text-arcadia-teal" />
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold bg-gradient-to-r from-cyan-400 to-blue-600 bg-clip-text text-transparent">
+              Recent Notes
+            </h3>
+            <Button
+              asChild
+              className="rounded-full border border-cyan-500/40 bg-cyan-500/15 text-cyan-200 hover:bg-cyan-500/25 hover:shadow-[0_0_20px_rgba(6,182,212,0.25)] transition-all"
+            >
+              <Link to={hasNotes ? "/chat" : "/notes"}>
+                <MessageSquare className="h-4 w-4 mr-1" />
+                Chat Now
+              </Link>
+            </Button>
           </div>
 
-          <PlaceholdersAndVanishInput
-            placeholders={[
-              "Ask Arcadia anything about your notes...",
-              "Summarize chapter 3 in 6 bullets",
-              "Generate a Tier 2 challenge from my weak topics",
-            ]}
-            onSubmit={handleOmnibarSubmit}
-            className="mt-5"
-          />
+          <div className="mt-4 space-y-2">
+            {(loading ? [1, 2, 3] : recentNotes).map((note) => {
+              if (typeof note === "number") {
+                return (
+                  <div key={note} className="h-14 rounded-2xl border border-white/10 bg-white/5 animate-pulse" />
+                );
+              }
 
-          <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
-            <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1">
-              {stats.topicsMastered} topics mastered
-            </span>
-            <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1">
-              {stats.totalQuizzes} quizzes completed
-            </span>
+              return (
+                <div
+                  key={note.id}
+                  className="group flex items-center justify-between rounded-2xl border border-white/10 bg-slate-950/45 px-4 py-3 transition-all duration-300 hover:scale-[1.01] hover:border-cyan-400/35 hover:bg-slate-900/60 hover:shadow-[inset_0px_0px_20px_rgba(6,182,212,0.15)]"
+                >
+                  <div className="min-w-0 pr-3">
+                    <p className="truncate text-sm font-medium text-foreground">{note.name}</p>
+                    <p className="mt-1 text-xs text-muted-foreground overflow-hidden [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] break-words">
+                      {note.subject} · {note.topic}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void handleDeleteRecentNote(note.id);
+                    }}
+                    disabled={deletingId === note.id}
+                    className="uiverse-delete-button uiverse-delete-button--xs shrink-0 disabled:opacity-50"
+                    aria-label={`Delete ${note.name}`}
+                    data-ocid={`home.recent.delete.${note.id}`}
+                  >
+                    <Trash2 className="uiverse-delete-icon" />
+                  </button>
+                </div>
+              );
+            })}
+
+            {!loading && recentNotes.length === 0 && (
+              <div className="rounded-2xl border border-dashed border-white/20 bg-slate-950/40 px-4 py-6 text-center">
+                <MessageSquare className="mx-auto mb-2 h-5 w-5 text-cyan-300/60 drop-shadow-[0_0_14px_rgba(6,182,212,0.3)]" />
+                <p className="text-sm text-muted-foreground">
+                  No recent notes yet. Upload your first document to unlock AI chat.
+                </p>
+              </div>
+            )}
           </div>
         </motion.section>
 
         <motion.section
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, delay: 0.1 }}
-          whileHover={{ scale: 1.01, y: -3 }}
-          className={`${cardBaseClass} lg:row-span-2`}
+          variants={{
+            hidden: { opacity: 0, y: 20 },
+            show: { opacity: 1, y: 0, transition: { duration: 0.35 } },
+          }}
+          className={`${cardBaseClass} lg:col-span-1`}
           data-ocid="home.bento.mastery"
         >
           <h3 className="text-lg font-semibold bg-gradient-to-r from-cyan-400 to-blue-600 bg-clip-text text-transparent">
@@ -308,89 +367,32 @@ export default function HomePage() {
         </motion.section>
 
         <motion.section
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, delay: 0.15 }}
-          whileHover={{ scale: 1.01, y: -3 }}
-          className={`${cardBaseClass} lg:col-span-2`}
-          data-ocid="home.bento.recent-activity"
-        >
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold bg-gradient-to-r from-cyan-400 to-blue-600 bg-clip-text text-transparent">
-              Recent Notes
-            </h3>
-            <Button
-              asChild
-              className="rounded-full border border-cyan-500/40 bg-cyan-500/15 text-cyan-200 hover:bg-cyan-500/25 hover:shadow-[0_0_20px_rgba(6,182,212,0.25)] transition-all"
-            >
-              <Link to={hasNotes ? "/chat" : "/notes"}>
-                <MessageSquare className="h-4 w-4 mr-1" />
-                Chat Now
-              </Link>
-            </Button>
-          </div>
-
-          <div className="mt-4 space-y-2">
-            {(loading ? [1, 2, 3] : recentNotes).map((note) => {
-              if (typeof note === "number") {
-                return (
-                  <div key={note} className="h-14 rounded-2xl border border-white/10 bg-white/5 animate-pulse" />
-                );
-              }
-
-              return (
-                <div
-                  key={note.id}
-                  className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-foreground">{note.name}</p>
-                    <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                      <span className="rounded-full border border-white/10 bg-black/25 px-2 py-0.5">
-                        {note.subject}
-                      </span>
-                      <span className="rounded-full border border-white/10 bg-black/25 px-2 py-0.5">
-                        {note.topic}
-                      </span>
-                    </div>
-                  </div>
-                  <Button
-                    asChild
-                    size="sm"
-                    className="rounded-full border border-cyan-500/40 bg-cyan-500/15 text-cyan-200 hover:bg-cyan-500/25 hover:shadow-[0_0_20px_rgba(6,182,212,0.25)] transition-all"
-                  >
-                    <Link to="/chat">Chat Now</Link>
-                  </Button>
-                </div>
-              );
-            })}
-
-            {!loading && recentNotes.length === 0 && (
-              <div className="rounded-2xl border border-dashed border-white/20 bg-slate-950/40 px-4 py-6 text-center">
-                <MessageSquare className="mx-auto mb-2 h-5 w-5 text-cyan-300/60 drop-shadow-[0_0_14px_rgba(6,182,212,0.3)]" />
-                <p className="text-sm text-muted-foreground">
-                  No recent notes yet. Upload your first document to unlock AI chat.
-                </p>
-              </div>
-            )}
-          </div>
-        </motion.section>
-
-        <motion.section
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, delay: 0.2 }}
-          whileHover={{ scale: 1.02, y: -4 }}
-          className={`${cardBaseClass} lg:col-span-2 overflow-hidden relative`}
+          variants={{
+            hidden: { opacity: 0, y: 20 },
+            show: { opacity: 1, y: 0, transition: { duration: 0.35 } },
+          }}
+          className={`${cardBaseClass} lg:col-span-3 overflow-hidden relative`}
           data-ocid="home.bento.quiz-shortcut"
         >
           <div className="pointer-events-none absolute -right-24 -top-24 h-56 w-56 rounded-full bg-cyan-500/20 blur-3xl" />
-          <h3 className="text-xl font-semibold bg-gradient-to-r from-cyan-400 to-blue-600 bg-clip-text text-transparent">
-            Ready for a Tier 2 Challenge?
-          </h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Focused on {latestTopic}. Push your retention with a short adaptive quiz.
-          </p>
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h3 className="text-xl font-semibold bg-gradient-to-r from-cyan-400 to-blue-600 bg-clip-text text-transparent">
+                Quick Actions / Daily Challenge
+              </h3>
+              <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
+                Focused on {latestTopic}. Push your retention with a short adaptive quiz or jump into a study module.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1">
+                {stats.topicsMastered} topics mastered
+              </span>
+              <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1">
+                {stats.totalQuizzes} quizzes completed
+              </span>
+            </div>
+          </div>
 
           <div className="mt-5 flex flex-wrap gap-2">
             <Button
@@ -410,8 +412,7 @@ export default function HomePage() {
             </Button>
           </div>
         </motion.section>
-      </div>
-
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

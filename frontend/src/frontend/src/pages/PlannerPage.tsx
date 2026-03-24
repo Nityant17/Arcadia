@@ -323,7 +323,7 @@ export default function PlannerPage() {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 16 }}
+      initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
       data-ocid="planner.page"
@@ -425,7 +425,7 @@ export default function PlannerPage() {
                     }
                     className="accent-[oklch(0.78_0.16_196)]"
                   />
-                  <div className="text-sm font-semibold text-foreground">{subject.subject}</div>
+                  <div className="text-sm font-semibold text-foreground truncate">{subject.subject}</div>
                 </label>
                 <div className="text-xs text-muted-foreground">
                   {subject.documents} docs · {subject.chunks} chunks
@@ -503,7 +503,7 @@ export default function PlannerPage() {
             {upcomingTasks.map((task) => (
               <div key={task.id} className="bg-slate-950/40 backdrop-blur-xl border border-white/10 rounded-lg px-3 py-2 text-sm text-foreground hover:border-cyan-500/30 transition-all">
                 <div className="font-medium truncate">{task.subject} · {task.focus_topic || "General"}</div>
-                <div className="text-xs text-arcadia-teal truncate">{task.task_type.replaceAll("_", " ")}</div>
+                <div className="text-xs text-arcadia-teal line-clamp-2">{task.task_type.replaceAll("_", " ")}</div>
                 <div className="text-xs text-muted-foreground">{new Date(task.due_date).toLocaleString()}</div>
               </div>
             ))}
@@ -559,7 +559,7 @@ export default function PlannerPage() {
                     >
                       {label && (
                         <span
-                          className={`text-[10px] px-2 py-0.5 rounded-md border font-medium truncate block max-w-full ${DAY_COLORS[di]}`}
+                          className={`text-[10px] px-2 py-0.5 rounded-md border font-medium line-clamp-2 block max-w-full ${DAY_COLORS[di]}`}
                         >
                           {label}
                         </span>
