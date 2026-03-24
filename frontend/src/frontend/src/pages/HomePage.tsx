@@ -2,12 +2,13 @@ import { ArcadiaHero } from "@/components/ui/ArcadiaHero";
 import { Flashcard } from "@/components/ui/Flashcard";
 import { PlaceholdersAndVanishInput } from "@/components/ui/placeholders-and-vanish-input";
 import { QuickActionsOrb } from "@/components/ui/QuickActionsOrb";
+import { TaskChecklist } from "@/components/ui/TaskChecklist";
 import { Button } from "@/components/ui/button";
 import { getPinnedFlashcards, togglePinnedFlashcard, type PinnedFlashcardItem } from "@/lib/pinnedFlashcards";
 import { apiClient } from "@/services/api";
 import { useAppStore } from "@/store/useAppStore";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { CloudUpload, Flame, MessageSquare, Star, Trash2 } from "lucide-react";
+import { CloudUpload, MessageSquare, Star, Trash2 } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -15,12 +16,6 @@ import { toast } from "sonner";
 function formatTopicLabel(topic: string | undefined) {
   if (!topic?.trim()) return "General";
   return topic.replaceAll("_", " ");
-}
-
-function getMasteryColor(percent: number) {
-  if (percent >= 80) return "text-arcadia-teal";
-  if (percent >= 50) return "text-arcadia-cyan";
-  return "text-arcadia-purple";
 }
 
 const rowCardClass =
@@ -56,6 +51,8 @@ export default function HomePage() {
       topic: string;
     }>
   >([]);
+  const [askableNotes, setAskableNotes] = useState<Array<{ id: string; name: string }>>([]);
+  const [selectedAskNoteId, setSelectedAskNoteId] = useState("");
   const [stats, setStats] = useState({
     totalQuizzes: 0,
     topicsMastered: 0,
@@ -63,6 +60,7 @@ export default function HomePage() {
     streak: 0,
   });
   const [pinnedFlashcards, setPinnedFlashcards] = useState<PinnedFlashcardItem[]>([]);
+  const [isDailyGoalsEditing, setIsDailyGoalsEditing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -73,16 +71,25 @@ export default function HomePage() {
           apiClient.getDashboardStats(),
         ]);
 
-        const docs = docsResponse.data.documents.slice(0, 3).map((doc) => ({
+        const allDocs = docsResponse.data.documents.map((doc) => ({
           id: doc.id,
           name: doc.original_name || doc.filename,
           subject: doc.subject || "General",
           topic: formatTopicLabel(doc.topic),
         }));
+        const docs = allDocs.slice(0, 3);
 
         const dashboardStats = dashboardResponse.data.stats;
 
         setRecentNotes(docs);
+        setAskableNotes(allDocs.map((doc) => ({ id: doc.id, name: doc.name })));
+        setSelectedAskNoteId((previousSelectedId) => {
+          if (!allDocs.length) return "";
+          if (previousSelectedId && allDocs.some((doc) => doc.id === previousSelectedId)) {
+            return previousSelectedId;
+          }
+          return allDocs[0].id;
+        });
         setStats({
           totalQuizzes: dashboardStats.total_quizzes_taken,
           topicsMastered: dashboardStats.topics_mastered,
@@ -91,6 +98,8 @@ export default function HomePage() {
         });
       } catch {
         setRecentNotes([]);
+        setAskableNotes([]);
+        setSelectedAskNoteId("");
         setStats({ totalQuizzes: 0, topicsMastered: 0, averageScore: 0, streak: 0 });
       } finally {
         setPinnedFlashcards(getPinnedFlashcards());
@@ -131,14 +140,15 @@ export default function HomePage() {
   };
 
   const hasNotes = recentNotes.length > 0;
-  const progress = Math.max(0, Math.min(100, stats.averageScore));
-  const ringCircumference = 2 * Math.PI * 46;
-  const ringOffset = ringCircumference - (progress / 100) * ringCircumference;
-  const masteryColor = getMasteryColor(progress);
 
   const handleOmnibarSubmit = (value: string) => {
     if (!value.trim()) return;
     window.sessionStorage.setItem("arcadia:pending-chat-query", value.trim());
+    if (selectedAskNoteId) {
+      window.sessionStorage.setItem("arcadia:pending-chat-document-id", selectedAskNoteId);
+    } else {
+      window.sessionStorage.removeItem("arcadia:pending-chat-document-id");
+    }
     void navigate({ to: "/chat" });
   };
 
@@ -163,9 +173,9 @@ export default function HomePage() {
   };
 
   const suggestionPills = [
-    "Summarize last note",
-    "Test my knowledge",
-    currentUser?.name ? `Plan study session for ${currentUser.name}` : "Build a quick study plan",
+    "Summarize",
+    "Explain in Simple Terms",
+    "Give me probable interview questions",
   ];
 
   return (
@@ -189,7 +199,7 @@ export default function HomePage() {
               placeholders={[
                 "Ask Arcadia anything about your notes...",
                 "Summarize chapter 3 in 6 bullets",
-                "Generate a quiz from my weakest topic",
+                "Explain this concept like I’m a beginner",
               ]}
               onSubmit={handleOmnibarSubmit}
               className="mt-4"
@@ -206,6 +216,35 @@ export default function HomePage() {
                   {pill}
                 </button>
               ))}
+            </div>
+
+            <div className="mt-4">
+              {askableNotes.length > 0 ? (
+                <div className="rounded-xl border border-white/10 bg-slate-950/35 px-3 py-2.5">
+                  <label
+                    htmlFor="ask-note-select"
+                    className="mb-1.5 block text-[11px] uppercase tracking-wide text-cyan-300/80"
+                  >
+                    Ask about note
+                  </label>
+                  <select
+                    id="ask-note-select"
+                    value={selectedAskNoteId}
+                    onChange={(event) => setSelectedAskNoteId(event.target.value)}
+                    className="w-full rounded-lg border border-white/10 bg-slate-900/70 px-3 py-2 text-sm text-foreground outline-none transition-all focus:border-cyan-500/50 focus:shadow-[0_0_0_2px_rgba(6,182,212,0.18)]"
+                  >
+                    {askableNotes.map((note) => (
+                      <option key={note.id} value={note.id}>
+                        {note.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed border-white/15 bg-slate-950/30 px-3 py-2 text-xs text-muted-foreground">
+                  Upload a note to choose a source before asking.
+                </div>
+              )}
             </div>
           </motion.section>
 
@@ -375,49 +414,21 @@ export default function HomePage() {
           </motion.section>
 
           <motion.section variants={cardVariants} className={`${rowCardClass} md:col-span-1`}>
-            <h2 className="text-lg font-semibold bg-gradient-to-r from-cyan-400 to-blue-600 bg-clip-text text-transparent">
-              Overall Mastery
-            </h2>
-
-            <div className="mt-4 flex items-center justify-center">
-              <svg
-                className={`h-36 w-36 ${masteryColor}`}
-                viewBox="0 0 120 120"
-                role="img"
-                aria-label="Overall Mastery progress ring"
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold bg-gradient-to-r from-cyan-400 to-blue-600 bg-clip-text text-transparent">
+                Daily Goals
+              </h2>
+              <button
+                type="button"
+                onClick={() => setIsDailyGoalsEditing((previous) => !previous)}
+                className="rounded-md border border-white/20 bg-white/5 px-2 py-1 text-xs text-slate-200 transition-colors hover:border-cyan-400/60 hover:text-cyan-200"
               >
-                <circle cx="60" cy="60" r="46" className="fill-none stroke-white/10" strokeWidth="10" />
-                <circle
-                  cx="60"
-                  cy="60"
-                  r="46"
-                  className="fill-none stroke-current transition-all duration-500"
-                  strokeWidth="10"
-                  strokeLinecap="round"
-                  strokeDasharray={ringCircumference}
-                  strokeDashoffset={ringOffset}
-                  transform="rotate(-90 60 60)"
-                />
-                <text x="60" y="56" textAnchor="middle" className="fill-white text-[20px] font-semibold">
-                  {progress}%
-                </text>
-                <text x="60" y="73" textAnchor="middle" className="fill-white/60 text-[10px]">
-                  mastery
-                </text>
-              </svg>
+                {isDailyGoalsEditing ? "Done" : "Edit"}
+              </button>
             </div>
 
-            <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
-              <p className={`mt-1 text-lg font-semibold ${masteryColor}`}>
-                {progress >= 75 ? "Strong" : progress >= 45 ? "Growing" : "Warming Up"}
-              </p>
-              <div className="mt-3 flex items-center gap-2 text-sm text-foreground">
-                <Flame className="h-4 w-4 text-arcadia-purple" />
-                <span>{stats.streak} day streak</span>
-              </div>
-              <p className="mt-2 text-xs text-muted-foreground">
-                {stats.topicsMastered} topics mastered · {stats.totalQuizzes} quizzes completed
-              </p>
+            <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4 pl-8">
+              <TaskChecklist isEditing={isDailyGoalsEditing} />
             </div>
           </motion.section>
         </div>

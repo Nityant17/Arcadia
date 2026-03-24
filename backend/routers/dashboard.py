@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from models.database import get_db, Document, QuizAttempt, MasteryScore, ChatHistory
+from models.database import get_db, Document, QuizAttempt, MasteryScore, ChatHistory, WeakTopic
 from routers.auth import get_current_user
 from models.schemas import DashboardStats, DashboardResponse, TopicMastery
 from services.quiz_service import quiz_service
@@ -102,6 +102,7 @@ async def reset_progress(current_user = Depends(get_current_user), db: Session =
     """Clear ALL quiz attempts, mastery scores, chat history, and cached TTS audio."""
     deleted_quizzes = db.query(QuizAttempt).delete()
     deleted_mastery = db.query(MasteryScore).delete()
+    deleted_weak_topics = db.query(WeakTopic).filter(WeakTopic.user_id == current_user.id).delete()
     deleted_chats = db.query(ChatHistory).delete()
     db.commit()
 
@@ -118,6 +119,7 @@ async def reset_progress(current_user = Depends(get_current_user), db: Session =
         "deleted": {
             "quiz_attempts": deleted_quizzes,
             "mastery_scores": deleted_mastery,
+            "weak_topics": deleted_weak_topics,
             "chat_history": deleted_chats,
             "audio_files": len(audio_files),
         },

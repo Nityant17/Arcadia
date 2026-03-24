@@ -335,6 +335,11 @@ export const apiClient = {
   completePlannerTask: (taskId: string) =>
     api.post<{ status: string; task_id: string }>(`/planner/tasks/${taskId}/complete`),
 
+  clearPlannerTasks: (includeCompleted = true) =>
+    api.delete<{ status: string; deleted_tasks: number; deleted_plans: number }>(
+      `/planner/tasks?include_completed=${includeCompleted ? "true" : "false"}`,
+    ),
+
   getWhiteboardHint: (payload: {
     image_base64?: string;
     question?: string;

@@ -1,13 +1,18 @@
 import styled from "styled-components";
 import { Paperclip, Send } from "lucide-react";
+import { useRef } from "react";
 
 interface GlowingChatInputProps {
   value: string;
   onChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onSubmit: () => void;
+  onAttach?: (file: File) => void | Promise<void>;
+  attachDisabled?: boolean;
 }
 
-export function GlowingChatInput({ value, onChange, onSubmit }: GlowingChatInputProps) {
+export function GlowingChatInput({ value, onChange, onSubmit, onAttach, attachDisabled }: GlowingChatInputProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   return (
     <StyledWrapper className="w-full max-w-3xl mx-auto">
       <div id="poda" className="w-full relative">
@@ -19,6 +24,20 @@ export function GlowingChatInput({ value, onChange, onSubmit }: GlowingChatInput
         <div className="border" />
 
         <div id="main" className="w-full relative flex items-center">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="*/*"
+            className="hidden"
+            onChange={(event) => {
+              const selectedFile = event.target.files?.[0];
+              if (selectedFile && onAttach) {
+                void onAttach(selectedFile);
+              }
+              event.currentTarget.value = "";
+            }}
+          />
+
           <input
             type="text"
             placeholder="Ask Arcadia anything..."
@@ -39,6 +58,9 @@ export function GlowingChatInput({ value, onChange, onSubmit }: GlowingChatInput
           <button
             type="button"
             className="absolute right-12 p-2 text-muted-foreground hover:text-foreground transition-colors z-10"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={attachDisabled}
+            title="Attach local chat context (PDF/text/other)"
           >
             <Paperclip size={20} />
           </button>

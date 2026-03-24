@@ -57,6 +57,35 @@ function WaveformIcon({ active }: { active: boolean }) {
   );
 }
 
+async function extractTextFromPdfFile(file: File) {
+  const pdfjs = await import("pdfjs-dist");
+  const bytes = new Uint8Array(await file.arrayBuffer());
+
+  const loadingTask = pdfjs.getDocument({
+    data: bytes,
+    disableWorker: true,
+  } as Parameters<typeof pdfjs.getDocument>[0]);
+
+  const pdf = await loadingTask.promise;
+  const pages: string[] = [];
+
+  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+    const page = await pdf.getPage(pageNumber);
+    const textContent = await page.getTextContent();
+    const pageText = textContent.items
+      .map((item) => ("str" in item ? item.str : ""))
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    if (pageText) {
+      pages.push(`Page ${pageNumber}: ${pageText}`);
+    }
+  }
+
+  return pages.join("\n\n").trim();
+}
+
 export default function ChatPage() {
   const { currentLanguage } = useAppStore();
   const { messages, setAllMessages, addMessage, retranslateAll } = useChatMessages([]);
@@ -65,12 +94,20 @@ export default function ChatPage() {
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [activeDocumentId, setActiveDocumentId] = useState("");
   const [input, setInput] = useState("");
+  const [pendingAutoSendQuery, setPendingAutoSendQuery] = useState<string | null>(null);
+  const [hasLoadedInitialHistory, setHasLoadedInitialHistory] = useState(false);
+  const [localContextName, setLocalContextName] = useState("");
+  const [localContextText, setLocalContextText] = useState("");
   const [sending, setSending] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [clearing, setClearing] = useState(false);
+  const [uploadingContext, setUploadingContext] = useState(false);
 
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const prevLangRef = useRef(currentLanguage?.id ?? "en");
+
+  const pendingQueryStorageKey = "arcadia:pending-chat-query";
+  const pendingDocumentStorageKey = "arcadia:pending-chat-document-id";
 
   const refreshChatHistory = useCallback(
     async (documentId: string, shouldApply: () => boolean = () => true) => {
@@ -129,9 +166,17 @@ export default function ChatPage() {
     const loadDocuments = async () => {
       try {
         const response = await apiClient.listDocuments();
-        setDocuments(response.data.documents);
-        if (response.data.documents.length > 0) {
-          setActiveDocumentId(response.data.documents[0].id);
+        const nextDocuments = response.data.documents;
+        setDocuments(nextDocuments);
+
+        if (nextDocuments.length > 0) {
+          const preferredDocumentId = window.sessionStorage.getItem(pendingDocumentStorageKey);
+          const preferredExists = preferredDocumentId
+            ? nextDocuments.some((document) => document.id === preferredDocumentId)
+            : false;
+
+          setActiveDocumentId(preferredExists ? preferredDocumentId! : nextDocuments[0].id);
+          window.sessionStorage.removeItem(pendingDocumentStorageKey);
         }
       } catch {
         toast.error("Failed to load documents for chat");
@@ -142,14 +187,93 @@ export default function ChatPage() {
   }, []);
 
   useEffect(() => {
+    const pendingQuery = window.sessionStorage.getItem(pendingQueryStorageKey);
+    if (!pendingQuery) return;
+
+    setInput(pendingQuery);
+    setPendingAutoSendQuery(pendingQuery);
+    window.sessionStorage.removeItem(pendingQueryStorageKey);
+  }, []);
+
+  const sendMessage = useCallback(
+    async (content: string, options: { clearInput?: boolean } = {}) => {
+      const trimmedContent = content.trim();
+      if (!trimmedContent || sending) return;
+      if (!activeDocumentId) {
+        toast.error("Upload a note first before starting chat");
+        return;
+      }
+
+      const messageForModel = localContextText
+        ? `Local context (${localContextName || "attached file"}):\n${localContextText}\n\nUser question:\n${trimmedContent}`
+        : trimmedContent;
+
+      const messageId = `u-${Date.now()}`;
+
+      addMessage({
+        id: messageId,
+        role: "user",
+        content: trimmedContent,
+        originalContent: trimmedContent,
+        language: currentLanguage?.id ?? "en",
+        originalLanguage: currentLanguage?.id ?? "en",
+      });
+
+      if (options.clearInput !== false) {
+        setInput("");
+      }
+      setSending(true);
+
+      try {
+        const response = await apiClient.chat({
+          document_id: activeDocumentId,
+          message: messageForModel,
+          language: currentLanguage?.id ?? "en",
+        });
+
+        const assistantId = `a-${Date.now()}`;
+        addMessage({
+          id: assistantId,
+          role: "assistant",
+          content: response.data.answer,
+          originalContent: response.data.answer,
+          language: response.data.language || currentLanguage?.id || "en",
+          originalLanguage: response.data.language || currentLanguage?.id || "en",
+          sources: response.data.sources || [],
+        });
+      } catch {
+        toast.error("Failed to send chat message");
+      } finally {
+        setSending(false);
+      }
+    },
+    [activeDocumentId, addMessage, currentLanguage?.id, localContextName, localContextText, sending],
+  );
+
+  useEffect(() => {
+    if (!pendingAutoSendQuery || !activeDocumentId || sending || !hasLoadedInitialHistory) return;
+
+    const queryToSend = pendingAutoSendQuery;
+    setPendingAutoSendQuery(null);
+    void sendMessage(queryToSend);
+  }, [activeDocumentId, hasLoadedInitialHistory, pendingAutoSendQuery, sendMessage, sending]);
+
+  useEffect(() => {
     if (!activeDocumentId) {
       setAllMessages([]);
+      setHasLoadedInitialHistory(false);
       return;
     }
 
     let isMounted = true;
+    setHasLoadedInitialHistory(false);
 
-    void refreshChatHistory(activeDocumentId, () => isMounted);
+    void (async () => {
+      await refreshChatHistory(activeDocumentId, () => isMounted);
+      if (isMounted) {
+        setHasLoadedInitialHistory(true);
+      }
+    })();
 
     return () => {
       isMounted = false;
@@ -166,50 +290,49 @@ export default function ChatPage() {
   }, [currentLanguage?.id, retranslateAll]);
 
   async function handleSend() {
-    if (!input.trim() || sending) return;
-    if (!activeDocumentId) {
-      toast.error("Upload a note first before starting chat");
-      return;
-    }
-
-    const content = input.trim();
-    const messageId = `u-${Date.now()}`;
-
-    addMessage({
-      id: messageId,
-      role: "user",
-      content,
-      originalContent: content,
-      language: currentLanguage?.id ?? "en",
-      originalLanguage: currentLanguage?.id ?? "en",
-    });
-
-    setInput("");
-    setSending(true);
-
-    try {
-      const response = await apiClient.chat({
-        document_id: activeDocumentId,
-        message: content,
-        language: currentLanguage?.id ?? "en",
-      });
-
-      const assistantId = `a-${Date.now()}`;
-      addMessage({
-        id: assistantId,
-        role: "assistant",
-        content: response.data.answer,
-        originalContent: response.data.answer,
-        language: response.data.language || currentLanguage?.id || "en",
-        originalLanguage: response.data.language || currentLanguage?.id || "en",
-        sources: response.data.sources || [],
-      });
-    } catch {
-      toast.error("Failed to send chat message");
-    } finally {
-      setSending(false);
-    }
+    if (!input.trim()) return;
+    await sendMessage(input);
   }
+
+  const handleAttachContextFile = useCallback(
+    async (file: File) => {
+      if (uploadingContext) return;
+
+      const isPdfFile = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+
+      setUploadingContext(true);
+      try {
+        let extractedText = "";
+
+        if (isPdfFile) {
+          extractedText = await extractTextFromPdfFile(file);
+        } else {
+          extractedText = (await file.text()).trim();
+        }
+
+        if (!extractedText) {
+          const fallbackDetails = [
+            `Attached file: ${file.name}`,
+            `Type: ${file.type || "unknown"}`,
+            `Size: ${Math.max(1, Math.round(file.size / 1024))} KB`,
+            "Note: Could not extract readable text content in-browser for this format.",
+          ];
+          extractedText = fallbackDetails.join("\n");
+          toast.warning("Attached with metadata only (no readable text extracted)");
+        }
+
+        const maxContextChars = 8000;
+        setLocalContextName(file.name);
+        setLocalContextText(extractedText.slice(0, maxContextChars));
+        toast.success("Context attached to this chat only");
+      } catch {
+        toast.error("Failed to process attached file");
+      } finally {
+        setUploadingContext(false);
+      }
+    },
+    [uploadingContext],
+  );
 
   async function handleNewChat() {
     if (!activeDocumentId || clearing) return;
@@ -243,9 +366,6 @@ export default function ChatPage() {
             </div>
             <div className="flex-1 min-w-0">
               <h1 className="text-sm font-semibold text-foreground">AI Tutor Chat</h1>
-              <p className="text-xs text-muted-foreground">
-                {currentLanguage?.flag} {currentLanguage?.name}
-              </p>
             </div>
             <Button
               type="button"
@@ -407,15 +527,44 @@ export default function ChatPage() {
 
       <div className="px-6 pb-4 pt-4 bg-gradient-to-t from-slate-950 via-slate-950/95 to-transparent border-t border-white/10 shrink-0">
         <div className="relative">
-          {sending && (
-            <div className="absolute -top-8 right-4 text-xs text-cyan-300 flex items-center gap-1.5">
-              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Sending...
+          <div className="mb-2 min-h-5 flex items-center justify-between gap-3">
+            <div className="min-w-0 flex items-center gap-2">
+              {localContextText && (
+                <div className="flex items-center gap-2 rounded-md border border-cyan-500/30 bg-cyan-500/10 px-2 py-1 text-xs text-cyan-200 max-w-[75%]">
+                  <span className="truncate">Using context: {localContextName}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLocalContextName("");
+                      setLocalContextText("");
+                    }}
+                    className="shrink-0 rounded border border-white/20 px-1.5 py-0.5 text-[10px] text-slate-200 hover:border-cyan-400/60 hover:text-cyan-100"
+                  >
+                    Clear
+                  </button>
+                </div>
+              )}
+
+              {uploadingContext && (
+                <div className="text-xs text-cyan-300 flex items-center gap-1.5">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Reading context...
+                </div>
+              )}
             </div>
-          )}
+
+            {sending && (
+              <div className="text-xs text-cyan-300 flex items-center gap-1.5 shrink-0">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" /> Sending...
+              </div>
+            )}
+          </div>
+
           <GlowingChatInput
             value={input}
             onChange={(event) => setInput(event.target.value)}
             onSubmit={handleSend}
+            onAttach={handleAttachContextFile}
+            attachDisabled={uploadingContext}
           />
         </div>
       </div>

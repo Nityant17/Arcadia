@@ -398,3 +398,26 @@ def complete_task(task_id: str, current_user: User = Depends(get_current_user), 
 
     db.commit()
     return {"status": "completed", "task_id": task_id}
+
+
+@router.delete("/planner/tasks")
+def clear_tasks(
+    include_completed: bool = True,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    task_query = db.query(StudyTask).filter(StudyTask.user_id == current_user.id)
+    if not include_completed:
+        task_query = task_query.filter(StudyTask.status == "pending")
+
+    deleted_tasks = task_query.delete(synchronize_session=False)
+    deleted_plans = db.query(StudyPlan).filter(StudyPlan.user_id == current_user.id).delete(
+        synchronize_session=False
+    )
+    db.commit()
+
+    return {
+        "status": "cleared",
+        "deleted_tasks": deleted_tasks,
+        "deleted_plans": deleted_plans,
+    }

@@ -112,8 +112,8 @@ export default function PlannerPage() {
   const [editing, setEditing] = useState<EditingCell | null>(null);
   const [availableSubjects, setAvailableSubjects] = useState<PlannerSubjectStat[]>([]);
   const [allTasks, setAllTasks] = useState<PlannerTask[]>([]);
-  const [plannerLoading, setPlannerLoading] = useState(false);
   const [generatingPlan, setGeneratingPlan] = useState(false);
+  const [clearingPlan, setClearingPlan] = useState(false);
   const [planInputs, setPlanInputs] = useState<
     Record<string, { examDate: string; weeklyHours: number }>
   >({});
@@ -182,7 +182,6 @@ export default function PlannerPage() {
   }
 
   async function loadPlannerData() {
-    setPlannerLoading(true);
     try {
       const response = await apiClient.getPlannerTasks();
       setAvailableSubjects(response.data.available_subjects);
@@ -222,8 +221,6 @@ export default function PlannerPage() {
       });
     } catch {
       toast.error("Failed to load planner data");
-    } finally {
-      setPlannerLoading(false);
     }
   }
 
@@ -283,9 +280,20 @@ export default function PlannerPage() {
     setEditing(null);
   }
 
-  function clearAll() {
-    setSessions(new Map());
-    setEditing(null);
+  async function clearAll() {
+    setClearingPlan(true);
+    try {
+      await apiClient.clearPlannerTasks(true);
+      setSessions(new Map());
+      setEditing(null);
+      setAllTasks([]);
+      await loadPlannerData();
+      toast.success("Planner cleared");
+    } catch {
+      toast.error("Failed to clear planner");
+    } finally {
+      setClearingPlan(false);
+    }
   }
 
   function goToPreviousWeek() {
@@ -337,16 +345,6 @@ export default function PlannerPage() {
         </div>
         <div className="flex items-center gap-2">
           <Button
-            variant="outline"
-            className="border-white/10 text-sm"
-            onClick={loadPlannerData}
-            disabled={plannerLoading}
-            data-ocid="planner.refresh.button"
-          >
-            {plannerLoading ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : null}
-            Refresh
-          </Button>
-          <Button
             className="sparkle-generate-button"
             onClick={generatePlan}
             disabled={generatingPlan || availableSubjects.length === 0}
@@ -361,8 +359,10 @@ export default function PlannerPage() {
             variant="outline"
             className="border-white/10 text-sm"
             onClick={clearAll}
+            disabled={clearingPlan}
             data-ocid="planner.clear.button"
           >
+            {clearingPlan ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : null}
             Clear All
           </Button>
         </div>
