@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { CyberButton } from "@/components/ui/CyberButton";
 import { Progress } from "@/components/ui/progress";
 import { apiClient, type DocumentItem } from "@/services/api";
 import { useAppStore } from "@/store/useAppStore";
@@ -287,6 +288,10 @@ export default function QuizPage() {
     }
   }
 
+  function handleStartQuiz() {
+    void generate();
+  }
+
   async function submitQuiz(nextAnswers: (number | null)[]) {
     if (!quizId || !documentId) return;
 
@@ -353,9 +358,6 @@ export default function QuizPage() {
       >
         <div className="rounded-3xl bg-slate-950/40 backdrop-blur-xl border border-white/10 p-8 space-y-4">
           <h1 className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-blue-600 bg-clip-text text-transparent">Adaptive Quiz</h1>
-          <p className="text-muted-foreground text-sm">
-            {currentLanguage?.flag} {currentLanguage?.name}
-          </p>
 
           <div className="space-y-2">
             <label className="text-xs text-muted-foreground">Source document</label>
@@ -425,17 +427,44 @@ export default function QuizPage() {
             ))}
           </div>
 
-          <Button
-            onClick={generate}
+          <CyberButton
+            text="START QUIZ"
+            onClick={handleStartQuiz}
             disabled={loadingGenerate || !documentId}
-            className="w-full sparkle-generate-button font-semibold"
-          >
-            {loadingGenerate ? (
-              <Loader2 className="w-4 h-4 animate-spin mr-2" />
-            ) : null}
-            Start Quiz
-          </Button>
+          />
         </div>
+
+        {loadingGenerate ? (
+          <div className="fixed bottom-6 right-6 z-50 rounded-2xl border border-cyan-400/30 bg-slate-950/90 px-4 py-3 shadow-[0_0_24px_rgba(34,211,238,0.2)] backdrop-blur-md">
+            <div className="flex flex-col items-center gap-1">
+              <div className="uiverse-wheel-and-hamster-wrap">
+                <div
+                  aria-label="Quiz generation in progress"
+                  role="img"
+                  className="uiverse-wheel-and-hamster"
+                >
+                  <div className="uiverse-wheel" />
+                  <div className="uiverse-hamster">
+                    <div className="uiverse-hamster__body">
+                      <div className="uiverse-hamster__head">
+                        <div className="uiverse-hamster__ear" />
+                        <div className="uiverse-hamster__eye" />
+                        <div className="uiverse-hamster__nose" />
+                      </div>
+                      <div className="uiverse-hamster__limb uiverse-hamster__limb--fr" />
+                      <div className="uiverse-hamster__limb uiverse-hamster__limb--fl" />
+                      <div className="uiverse-hamster__limb uiverse-hamster__limb--br" />
+                      <div className="uiverse-hamster__limb uiverse-hamster__limb--bl" />
+                      <div className="uiverse-hamster__tail" />
+                    </div>
+                  </div>
+                  <div className="uiverse-spoke" />
+                </div>
+              </div>
+              <span className="text-xs font-medium tracking-wide text-cyan-300">Loading...</span>
+            </div>
+          </div>
+        ) : null}
       </motion.div>
     );
   }
