@@ -89,6 +89,7 @@
     "react-use": "~17.6.0",
     "recharts": "^2.15.1",
     "sonner": "^1.7.4",
+    "styled-components": "^6.3.12",
     "tailwind-merge": "^2.5.2",
     "three": "^0.176.0",
     "vaul": "^1.1.2",

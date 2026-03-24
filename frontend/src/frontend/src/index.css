@@ -345,3 +345,80 @@ select option,
 .uiverse-logout-btn:active {
   transform: translate(2px, 2px);
 }
+
+.uiverse-cloud-upload-zone {
+  width: 100%;
+  min-height: 170px;
+  border-radius: 1rem;
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  background: linear-gradient(180deg, rgba(6, 182, 212, 0.1), rgba(15, 23, 42, 0.45));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.uiverse-cloud-upload-zone::before {
+  content: "";
+  position: absolute;
+  width: 180px;
+  height: 180px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(6, 182, 212, 0.28) 0%, rgba(6, 182, 212, 0) 70%);
+  filter: blur(10px);
+  animation: uiverse-cloud-pulse 2.4s ease-in-out infinite;
+}
+
+.uiverse-cloud-upload-zone:hover,
+.uiverse-cloud-upload-zone--active {
+  border-color: rgba(6, 182, 212, 0.75);
+  box-shadow: 0 0 30px rgba(6, 182, 212, 0.22);
+  transform: translateY(-1px);
+}
+
+.uiverse-cloud-upload-icon-wrap {
+  width: 56px;
+  height: 56px;
+  border-radius: 9999px;
+  border: 1px solid rgba(6, 182, 212, 0.4);
+  background: rgba(6, 182, 212, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.65rem;
+  position: relative;
+  z-index: 1;
+}
+
+.uiverse-cloud-upload-icon {
+  width: 22px;
+  height: 22px;
+  color: rgb(103, 232, 249);
+  animation: uiverse-cloud-float 1.8s ease-in-out infinite;
+}
+
+@keyframes uiverse-cloud-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes uiverse-cloud-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(0.95);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.07);
+  }
+}
