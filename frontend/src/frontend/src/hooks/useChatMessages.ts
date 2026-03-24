@@ -7,6 +7,7 @@ export interface ChatMessage {
   content: string;
   originalContent: string;
   language: string;
+  originalLanguage?: string;
   isTranslating?: boolean;
   sources?: string[];
 }
@@ -21,15 +22,24 @@ export function useChatMessages(initial: ChatMessage[] = []) {
   }, [messages]);
 
   const setAllMessages = useCallback((next: ChatMessage[]) => {
+    messagesRef.current = next;
     setMessages(next);
   }, []);
 
   const addMessage = useCallback((message: ChatMessage) => {
-    setMessages((prev) => [...prev, message]);
+    setMessages((prev) => {
+      const next = [...prev, message];
+      messagesRef.current = next;
+      return next;
+    });
   }, []);
 
   const replaceMessage = useCallback((id: string, patch: Partial<ChatMessage>) => {
-    setMessages((prev) => prev.map((msg) => (msg.id === id ? { ...msg, ...patch } : msg)));
+    setMessages((prev) => {
+      const next = prev.map((msg) => (msg.id === id ? { ...msg, ...patch } : msg));
+      messagesRef.current = next;
+      return next;
+    });
   }, []);
 
   const retranslateAll = useCallback(async (targetLanguage: string) => {
@@ -48,24 +58,55 @@ export function useChatMessages(initial: ChatMessage[] = []) {
       return;
     }
 
-    setMessages((prev) =>
-      prev.map((msg) =>
-        msg.role === "assistant" && msg.language !== targetLanguage
-          ? { ...msg, isTranslating: true }
-          : msg,
-      ),
-    );
+    setMessages((prev) => {
+      let changed = false;
+      const next = prev.map((msg) => {
+        if (msg.role === "assistant" && msg.language !== targetLanguage && !msg.isTranslating) {
+          changed = true;
+          return { ...msg, isTranslating: true };
+        }
+        return msg;
+      });
+
+      if (!changed) {
+        return prev;
+      }
+
+      messagesRef.current = next;
+      return next;
+    });
 
     for (const item of pending) {
       if (syncVersionRef.current !== version) {
         return;
       }
 
-      const sourceLanguage = item.language || "en";
+      const sourceText = item.originalContent?.trim().length
+        ? item.originalContent
+        : item.content;
+      const sourceLanguage = item.originalLanguage || "en";
+
+      if (sourceLanguage === targetLanguage) {
+        setMessages((prev) => {
+          const next = prev.map((msg) =>
+            msg.id === item.id
+              ? {
+                  ...msg,
+                  content: sourceText,
+                  language: sourceLanguage,
+                  isTranslating: false,
+                }
+              : msg,
+          );
+          messagesRef.current = next;
+          return next;
+        });
+        continue;
+      }
 
       try {
         const response = await apiClient.translate({
-          text: item.content,
+          text: sourceText,
           source_language: sourceLanguage,
           target_language: targetLanguage,
         });
@@ -74,8 +115,8 @@ export function useChatMessages(initial: ChatMessage[] = []) {
           return;
         }
 
-        setMessages((prev) =>
-          prev.map((msg) =>
+        setMessages((prev) => {
+          const next = prev.map((msg) =>
             msg.id === item.id
               ? {
                   ...msg,
@@ -84,14 +125,18 @@ export function useChatMessages(initial: ChatMessage[] = []) {
                   isTranslating: false,
                 }
               : msg,
-          ),
-        );
+          );
+          messagesRef.current = next;
+          return next;
+        });
       } catch {
-        setMessages((prev) =>
-          prev.map((msg) =>
+        setMessages((prev) => {
+          const next = prev.map((msg) =>
             msg.id === item.id ? { ...msg, isTranslating: false } : msg,
-          ),
-        );
+          );
+          messagesRef.current = next;
+          return next;
+        });
       }
     }
   }, []);

@@ -4,7 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAudioPlayer } from "@/hooks/useAudioPlayer";
 import { apiClient, type DocumentItem } from "@/services/api";
 import { useAppStore } from "@/store/useAppStore";
-import { ChevronLeft, ChevronRight, Loader2, ScanText, Sparkles, StopCircle, Volume2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Sparkles, StopCircle, Volume2 } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -98,7 +98,6 @@ export default function StudyPage() {
   const [documentId, setDocumentId] = useState("");
   const [focusTopic, setFocusTopic] = useState("");
   const [debouncedFocusTopic, setDebouncedFocusTopic] = useState("");
-  const [topicsLoading, setTopicsLoading] = useState(false);
   const [topics, setTopics] = useState<Array<{ title: string; summary: string }>>([]);
 
   const [loading, setLoading] = useState(false);
@@ -161,6 +160,27 @@ export default function StudyPage() {
     }, 300);
     return () => clearTimeout(timer);
   }, [focusTopic]);
+
+  useEffect(() => {
+    const loadTopics = async () => {
+      if (!documentId) {
+        setTopics([]);
+        return;
+      }
+
+      try {
+        const response = await apiClient.extractTopics(documentId);
+        setTopics(response.data.topics);
+        if (!focusTopic && response.data.topics.length > 0) {
+          setFocusTopic(response.data.topics[0].title);
+        }
+      } catch {
+        setTopics([]);
+      }
+    };
+
+    void loadTopics();
+  }, [documentId]);
 
   useEffect(() => {
     const loadStored = async () => {
@@ -277,26 +297,6 @@ export default function StudyPage() {
     }
   }
 
-  async function extractTopics() {
-    if (!documentId) {
-      toast.error("Select a document first");
-      return;
-    }
-    setTopicsLoading(true);
-    try {
-      const response = await apiClient.extractTopics(documentId);
-      setTopics(response.data.topics);
-      if (!focusTopic && response.data.topics.length > 0) {
-        setFocusTopic(response.data.topics[0].title);
-      }
-      toast.success("Topics extracted");
-    } catch {
-      toast.error("Failed to extract topics");
-    } finally {
-      setTopicsLoading(false);
-    }
-  }
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -329,33 +329,11 @@ export default function StudyPage() {
           )}
         </select>
 
-        <input
-          value={focusTopic}
-          onChange={(event) => setFocusTopic(event.target.value)}
-          className="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground"
-          placeholder="Focus topic (optional)"
-        />
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        <Button
-          variant="outline"
-          className="border-white/10"
-          onClick={extractTopics}
-          disabled={topicsLoading || !documentId}
-        >
-          {topicsLoading ? (
-            <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
-          ) : (
-            <ScanText className="w-3.5 h-3.5 mr-1" />
-          )}
-          Extract Topics
-        </Button>
-        {topics.length > 0 && (
+        {topics.length > 0 ? (
           <select
             value={focusTopic}
             onChange={(event) => setFocusTopic(event.target.value)}
-            className="arc-select min-w-[240px] bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-sm text-foreground"
+            className="arc-select w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2.5 text-sm text-foreground"
           >
             {topics.map((item) => (
               <option key={item.title} value={item.title}>
@@ -363,6 +341,13 @@ export default function StudyPage() {
               </option>
             ))}
           </select>
+        ) : (
+          <input
+            value={focusTopic}
+            onChange={(event) => setFocusTopic(event.target.value)}
+            className="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground"
+            placeholder="Focus topic (optional)"
+          />
         )}
       </div>
 
@@ -380,17 +365,14 @@ export default function StudyPage() {
         </TabsList>
 
         <TabsContent value="cheatsheets" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-foreground">Cheatsheets</h3>
-            <Button
-              variant="outline"
-              className="border-white/10 gap-2 sparkle-generate-button"
-              onClick={generateCheatsheet}
-              disabled={loading}
-            >
-              {loading && <Loader2 className="w-3.5 h-3.5 animate-spin" />} Generate New
-            </Button>
-          </div>
+          <Button
+            variant="outline"
+            className="border-white/10 gap-2 sparkle-generate-button"
+            onClick={generateCheatsheet}
+            disabled={loading}
+          >
+            {loading && <Loader2 className="w-3.5 h-3.5 animate-spin" />} Generate Cheatsheet
+          </Button>
 
           {restoringMaterials && !cheatsheetHtml ? (
             <div className="text-sm text-muted-foreground">Loading saved cheatsheet...</div>
@@ -440,17 +422,14 @@ export default function StudyPage() {
         </TabsContent>
 
         <TabsContent value="flashcards" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-foreground">Flashcards</h3>
-            <Button
-              variant="outline"
-              className="border-white/10 gap-2 sparkle-generate-button"
-              onClick={generateFlashcards}
-              disabled={loading}
-            >
-              {loading && <Loader2 className="w-3.5 h-3.5 animate-spin" />} Generate New
-            </Button>
-          </div>
+          <Button
+            variant="outline"
+            className="border-white/10 gap-2 sparkle-generate-button"
+            onClick={generateFlashcards}
+            disabled={loading}
+          >
+            {loading && <Loader2 className="w-3.5 h-3.5 animate-spin" />} Generate Flashcards
+          </Button>
 
           {restoringMaterials && flashcards.length === 0 ? (
             <div className="text-sm text-muted-foreground">Loading saved flashcards...</div>

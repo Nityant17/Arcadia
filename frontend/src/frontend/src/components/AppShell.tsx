@@ -59,7 +59,7 @@ export default function AppShell({ children }: AppShellProps) {
 
       <aside
         className={`fixed z-40 left-4 top-4 bottom-4 hidden lg:flex rounded-3xl border border-white/10 bg-slate-950/40 backdrop-blur-xl transition-all duration-300 ${
-          collapsed ? "w-20" : "w-64"
+          collapsed ? "w-20" : "w-60"
         }`}
         data-ocid="nav.panel"
       >
@@ -182,13 +182,11 @@ export default function AppShell({ children }: AppShellProps) {
                   <button
                     type="button"
                     onClick={logout}
-                    className="uiverse-logout-btn"
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 rounded-lg hover:bg-red-500/10 hover:text-red-300 transition-colors"
                     aria-label="Sign out"
                   >
-                    <span className="uiverse-logout-sign">
-                      <LogOut className="h-[14px] w-[14px] text-white" />
-                    </span>
-                    <span className="uiverse-logout-text">Sign out</span>
+                    <LogOut className="h-4 w-4" />
+                    <span>Sign out</span>
                   </button>
                 </div>
               </DropdownMenuContent>
@@ -220,7 +218,7 @@ export default function AppShell({ children }: AppShellProps) {
 
       <main
         className={`relative z-10 px-4 pt-8 pb-20 lg:pt-6 lg:pr-8 lg:pb-6 transition-all duration-300 ${
-          collapsed ? "lg:pl-28" : "lg:pl-72"
+          collapsed ? "lg:pl-28" : "lg:pl-[17rem]"
         }`}
       >
         {children}

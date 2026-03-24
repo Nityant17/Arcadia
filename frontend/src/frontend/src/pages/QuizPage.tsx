@@ -8,7 +8,6 @@ import {
   CheckCircle2,
   Loader2,
   Lightbulb,
-  ScanText,
   XCircle,
   Zap,
 } from "lucide-react";
@@ -77,7 +76,6 @@ export default function QuizPage() {
 
   const [loadingGenerate, setLoadingGenerate] = useState(false);
   const [loadingSubmit, setLoadingSubmit] = useState(false);
-  const [loadingTopics, setLoadingTopics] = useState(false);
   const [topics, setTopics] = useState<Array<{ title: string; summary: string }>>([]);
   const [hintImageBase64, setHintImageBase64] = useState("");
   const [hintImagePreview, setHintImagePreview] = useState("");
@@ -105,25 +103,25 @@ export default function QuizPage() {
     });
   }
 
-  async function extractTopics() {
-    if (!documentId) {
-      toast.error("Select a document first");
-      return;
-    }
-    setLoadingTopics(true);
-    try {
-      const response = await apiClient.extractTopics(documentId);
-      setTopics(response.data.topics);
-      if (!focusTopic && response.data.topics.length > 0) {
-        setFocusTopic(response.data.topics[0].title);
+  useEffect(() => {
+    const loadTopics = async () => {
+      if (!documentId) {
+        setTopics([]);
+        return;
       }
-      toast.success("Topics extracted");
-    } catch {
-      toast.error("Failed to extract topics");
-    } finally {
-      setLoadingTopics(false);
-    }
-  }
+      try {
+        const response = await apiClient.extractTopics(documentId);
+        setTopics(response.data.topics);
+        if (!focusTopic && response.data.topics.length > 0) {
+          setFocusTopic(response.data.topics[0].title);
+        }
+      } catch {
+        setTopics([]);
+      }
+    };
+
+    void loadTopics();
+  }, [documentId]);
 
   async function requestWhiteboardHint() {
     let imageBase64ToSend = hintImageBase64;
@@ -383,40 +381,26 @@ export default function QuizPage() {
 
           <div className="space-y-2">
             <label className="text-xs text-muted-foreground">Focus topic</label>
-            <input
-              value={focusTopic}
-              onChange={(event) => setFocusTopic(event.target.value)}
-              className="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground"
-              placeholder="Optional topic"
-            />
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                className="border-white/10"
-                onClick={extractTopics}
-                disabled={loadingTopics || !documentId}
+            {topics.length > 0 ? (
+              <select
+                value={focusTopic}
+                onChange={(event) => setFocusTopic(event.target.value)}
+                className="arc-select w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-sm text-foreground"
               >
-                {loadingTopics ? (
-                  <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
-                ) : (
-                  <ScanText className="w-3.5 h-3.5 mr-1" />
-                )}
-                Extract Topics
-              </Button>
-              {topics.length > 0 && (
-                <select
-                  value={focusTopic}
-                  onChange={(event) => setFocusTopic(event.target.value)}
-                  className="arc-select flex-1 bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-sm text-foreground"
-                >
-                  {topics.map((item) => (
-                    <option key={item.title} value={item.title}>
-                      {item.title}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
+                {topics.map((item) => (
+                  <option key={item.title} value={item.title}>
+                    {item.title}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                value={focusTopic}
+                onChange={(event) => setFocusTopic(event.target.value)}
+                className="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground"
+                placeholder="Optional topic"
+              />
+            )}
           </div>
 
           <div className="flex items-center justify-between">

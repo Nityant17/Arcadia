@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { GlowingChatInput } from "@/components/ui/GlowingChatInput";
 import {
   HoverCard,
   HoverCardContent,
@@ -14,11 +15,11 @@ import {
   FileText,
   Loader2,
   MessageSquare,
-  Send,
+  RotateCcw,
   Volume2,
 } from "lucide-react";
 import { motion } from "motion/react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 function parseCitation(source: string, index: number) {
@@ -66,13 +67,62 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [clearing, setClearing] = useState(false);
 
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
   const prevLangRef = useRef(currentLanguage?.id ?? "en");
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const refreshChatHistory = useCallback(
+    async (documentId: string, shouldApply: () => boolean = () => true) => {
+      setHistoryLoading(true);
+
+      try {
+        const response = await apiClient.getChatHistory(documentId);
+        if (!shouldApply()) return;
+
+        const history: ChatMessage[] = response.data.map((message, index) => ({
+          id: `${documentId}-${index}-${message.created_at}`,
+          role: message.role,
+          content: message.content,
+          originalContent: message.content,
+          language: "en",
+          originalLanguage: "en",
+          sources: [],
+        }));
+
+        setAllMessages(history);
+
+        const targetLanguage = currentLanguage?.id ?? "en";
+        if (targetLanguage !== "en") {
+          await retranslateAll(targetLanguage);
+        }
+      } catch {
+        if (shouldApply()) {
+          setAllMessages([]);
+          toast.error("Failed to load chat history");
+        }
+      } finally {
+        if (shouldApply()) {
+          setHistoryLoading(false);
+        }
+      }
+    },
+    [currentLanguage?.id, retranslateAll, setAllMessages],
+  );
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const viewport = scrollAreaRef.current?.querySelector(
+      '[data-slot="scroll-area-viewport"]',
+    ) as HTMLElement | null;
+
+    if (!viewport) {
+      return;
+    }
+
+    viewport.scrollTo({
+      top: viewport.scrollHeight,
+      behavior: "smooth",
+    });
   }, [messages]);
 
   useEffect(() => {
@@ -99,45 +149,13 @@ export default function ChatPage() {
 
     let isMounted = true;
 
-    const loadHistory = async () => {
-      setHistoryLoading(true);
-      try {
-        const response = await apiClient.getChatHistory(activeDocumentId);
-        if (!isMounted) return;
-
-        const history: ChatMessage[] = response.data.map((message, index) => ({
-          id: `${activeDocumentId}-${index}-${message.created_at}`,
-          role: message.role,
-          content: message.content,
-          originalContent: message.content,
-          language: "en",
-          sources: [],
-        }));
-
-        setAllMessages(history);
-
-        if ((currentLanguage?.id ?? "en") !== "en") {
-          await retranslateAll(currentLanguage?.id ?? "en");
-        }
-      } catch {
-        if (isMounted) {
-          setAllMessages([]);
-          toast.error("Failed to load chat history");
-        }
-      } finally {
-        if (isMounted) {
-          setHistoryLoading(false);
-        }
-      }
-    };
-
-    loadHistory();
+    void refreshChatHistory(activeDocumentId, () => isMounted);
 
     return () => {
       isMounted = false;
       stop();
     };
-  }, [activeDocumentId, currentLanguage?.id, retranslateAll, setAllMessages, stop]);
+  }, [activeDocumentId, refreshChatHistory, setAllMessages, stop]);
 
   useEffect(() => {
     const nextLanguage = currentLanguage?.id ?? "en";
@@ -163,11 +181,11 @@ export default function ChatPage() {
       content,
       originalContent: content,
       language: currentLanguage?.id ?? "en",
+      originalLanguage: currentLanguage?.id ?? "en",
     });
 
     setInput("");
     setSending(true);
-    if (textareaRef.current) textareaRef.current.style.height = "auto";
 
     try {
       const response = await apiClient.chat({
@@ -183,6 +201,7 @@ export default function ChatPage() {
         content: response.data.answer,
         originalContent: response.data.answer,
         language: response.data.language || currentLanguage?.id || "en",
+        originalLanguage: response.data.language || currentLanguage?.id || "en",
         sources: response.data.sources || [],
       });
     } catch {
@@ -192,20 +211,21 @@ export default function ChatPage() {
     }
   }
 
-  function handleTextareaChange(event: React.ChangeEvent<HTMLTextAreaElement>) {
-    setInput(event.target.value);
-    event.target.style.height = "auto";
-    event.target.style.height = `${Math.min(event.target.scrollHeight, 120)}px`;
-  }
+  async function handleNewChat() {
+    if (!activeDocumentId || clearing) return;
 
-  function handleKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
-      handleSend();
+    setClearing(true);
+    try {
+      await apiClient.clearChatHistory(activeDocumentId);
+      setAllMessages([]);
+      stop();
+      toast.success("Started a new chat");
+    } catch {
+      toast.error("Failed to clear chat history");
+    } finally {
+      setClearing(false);
     }
   }
-
-  const hasInput = input.trim().length > 0;
 
   return (
     <motion.div
@@ -215,19 +235,35 @@ export default function ChatPage() {
       className="relative flex flex-col h-[calc(100dvh-7rem)] lg:h-[calc(100dvh-3rem)] rounded-2xl border border-white/10 bg-slate-950/35 backdrop-blur-xl overflow-hidden"
       data-ocid="chat.page"
     >
-      <div className="px-6 py-4 border-b border-white/10 flex items-start justify-between gap-4">
+      <div className="px-6 py-4 border-b border-white/10 flex items-start justify-between gap-4 shrink-0">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 mb-3">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[oklch(0.78_0.16_196)]/30 to-[oklch(0.60_0.20_264)]/30 flex items-center justify-center border border-white/10">
-            <MessageSquare className="w-4 h-4 text-arcadia-teal" />
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[oklch(0.78_0.16_196)]/30 to-[oklch(0.60_0.20_264)]/30 flex items-center justify-center border border-white/10">
+              <MessageSquare className="w-4 h-4 text-arcadia-teal" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-sm font-semibold text-foreground">AI Tutor Chat</h1>
+              <p className="text-xs text-muted-foreground">
+                {currentLanguage?.flag} {currentLanguage?.name}
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleNewChat}
+              disabled={!activeDocumentId || historyLoading || clearing}
+              className="ml-auto border-white/10 bg-white/5 text-muted-foreground hover:text-foreground hover:bg-white/10"
+              data-ocid="chat.new"
+            >
+              {clearing ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <RotateCcw className="h-3.5 w-3.5" />
+              )}
+              New Chat
+            </Button>
           </div>
-          <div>
-            <h1 className="text-sm font-semibold text-foreground">AI Tutor Chat</h1>
-            <p className="text-xs text-muted-foreground">
-              {currentLanguage?.flag} {currentLanguage?.name}
-            </p>
-          </div>
-        </div>
 
           <div className="flex items-center gap-2 overflow-x-auto pr-2 pb-1">
             {documents.length === 0 ? (
@@ -261,8 +297,8 @@ export default function ChatPage() {
         </div>
       </div>
 
-      <ScrollArea className="flex-1 px-6">
-        <div className="py-4 pb-36 flex flex-col gap-4">
+      <ScrollArea ref={scrollAreaRef} className="flex-1 min-h-0 px-6">
+        <div className="w-full max-w-3xl mx-auto flex flex-col gap-6 py-4 pb-8">
           {historyLoading ? (
             <>
               <Skeleton className="h-10 w-56 rounded-2xl bg-white/10" />
@@ -288,10 +324,16 @@ export default function ChatPage() {
                     className={`group relative max-w-[74%] px-3 py-2 text-sm leading-relaxed ${
                       message.role === "user"
                         ? "rounded-full border border-white/15 bg-white/6 text-foreground"
-                        : "text-foreground"
+                        : "text-slate-300"
                     }`}
                   >
-                    <div>{message.content}</div>
+                    <div
+                      className={`whitespace-pre-wrap break-words leading-relaxed ${
+                        message.role === "assistant" ? "text-slate-300" : ""
+                      }`}
+                    >
+                      {message.content}
+                    </div>
                     {message.role === "assistant" && (message.sources?.length || 0) > 0 && (
                       <div className="mt-2 flex flex-wrap gap-2">
                         {message.sources?.map((source, index) => {
@@ -360,45 +402,21 @@ export default function ChatPage() {
               </div>
             </div>
           )}
-          <div ref={bottomRef} />
         </div>
       </ScrollArea>
 
-      <div className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 w-[min(860px,calc(100%-2rem))]">
-        <div className="pointer-events-auto rounded-2xl border border-white/12 bg-slate-950/60 backdrop-blur-2xl px-4 py-3 focus-within:border-cyan-500/50 focus-within:shadow-[0_0_30px_rgba(6,182,212,0.2)] transition-all">
-          <div className="flex gap-3 items-end">
-            <textarea
-              ref={textareaRef}
-              className="flex-1 bg-transparent border-0 rounded-xl px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none resize-none min-h-[38px] max-h-[120px] leading-relaxed"
-              placeholder="Ask Arcadia anything..."
-              value={input}
-              onChange={handleTextareaChange}
-              onKeyDown={handleKeyDown}
-              rows={1}
-              data-ocid="chat.input"
-            />
-            <motion.button
-              type="button"
-              onClick={handleSend}
-              disabled={sending || !hasInput}
-              animate={
-                !sending && hasInput
-                  ? {
-                      boxShadow: [
-                        "0 0 0 rgba(6,182,212,0)",
-                        "0 0 16px rgba(6,182,212,0.35)",
-                        "0 0 0 rgba(6,182,212,0)",
-                      ],
-                    }
-                  : { boxShadow: "0 0 0 rgba(6,182,212,0)" }
-              }
-              transition={{ duration: 1.6, repeat: hasInput && !sending ? Number.POSITIVE_INFINITY : 0 }}
-              className="h-10 w-10 shrink-0 rounded-xl border border-cyan-500/35 bg-cyan-500/20 text-cyan-100 disabled:opacity-45 disabled:cursor-not-allowed hover:bg-cyan-500/30 transition-all"
-              data-ocid="chat.send.button"
-            >
-              {sending ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : <Send className="w-4 h-4 mx-auto" />}
-            </motion.button>
-          </div>
+      <div className="px-6 pb-4 pt-4 bg-gradient-to-t from-slate-950 via-slate-950/95 to-transparent border-t border-white/10 shrink-0">
+        <div className="relative">
+          {sending && (
+            <div className="absolute -top-8 right-4 text-xs text-cyan-300 flex items-center gap-1.5">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Sending...
+            </div>
+          )}
+          <GlowingChatInput
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            onSubmit={handleSend}
+          />
         </div>
       </div>
     </motion.div>

@@ -182,3 +182,19 @@ async def get_chat_history(
         {"role": m.role, "content": m.content, "created_at": str(m.created_at)}
         for m in messages
     ]
+
+
+@router.delete("/chat/history/{document_id}")
+async def clear_chat_history(
+    document_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Clear chat history for a document."""
+    deleted = (
+        db.query(ChatHistory)
+        .filter(ChatHistory.document_id == document_id)
+        .delete(synchronize_session=False)
+    )
+    db.commit()
+    return {"status": "cleared", "document_id": document_id, "deleted": deleted}

@@ -140,6 +140,11 @@ export const apiClient = {
       `/chat/history/${documentId}`,
     ),
 
+  clearChatHistory: (documentId: string) =>
+    api.delete<{ status: string; document_id: string; deleted: number }>(
+      `/chat/history/${documentId}`,
+    ),
+
   translate: (payload: {
     text: string;
     source_language?: string;

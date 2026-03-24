@@ -67,7 +67,7 @@ function progressColor(value: number) {
 }
 
 export default function DashboardPage() {
-  const { currentLanguage } = useAppStore();
+  const { currentUser } = useAppStore();
 
   const [stats, setStats] = useState<Stats | null>(null);
   const [mastery, setMastery] = useState<TopicMastery[]>([]);
@@ -228,7 +228,7 @@ export default function DashboardPage() {
       <div>
         <h1 className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-blue-600 bg-clip-text text-transparent">Dashboard</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          {currentLanguage?.flag} {currentLanguage?.name} · Learning analytics
+          Welcome back, {currentUser?.name ?? "Learner"}
         </p>
       </div>
 
