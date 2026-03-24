@@ -75,45 +75,46 @@ const StyledWrapper = styled.div`
   .main_back {
     position: absolute;
     border-radius: 12px;
-    inset: 0;
+    inset: 8px;
     background: linear-gradient(160deg, rgba(6, 182, 212, 0.52), rgba(59, 130, 246, 0.48), rgba(99, 102, 241, 0.45));
     z-index: 3;
     box-shadow:
       inset 0 0 38px rgba(2, 6, 23, 0.75),
       0 0 22px rgba(6, 182, 212, 0.2);
     pointer-events: none;
-    transition: opacity 0.3s ease;
+    transform: scale(0.96);
+    transition: opacity 0.4s ease-in-out, transform 0.4s ease-in-out;
   }
 
   .main {
-    display: grid;
-    grid-template-columns: repeat(3, 60px);
-    grid-template-rows: repeat(3, 60px);
-    gap: 6px;
+    display: flex;
+    flex-wrap: wrap;
     width: 192px;
     height: 192px;
-    align-content: start;
-    justify-content: start;
+    align-items: center;
+    align-content: center;
+    justify-content: center;
     z-index: 1;
     position: relative;
     border-radius: 12px;
+    overflow: visible;
   }
 
   .card {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 60px;
-    height: 60px;
+    width: 56px;
+    height: 56px;
     position: relative;
     border-radius: 10px;
-    background: rgba(15, 23, 42, 0.72);
-    backdrop-filter: blur(8px);
-    border: 1px solid rgba(148, 163, 184, 0.14);
-    transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    background: transparent;
+    backdrop-filter: none;
+    border: 1px solid transparent;
+    transition: 0.4s ease-in-out, 0.2s background-color ease-in-out, 0.2s box-shadow ease-in-out;
     cursor: pointer;
     outline: none;
-    opacity: 0;
+    margin: 0;
   }
 
   .card:nth-child(1) {
@@ -134,19 +135,22 @@ const StyledWrapper = styled.div`
 
   .tool-icon {
     opacity: 0;
-    transform: scale(0.9);
-    transition: opacity 0.2s ease, transform 0.2s ease, color 0.2s ease;
+    transform: scale(0.85);
+    transition: 0.25s ease-in-out;
     color: #94a3b8;
   }
 
   .main:hover .main_back {
+    transform: scale(1.03);
     opacity: 0;
   }
 
   .main:hover .card {
-    opacity: 1;
-    border-color: rgba(6, 182, 212, 0.35);
-    background: rgba(30, 41, 59, 0.82);
+    margin: 0.2em;
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
   }
 
   .main:hover .text {
@@ -206,7 +210,7 @@ const StyledWrapper = styled.div`
 
   .card:hover,
   .card:focus-visible {
-    transform: scale(1.08);
+    transform: scale(1.05);
     border-color: rgba(255, 255, 255, 0.35);
     z-index: 4;
   }

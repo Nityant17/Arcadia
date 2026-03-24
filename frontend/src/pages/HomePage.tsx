@@ -1,5 +1,6 @@
 import { ArcadiaHero } from "@/components/ui/ArcadiaHero";
 import { Flashcard } from "@/components/ui/Flashcard";
+import { LampContainer } from "@/components/ui/lamp";
 import { PlaceholdersAndVanishInput } from "@/components/ui/placeholders-and-vanish-input";
 import { QuickToolsGrid, type QuickToolId } from "@/components/ui/QuickToolsGrid";
 import { TaskChecklist } from "@/components/ui/TaskChecklist";
@@ -8,9 +9,10 @@ import { getPinnedFlashcards, togglePinnedFlashcard, type PinnedFlashcardItem } 
 import { apiClient, getApiErrorMessage } from "@/services/api";
 import { useAppStore } from "@/store/useAppStore";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { CloudUpload, MessageSquare, Star, Trash2 } from "lucide-react";
+import { ChevronDown, CloudUpload, MessageSquare, Star, Trash2, X } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
+import styled from "styled-components";
 import { toast } from "sonner";
 
 function formatTopicLabel(topic: string | undefined) {
@@ -35,6 +37,97 @@ const cardVariants = {
   hidden: { opacity: 0, y: 18 },
   show: { opacity: 1, y: 0, transition: { duration: 0.35 } },
 };
+
+const StyledNextStepButton = styled.div`
+  .animated-button {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 13px 30px;
+    border: 4px solid;
+    border-color: transparent;
+    font-size: 15px;
+    background-color: inherit;
+    border-radius: 100px;
+    font-weight: 600;
+    color: #67e8f9;
+    box-shadow: 0 0 0 2px rgba(103, 232, 249, 0.9);
+    cursor: pointer;
+    overflow: hidden;
+    transition: all 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  .animated-button svg {
+    position: absolute;
+    width: 24px;
+    fill: #67e8f9;
+    z-index: 9;
+    transition: all 0.8s cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  .animated-button .arr-1 {
+    right: 16px;
+  }
+
+  .animated-button .arr-2 {
+    left: -25%;
+  }
+
+  .animated-button .circle {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 20px;
+    height: 20px;
+    background-color: #22d3ee;
+    border-radius: 50%;
+    opacity: 0;
+    transition: all 0.8s cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  .animated-button .text {
+    position: relative;
+    z-index: 1;
+    transform: translateX(-12px);
+    transition: all 0.8s cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  .animated-button:hover {
+    box-shadow: 0 0 0 12px transparent;
+    color: #082f49;
+    border-radius: 12px;
+  }
+
+  .animated-button:hover .arr-1 {
+    right: -25%;
+  }
+
+  .animated-button:hover .arr-2 {
+    left: 16px;
+  }
+
+  .animated-button:hover .text {
+    transform: translateX(12px);
+  }
+
+  .animated-button:hover svg {
+    fill: #082f49;
+  }
+
+  .animated-button:active {
+    scale: 0.95;
+    box-shadow: 0 0 0 4px rgba(34, 211, 238, 0.8);
+  }
+
+  .animated-button:hover .circle {
+    width: 220px;
+    height: 220px;
+    opacity: 1;
+  }
+`;
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -62,6 +155,7 @@ export default function HomePage() {
   });
   const [pinnedFlashcards, setPinnedFlashcards] = useState<PinnedFlashcardItem[]>([]);
   const [isDailyGoalsEditing, setIsDailyGoalsEditing] = useState(false);
+  const [showNextSteps, setShowNextSteps] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -131,6 +225,13 @@ export default function HomePage() {
       };
 
       setRecentNotes((prev) => [newNote, ...prev].slice(0, 3));
+      setAskableNotes((prev) => {
+        const alreadyExists = prev.some((note) => note.id === newNote.id);
+        if (alreadyExists) return prev;
+        return [{ id: newNote.id, name: newNote.name }, ...prev];
+      });
+      setSelectedAskNoteId(newNote.id);
+      setShowNextSteps(true);
       toast.success("Uploaded successfully");
     } catch (error) {
       toast.error(getApiErrorMessage(error, "Upload failed"));
@@ -160,6 +261,14 @@ export default function HomePage() {
     try {
       await apiClient.deleteDocument(id);
       setRecentNotes((prev) => prev.filter((note) => note.id !== id));
+      setAskableNotes((prev) => {
+        const remainingNotes = prev.filter((note) => note.id !== id);
+        setSelectedAskNoteId((previousSelectedId) => {
+          if (previousSelectedId !== id) return previousSelectedId;
+          return remainingNotes[0]?.id ?? "";
+        });
+        return remainingNotes;
+      });
       toast.success("Note deleted");
     } catch (error) {
       toast.error(getApiErrorMessage(error, "Failed to delete note"));
@@ -326,18 +435,21 @@ export default function HomePage() {
                   >
                     Ask about note
                   </label>
-                  <select
-                    id="ask-note-select"
-                    value={selectedAskNoteId}
-                    onChange={(event) => setSelectedAskNoteId(event.target.value)}
-                    className="w-full rounded-lg border border-white/10 bg-slate-900/70 px-3 py-2 text-sm text-foreground outline-none transition-all focus:border-cyan-500/50 focus:shadow-[0_0_0_2px_rgba(6,182,212,0.18)]"
-                  >
-                    {askableNotes.map((note) => (
-                      <option key={note.id} value={note.id}>
-                        {note.name}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="relative">
+                    <select
+                      id="ask-note-select"
+                      value={selectedAskNoteId}
+                      onChange={(event) => setSelectedAskNoteId(event.target.value)}
+                      className="w-full appearance-none rounded-lg border border-white/10 bg-slate-900/70 px-3 pr-10 py-2 text-sm text-foreground outline-none transition-all focus:border-cyan-500/50 focus:shadow-[0_0_0_2px_rgba(6,182,212,0.18)]"
+                    >
+                      {askableNotes.map((note) => (
+                        <option key={note.id} value={note.id}>
+                          {note.name}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  </div>
                 </div>
               ) : (
                 <div className="rounded-xl border border-dashed border-white/15 bg-slate-950/30 px-3 py-2 text-xs text-muted-foreground">
@@ -567,6 +679,93 @@ export default function HomePage() {
           )}
         </motion.section>
       </motion.div>
+
+      {showNextSteps && (
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 8 }}
+          transition={{ duration: 0.22 }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4"
+          data-ocid="home.next-steps.panel"
+        >
+          <LampContainer
+            className="w-[min(94vw,560px)] min-h-[310px] rounded-2xl border border-cyan-500/30 bg-slate-950/95 shadow-[0_0_36px_rgba(6,182,212,0.28)]"
+            contentClassName="absolute inset-0 z-50 flex translate-y-0 items-start justify-center px-6 pt-8 pb-10"
+          >
+            <button
+              type="button"
+              onClick={() => setShowNextSteps(false)}
+              className="absolute right-3 top-3 z-30 rounded-md border border-white/10 bg-white/5 p-1 text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
+              aria-label="Close next steps"
+              data-ocid="home.next-steps.close"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <div className="mx-auto flex w-full max-w-[430px] flex-col text-center">
+              <div className="flex flex-col gap-1">
+                <h3 className="text-4xl font-semibold text-cyan-100">Things to do next…</h3>
+                <p className="text-lg text-cyan-100/85">Your note is ready. Pick the next step.</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-4">
+                <StyledNextStepButton>
+                  <Link to="/chat" data-ocid="home.next-steps.chat" className="animated-button">
+                    <svg viewBox="0 0 24 24" className="arr-2" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z" />
+                    </svg>
+                    <span className="text">Chat</span>
+                    <span className="circle" />
+                    <svg viewBox="0 0 24 24" className="arr-1" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z" />
+                    </svg>
+                  </Link>
+                </StyledNextStepButton>
+
+                <StyledNextStepButton>
+                  <Link to="/quiz" data-ocid="home.next-steps.quiz" className="animated-button">
+                    <svg viewBox="0 0 24 24" className="arr-2" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z" />
+                    </svg>
+                    <span className="text">Quiz</span>
+                    <span className="circle" />
+                    <svg viewBox="0 0 24 24" className="arr-1" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z" />
+                    </svg>
+                  </Link>
+                </StyledNextStepButton>
+
+                <StyledNextStepButton>
+                  <Link to="/study" data-ocid="home.next-steps.study" className="animated-button">
+                    <svg viewBox="0 0 24 24" className="arr-2" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z" />
+                    </svg>
+                    <span className="text">Study</span>
+                    <span className="circle" />
+                    <svg viewBox="0 0 24 24" className="arr-1" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z" />
+                    </svg>
+                  </Link>
+                </StyledNextStepButton>
+
+                <StyledNextStepButton>
+                  <Link to="/planner" data-ocid="home.next-steps.planner" className="animated-button">
+                    <svg viewBox="0 0 24 24" className="arr-2" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z" />
+                    </svg>
+                    <span className="text">Plan</span>
+                    <span className="circle" />
+                    <svg viewBox="0 0 24 24" className="arr-1" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z" />
+                    </svg>
+                  </Link>
+                </StyledNextStepButton>
+              </div>
+            </div>
+          </LampContainer>
+        </motion.div>
+      )}
     </motion.div>
   );
 }

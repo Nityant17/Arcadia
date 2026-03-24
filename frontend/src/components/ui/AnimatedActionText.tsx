@@ -41,7 +41,7 @@ const Wrapper = styled.div`
     display: block;
     height: 100%;
     color: #06b6d4; /* Arcadia Cyan */
-    animation: spin_words 4s infinite cubic-bezier(0.4, 0, 0.2, 1);
+    animation: spin_words 6s infinite cubic-bezier(0.4, 0, 0.2, 1);
   }
   @keyframes spin_words {
     10% { transform: translateY(-102%); }
