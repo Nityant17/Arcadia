@@ -9,7 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAudioPlayer } from "@/hooks/useAudioPlayer";
 import { type ChatMessage, useChatMessages } from "@/hooks/useChatMessages";
-import { apiClient, type DocumentItem } from "@/services/api";
+import { apiClient, getApiErrorMessage, type DocumentItem } from "@/services/api";
 import { useAppStore } from "@/store/useAppStore";
 import {
   FileText,
@@ -133,10 +133,10 @@ export default function ChatPage() {
         if (targetLanguage !== "en") {
           await retranslateAll(targetLanguage);
         }
-      } catch {
+      } catch (error) {
         if (shouldApply()) {
           setAllMessages([]);
-          toast.error("Failed to load chat history");
+          toast.error(getApiErrorMessage(error, "Failed to load chat history"));
         }
       } finally {
         if (shouldApply()) {
@@ -178,8 +178,8 @@ export default function ChatPage() {
           setActiveDocumentId(preferredExists ? preferredDocumentId! : nextDocuments[0].id);
           window.sessionStorage.removeItem(pendingDocumentStorageKey);
         }
-      } catch {
-        toast.error("Failed to load documents for chat");
+      } catch (error) {
+        toast.error(getApiErrorMessage(error, "Failed to load documents for chat"));
       }
     };
 
@@ -241,8 +241,8 @@ export default function ChatPage() {
           originalLanguage: response.data.language || currentLanguage?.id || "en",
           sources: response.data.sources || [],
         });
-      } catch {
-        toast.error("Failed to send chat message");
+      } catch (error) {
+        toast.error(getApiErrorMessage(error, "Failed to send chat message"));
       } finally {
         setSending(false);
       }
@@ -325,8 +325,8 @@ export default function ChatPage() {
         setLocalContextName(file.name);
         setLocalContextText(extractedText.slice(0, maxContextChars));
         toast.success("Context attached to this chat only");
-      } catch {
-        toast.error("Failed to process attached file");
+      } catch (error) {
+        toast.error(getApiErrorMessage(error, "Failed to process attached file"));
       } finally {
         setUploadingContext(false);
       }
@@ -343,8 +343,8 @@ export default function ChatPage() {
       setAllMessages([]);
       stop();
       toast.success("Started a new chat");
-    } catch {
-      toast.error("Failed to clear chat history");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to clear chat history"));
     } finally {
       setClearing(false);
     }

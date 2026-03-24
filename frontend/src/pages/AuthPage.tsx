@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TextHoverEffect } from "@/components/ui/text-hover-effect";
 import { Meteors } from "@/components/ui/meteors";
 import { useAppStore } from "@/store/useAppStore";
-import { apiClient } from "@/services/api";
+import { apiClient, getApiErrorMessage } from "@/services/api";
 import { useNavigate } from "@tanstack/react-router";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { motion } from "motion/react";
@@ -39,8 +39,7 @@ export default function AuthPage() {
       toast.success("Signed in successfully");
       navigate({ to: "/home" });
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Failed to sign in";
+      const message = getApiErrorMessage(err, "Failed to sign in");
       setError(message);
       toast.error(message);
     } finally {
@@ -63,8 +62,7 @@ export default function AuthPage() {
       toast.success("Account created successfully");
       navigate({ to: "/home" });
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Failed to create account";
+      const message = getApiErrorMessage(err, "Failed to create account");
       setError(message);
       toast.error(message);
     } finally {

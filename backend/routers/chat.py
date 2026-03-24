@@ -147,6 +147,10 @@ async def chat_stream(
     if not doc:
         raise HTTPException(404, "Document not found.")
 
+    safety = safety_service.check_text(request.message)
+    if not safety.allowed:
+        raise HTTPException(400, safety.reason)
+
     # Retrieve context
     chunks = rag_service.query(request.message, document_id=request.document_id)
     system_prompt, user_prompt = llm_service.build_rag_prompt(
@@ -155,8 +159,22 @@ async def chat_stream(
 
     async def event_generator():
         try:
+            streamed_text = ""
             async for token in llm_service.stream_generate(user_prompt, system_prompt):
+                candidate_text = streamed_text + token
+                answer_safety = safety_service.check_text(candidate_text[-4000:])
+                if not answer_safety.allowed:
+                    yield f"data: [ERROR] {answer_safety.reason}\n\n"
+                    return
+
+                streamed_text = candidate_text
                 yield f"data: {token}\n\n"
+
+            final_safety = safety_service.check_text(streamed_text)
+            if not final_safety.allowed:
+                yield f"data: [ERROR] {final_safety.reason}\n\n"
+                return
+
             yield "data: [DONE]\n\n"
         except Exception as e:
             yield f"data: [ERROR] {e}\n\n"

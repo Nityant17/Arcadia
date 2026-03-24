@@ -68,6 +68,11 @@ async def upload_document(
     except Exception as e:
         raise HTTPException(500, f"Failed to save file: {e}")
 
+    image_safety = safety_service.check_image_file(str(save_path))
+    if not image_safety.allowed:
+        save_path.unlink(missing_ok=True)
+        raise HTTPException(400, image_safety.reason)
+
     # OCR / text extraction
     try:
         extracted_text = ocr_service.extract_text(str(save_path))

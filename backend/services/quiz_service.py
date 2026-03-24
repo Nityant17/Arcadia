@@ -12,6 +12,7 @@ from models.database import SessionLocal, QuizAttempt, MasteryScore, Document, W
 from services.llm_service import llm_service
 from services.rag_service import rag_service
 from services.translate_service import translate_service
+from services.safety_service import safety_service
 from config import MASTERY_THRESHOLD_TIER2, MASTERY_THRESHOLD_TIER3, QUIZ_QUESTIONS_PER_TIER
 
 
@@ -21,6 +22,10 @@ class QuizService:
                             num_questions: int = QUIZ_QUESTIONS_PER_TIER,
                             language: str = "en", focus_topic: str = "") -> Dict:
         """Generate quiz questions from a document's content."""
+        focus_safety = safety_service.check_text(focus_topic)
+        if not focus_safety.allowed:
+            raise PermissionError(focus_safety.reason)
+
         # 1. Get document context
         if focus_topic:
             # Use RAG to fetch chunks relevant to the specific topic
@@ -38,6 +43,10 @@ class QuizService:
         if len(context) > max_context_chars:
             context = context[:max_context_chars]
 
+        context_safety = safety_service.check_text(context[:6000])
+        if not context_safety.allowed:
+            raise PermissionError(context_safety.reason)
+
         # 2. Generate questions via LLM (always in English for reliability)
         system_prompt, user_prompt = llm_service.build_quiz_prompt(
             context, tier, num_questions, "en"
@@ -48,6 +57,14 @@ class QuizService:
         questions = result.get("questions", [])
         if not questions:
             raise ValueError("LLM returned no questions")
+
+        generated_bundle = "\n".join(
+            f"{q.get('question', '')}\n{' '.join(q.get('options', []))}\n{q.get('explanation', '')}"
+            for q in questions
+        )
+        generated_safety = safety_service.check_text(generated_bundle[:9000])
+        if not generated_safety.allowed:
+            raise PermissionError(generated_safety.reason)
 
         quiz_id = str(uuid.uuid4())
 

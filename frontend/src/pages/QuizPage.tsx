@@ -2,7 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CyberButton } from "@/components/ui/CyberButton";
 import { Progress } from "@/components/ui/progress";
-import { apiClient, type DocumentItem } from "@/services/api";
+import { apiClient, getApiErrorMessage, type DocumentItem } from "@/services/api";
 import { useAppStore } from "@/store/useAppStore";
 import {
   Brain,
@@ -143,8 +143,8 @@ export default function QuizPage() {
         rough_work_text: hintRoughWorkText,
       });
       setHintText(response.data.hint);
-    } catch {
-      toast.error("Failed to generate hint");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to generate hint"));
     } finally {
       setHintLoading(false);
     }
@@ -249,8 +249,8 @@ export default function QuizPage() {
         if (response.data.documents.length > 0) {
           setDocumentId(response.data.documents[0].id);
         }
-      } catch {
-        toast.error("Failed to load documents for quiz");
+      } catch (error) {
+        toast.error(getApiErrorMessage(error, "Failed to load documents for quiz"));
       }
     };
 
@@ -281,8 +281,8 @@ export default function QuizPage() {
       setResults([]);
       setScore(0);
       setStep("quiz");
-    } catch {
-      toast.error("Failed to generate Quiz");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to generate quiz"));
     } finally {
       setLoadingGenerate(false);
     }
@@ -323,8 +323,8 @@ export default function QuizPage() {
       setScore(response.data.correct_answers);
       setStep("review");
       toast.success(`Quiz complete! ${response.data.correct_answers}/${response.data.total_questions} correct`);
-    } catch {
-      toast.error("Failed to submit Quiz");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to submit quiz"));
     } finally {
       setLoadingSubmit(false);
     }
@@ -551,8 +551,8 @@ export default function QuizPage() {
                   setHintImageBase64(base64);
                   setHintImagePreview(dataUrl);
                   setHintText("");
-                } catch {
-                  toast.error("Failed to read image");
+                } catch (error) {
+                  toast.error(getApiErrorMessage(error, "Failed to read image"));
                 }
               }}
             />

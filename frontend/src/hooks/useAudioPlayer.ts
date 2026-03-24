@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { apiClient } from "@/services/api";
+import { apiClient, getApiErrorMessage } from "@/services/api";
 import { toast } from "sonner";
 
 let sharedAudio: HTMLAudioElement | null = null;
@@ -80,16 +80,16 @@ export function useAudioPlayer() {
           sharedLoadingId = null;
           cleanupAudio();
           notifyAll();
-          toast.error("Failed to generate audio");
+          toast.error("Failed to generate audio: The browser could not play the generated audio.");
         };
 
         await sharedAudio.play();
-      } catch {
+      } catch (error) {
         sharedPlayingId = null;
         sharedLoadingId = null;
         cleanupAudio();
         notifyAll();
-        toast.error("Failed to generate audio");
+        toast.error(getApiErrorMessage(error, "Failed to generate audio"));
       }
     },
     [stop],

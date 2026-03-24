@@ -8,6 +8,7 @@ from typing import Dict, List
 from services.llm_service import llm_service
 from services.rag_service import rag_service
 from services.translate_service import translate_service
+from services.safety_service import safety_service
 
 
 class GenerateService:
@@ -16,6 +17,10 @@ class GenerateService:
                                    language: str = "en",
                                    focus_topic: str = "") -> Dict:
         """Generate a one-page cheatsheet from document content."""
+        focus_safety = safety_service.check_text(focus_topic)
+        if not focus_safety.allowed:
+            raise PermissionError(focus_safety.reason)
+
         if focus_topic:
             chunks = rag_service.query(focus_topic, document_id=document_id, top_k=10)
             context = "\n\n".join(c["text"] for c in chunks) if chunks else ""
@@ -30,8 +35,16 @@ class GenerateService:
         if len(context) > 8000:
             context = context[:8000]
 
+        context_safety = safety_service.check_text(context[:6000])
+        if not context_safety.allowed:
+            raise PermissionError(context_safety.reason)
+
         system_prompt, user_prompt = llm_service.build_cheatsheet_prompt(context, "en")
         content = await llm_service.generate(user_prompt, system_prompt, temperature=0.5)
+
+        output_safety = safety_service.check_text(content)
+        if not output_safety.allowed:
+            raise PermissionError(output_safety.reason)
 
         # Translate to target language if not English
         if language != "en":
@@ -53,6 +66,10 @@ class GenerateService:
                                    language: str = "en",
                                    focus_topic: str = "") -> Dict:
         """Generate a set of flashcards from document content."""
+        focus_safety = safety_service.check_text(focus_topic)
+        if not focus_safety.allowed:
+            raise PermissionError(focus_safety.reason)
+
         if focus_topic:
             chunks = rag_service.query(focus_topic, document_id=document_id, top_k=8)
             context = "\n\n".join(c["text"] for c in chunks) if chunks else ""
@@ -66,11 +83,22 @@ class GenerateService:
         if len(context) > 6000:
             context = context[:6000]
 
+        context_safety = safety_service.check_text(context[:6000])
+        if not context_safety.allowed:
+            raise PermissionError(context_safety.reason)
+
         system_prompt, user_prompt = llm_service.build_flashcards_prompt(context, "en")
         result = await llm_service.generate_json(user_prompt, system_prompt, temperature=0.4)
 
         cards = result.get("cards", [])
         processed_cards = [{"front": c.get("front", ""), "back": c.get("back", "")} for c in cards]
+
+        merged_cards_text = "\n".join(
+            f"{c.get('front', '')}\n{c.get('back', '')}" for c in processed_cards
+        )
+        cards_safety = safety_service.check_text(merged_cards_text[:8000])
+        if not cards_safety.allowed:
+            raise PermissionError(cards_safety.reason)
 
         # Translate cards to target language if not English
         if language != "en":
@@ -100,6 +128,10 @@ class GenerateService:
         if len(context) > 6000:
             context = context[:6000]
 
+        context_safety = safety_service.check_text(context[:6000])
+        if not context_safety.allowed:
+            raise PermissionError(context_safety.reason)
+
         system_prompt, user_prompt = llm_service.build_diagram_prompt(context)
 
         # Try JSON parsing first; fall back to extracting mermaid code directly
@@ -115,6 +147,10 @@ class GenerateService:
 
         if not mermaid_code:
             mermaid_code = "graph TD\n  A[No diagram generated]"
+
+        diagram_safety = safety_service.check_text(mermaid_code)
+        if not diagram_safety.allowed:
+            raise PermissionError(diagram_safety.reason)
 
         return {
             "document_id": document_id,

@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { apiClient, type DocumentItem } from "@/services/api";
+import { apiClient, getApiErrorMessage, type DocumentItem } from "@/services/api";
 import { useAppStore } from "@/store/useAppStore";
 import {
   FileText,
@@ -76,8 +76,8 @@ export default function NotesPage() {
       } else {
         setSelectedId("");
       }
-    } catch {
-      toast.error("Failed to fetch notes");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to fetch notes"));
     } finally {
       setLoadingNotes(false);
     }
@@ -160,8 +160,8 @@ export default function NotesPage() {
         fileInputRef.current.value = "";
       }
       toast.success("Note uploaded successfully");
-    } catch {
-      toast.error("Failed to upload note");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to upload note"));
     } finally {
       setUploading(false);
     }
@@ -190,8 +190,8 @@ export default function NotesPage() {
       }
       await refreshPinnedItems();
       toast.success("Note deleted");
-    } catch {
-      toast.error("Failed to delete note");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to delete note"));
     } finally {
       setDeletingId(null);
     }
@@ -210,8 +210,8 @@ export default function NotesPage() {
       );
       await refreshPinnedItems();
       toast.success(nextStarState ? "Note starred" : "Note unstarred");
-    } catch {
-      toast.error("Failed to update note star");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to update note star"));
     } finally {
       setStarringId(null);
     }
@@ -236,8 +236,8 @@ export default function NotesPage() {
         setUploadTopic(response.data.topics[0].title);
       }
       toast.success("Topics extracted from note");
-    } catch {
-      toast.error("Failed to extract topics");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to extract topics"));
     } finally {
       setExtractingTopics(false);
     }

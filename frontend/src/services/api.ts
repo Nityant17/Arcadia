@@ -1,6 +1,77 @@
 import axios from "axios";
 import { useAppStore } from "@/store/useAppStore";
 
+function extractErrorDetail(payload: unknown): string {
+  if (!payload) return "";
+
+  if (typeof payload === "string") {
+    return payload.trim();
+  }
+
+  if (Array.isArray(payload)) {
+    const parts = payload
+      .map((item) => extractErrorDetail(item))
+      .filter((item) => Boolean(item));
+    return parts.join("; ");
+  }
+
+  if (typeof payload === "object") {
+    const record = payload as Record<string, unknown>;
+
+    const direct =
+      extractErrorDetail(record.detail) ||
+      extractErrorDetail(record.message) ||
+      extractErrorDetail(record.error);
+    if (direct) return direct;
+
+    if (Array.isArray(record.errors)) {
+      const message = record.errors
+        .map((item) => extractErrorDetail(item))
+        .filter((item) => Boolean(item))
+        .join("; ");
+      if (message) return message;
+    }
+
+    if (typeof record.msg === "string") {
+      const loc = Array.isArray(record.loc)
+        ? record.loc.filter((entry) => typeof entry === "string" || typeof entry === "number").join(".")
+        : "";
+      return loc ? `${loc}: ${record.msg}` : record.msg;
+    }
+  }
+
+  return "";
+}
+
+function statusFallback(status: number): string {
+  if (status === 401) return "Your session expired. Please sign in again.";
+  if (status === 403) return "You do not have permission for this action.";
+  if (status === 404) return "Requested resource was not found.";
+  if (status === 409) return "This action conflicts with existing data. Please review and retry.";
+  if (status === 422) return "Invalid input. Please review the form and try again.";
+  if (status >= 500) return "Server error. Please try again shortly.";
+  return "Request failed. Please try again.";
+}
+
+export function getApiErrorMessage(error: unknown, fallback: string): string {
+  if (axios.isAxiosError(error)) {
+    const detail = extractErrorDetail(error.response?.data);
+    if (detail) return `${fallback}: ${detail}`;
+
+    if (!error.response) {
+      return `${fallback}: Unable to reach the server. Please check your connection and backend status.`;
+    }
+
+    return `${fallback}: ${statusFallback(error.response.status)}`;
+  }
+
+  if (error instanceof Error && error.message.trim()) {
+    return `${fallback}: ${error.message.trim()}`;
+  }
+
+  return fallback;
+}
+
 export interface AuthResponse {
   user_id: string;
   name: string;
@@ -103,6 +174,24 @@ api.interceptors.request.use((config) => {
   }
   return config;
 });
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (axios.isAxiosError(error)) {
+      const detail = extractErrorDetail(error.response?.data);
+      if (detail) {
+        error.message = detail;
+      } else if (!error.response) {
+        error.message = "Unable to reach the server. Please check your connection and backend status.";
+      } else {
+        error.message = statusFallback(error.response.status);
+      }
+    }
+
+    return Promise.reject(error);
+  },
+);
 
 export const apiClient = {
   login: (email: string, password: string) =>

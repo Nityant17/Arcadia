@@ -5,7 +5,7 @@ import { QuickToolsGrid, type QuickToolId } from "@/components/ui/QuickToolsGrid
 import { TaskChecklist } from "@/components/ui/TaskChecklist";
 import { Button } from "@/components/ui/button";
 import { getPinnedFlashcards, togglePinnedFlashcard, type PinnedFlashcardItem } from "@/lib/pinnedFlashcards";
-import { apiClient } from "@/services/api";
+import { apiClient, getApiErrorMessage } from "@/services/api";
 import { useAppStore } from "@/store/useAppStore";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { CloudUpload, MessageSquare, Star, Trash2 } from "lucide-react";
@@ -132,8 +132,8 @@ export default function HomePage() {
 
       setRecentNotes((prev) => [newNote, ...prev].slice(0, 3));
       toast.success("Uploaded successfully");
-    } catch {
-      toast.error("Upload failed");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Upload failed"));
     } finally {
       setUploading(false);
       setDragActive(false);
@@ -161,8 +161,8 @@ export default function HomePage() {
       await apiClient.deleteDocument(id);
       setRecentNotes((prev) => prev.filter((note) => note.id !== id));
       toast.success("Note deleted");
-    } catch {
-      toast.error("Failed to delete note");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to delete note"));
     } finally {
       setDeletingId(null);
     }
@@ -242,8 +242,8 @@ export default function HomePage() {
       try {
         const response = await apiClient.extractTopics(docId, true);
         toast.success(`Extracted ${response.data.topics.length} topics`);
-      } catch {
-        toast.error("Failed to extract topics");
+      } catch (error) {
+        toast.error(getApiErrorMessage(error, "Failed to extract topics"));
       } finally {
         setQuickToolBusy(null);
       }
@@ -263,8 +263,8 @@ export default function HomePage() {
         );
         toast.success("Cheatsheet generated. Opening Study.");
         void navigate({ to: "/study" });
-      } catch {
-        toast.error("Failed to generate cheatsheet");
+      } catch (error) {
+        toast.error(getApiErrorMessage(error, "Failed to generate cheatsheet"));
       } finally {
         setQuickToolBusy(null);
       }

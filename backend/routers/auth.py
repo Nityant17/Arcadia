@@ -95,7 +95,7 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)):
 def login(req: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == req.email.lower()).first()
     if not user or user.password_hash != _hash_password(req.password):
-        raise HTTPException(401, "Invalid email or password")
+        raise HTTPException(401, "No account found with those credentials. Check email/password or create an account.")
 
     token = secrets.token_urlsafe(32)
     session = UserSession(

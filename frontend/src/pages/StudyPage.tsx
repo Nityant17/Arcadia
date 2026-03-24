@@ -4,7 +4,7 @@ import { Flashcard } from "@/components/ui/Flashcard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAudioPlayer } from "@/hooks/useAudioPlayer";
 import { buildPinnedFlashcardId, getPinnedFlashcards, togglePinnedFlashcard } from "@/lib/pinnedFlashcards";
-import { apiClient, type DocumentItem } from "@/services/api";
+import { apiClient, getApiErrorMessage, type DocumentItem } from "@/services/api";
 import { useAppStore } from "@/store/useAppStore";
 import { ChevronLeft, ChevronRight, Loader2, Sparkles, StopCircle, Volume2 } from "lucide-react";
 import { motion } from "motion/react";
@@ -122,8 +122,8 @@ export default function StudyPage() {
         if (response.data.documents.length > 0) {
           setDocumentId(response.data.documents[0].id);
         }
-      } catch {
-        toast.error("Failed to load documents for study generation");
+      } catch (error) {
+        toast.error(getApiErrorMessage(error, "Failed to load documents for study generation"));
       }
     };
 
@@ -143,8 +143,8 @@ export default function StudyPage() {
         const id = `mermaid-${Date.now()}`;
         const { svg } = await mermaid.render(id, diagram.mermaid_code);
         setDiagramSvg(svg);
-      } catch {
-        toast.error("Failed to render diagram");
+      } catch (error) {
+        toast.error(getApiErrorMessage(error, "Failed to render diagram"));
       }
     };
 
@@ -257,8 +257,8 @@ export default function StudyPage() {
       setCheatsheetTitle(response.data.title);
       setCheatsheetContent(response.data.content);
       toast.success("Cheatsheet generated");
-    } catch {
-      toast.error("Failed to generate cheatsheet");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to generate cheatsheet"));
     } finally {
       setLoading(false);
     }
@@ -280,8 +280,8 @@ export default function StudyPage() {
 
       setFlashcards(response.data.cards);
       toast.success("Flashcards generated");
-    } catch {
-      toast.error("Failed to generate flashcards");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to generate flashcards"));
     } finally {
       setLoading(false);
     }
@@ -303,8 +303,8 @@ export default function StudyPage() {
 
       setDiagram(response.data);
       toast.success("Diagram generated");
-    } catch {
-      toast.error("Failed to generate diagram");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to generate diagram"));
     } finally {
       setLoading(false);
     }

@@ -1,6 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { apiClient, type DocumentItem } from "@/services/api";
+import { apiClient, getApiErrorMessage, type DocumentItem } from "@/services/api";
 import { useAppStore } from "@/store/useAppStore";
 import { CheckCircle2, Clock, Copy, Loader2, LogOut, Users, Zap } from "lucide-react";
 import { motion } from "motion/react";
@@ -80,8 +80,8 @@ export default function ChallengePage() {
         if (response.data.documents.length > 0) {
           setDocumentId(response.data.documents[0].id);
         }
-      } catch {
-        toast.error("Failed to load documents for challenge room");
+      } catch (error) {
+        toast.error(getApiErrorMessage(error, "Failed to load documents for challenge room"));
       }
     };
 
@@ -112,8 +112,8 @@ export default function ChallengePage() {
         );
 
         setParticipants(mappedParticipants);
-      } catch {
-        toast.error("Failed to refresh challenge room");
+      } catch (error) {
+        toast.error(getApiErrorMessage(error, "Failed to refresh challenge room"));
       }
     };
 
@@ -145,8 +145,8 @@ export default function ChallengePage() {
       setScreen("room");
       setIsHost(true);
       toast.success("Challenge room created");
-    } catch {
-      toast.error("Failed to create challenge room");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to create challenge room"));
     } finally {
       setLoading(false);
     }
@@ -165,8 +165,8 @@ export default function ChallengePage() {
       setScreen("room");
       setIsHost(false);
       toast.success("Joined challenge room");
-    } catch {
-      toast.error("Failed to join challenge room");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to join challenge room"));
     } finally {
       setLoading(false);
     }
@@ -178,8 +178,8 @@ export default function ChallengePage() {
       await apiClient.startChallengeRoom(code);
       setRoomStatus("active");
       toast.success("Challenge started");
-    } catch {
-      toast.error("Failed to start challenge room");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to start challenge room"));
     } finally {
       setLoading(false);
     }

@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { apiClient } from "@/services/api";
+import { apiClient, getApiErrorMessage } from "@/services/api";
 import { useAppStore } from "@/store/useAppStore";
 import {
   BookOpen,
@@ -145,8 +145,8 @@ export default function DashboardPage() {
             weakness: Math.round(topic.weakness_score * 100),
           })),
       );
-    } catch {
-      toast.error("Failed to load dashboard statistics");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to load dashboard statistics"));
       setStats(null);
       setMastery([]);
       setActivityHeatmap([]);
@@ -169,8 +169,8 @@ export default function DashboardPage() {
       await apiClient.resetDashboard();
       toast.success("Progress reset successfully");
       await loadDashboard();
-    } catch {
-      toast.error("Failed to reset dashboard progress");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to reset dashboard progress"));
     } finally {
       setResetLoading(false);
     }

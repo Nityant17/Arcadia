@@ -20,6 +20,7 @@ Arcadia helps students learn from their own materials:
 - Produce cheatsheets, flashcards, and Mermaid diagrams
 - Use translation + TTS for multilingual study
 - Plan study schedules and challenge friends
+- Enforce Responsible AI checks for unsafe/explicit uploads and harmful instructions
 
 ---
 
@@ -45,7 +46,7 @@ Protected routes require auth token in local state/storage.
 - `/planner` → `PlannerPage`
 - `/challenge` → `ChallengePage`
 
-Routing is defined in `arcadia_react_frontend/src/frontend/src/App.tsx`.
+Routing is defined in `frontend/src/App.tsx`.
 
 ---
 
@@ -58,8 +59,8 @@ Frontend dev config:
 - Frontend env: `VITE_API_BASE_URL=http://localhost:8000/api`
 
 Files:
-- `arcadia_react_frontend/src/frontend/vite.config.js`
-- `arcadia_react_frontend/src/frontend/.env`
+- `frontend/vite.config.js`
+- `frontend/.env` (optional)
 
 ### 4.2 Authentication
 - Login/register returns a `token`
@@ -67,7 +68,7 @@ Files:
 - Axios interceptor handles this globally
 
 File:
-- `arcadia_react_frontend/src/frontend/src/services/api.ts`
+- `frontend/src/services/api.ts`
 
 ### 4.3 Static TTS Audio
 Backend mounts static files and returns audio URLs such as:
@@ -85,6 +86,19 @@ For all major API calls:
 ### 4.5 Language + TTS Behavior
 - Re-translation: on `currentLanguage` change, iterate all prior assistant messages and call translate endpoint
 - TTS race condition: if user plays a second message, stop/reset current audio before starting next
+
+### 4.6 Responsible AI Guardrails
+- Unsafe content returns `HTTP 400` with a safety reason (instead of generating output)
+- Upload flow blocks:
+  - text/ocr content with explicit sexual material
+  - harmful instruction content (ex: bomb-making)
+  - unsafe images via image moderation classifier
+- Chat (`/chat` and `/chat/stream`) blocks unsafe prompts and unsafe generated output
+- Study generation (`/generate/*`) and quiz generation (`/quiz/generate`) block unsafe topics/content/output
+- Image moderation uses Hugging Face model `Falconsai/nsfw_image_detection`:
+  - preferred: API mode via `HUGGINGFACEHUB_API_TOKEN`
+  - optional: local mode if `transformers` + runtime backend are available
+  - default is fail-closed if image moderation cannot run
 
 ---
 
@@ -361,6 +375,14 @@ For consistent frontend service naming:
 cd backend
 source arc/bin/activate
 pip install -r requirements.txt
+
+# Responsible AI image moderation (recommended)
+export HUGGINGFACEHUB_API_TOKEN="<your_hf_token>"
+
+# Optional toggles
+# export ARCADIA_IMAGE_MODERATION_ENABLED=true
+# export ARCADIA_IMAGE_MODERATION_FAIL_CLOSED=true
+
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
@@ -370,7 +392,7 @@ Check:
 
 ### 8.2 Frontend
 ```bash
-cd arcadia_react_frontend/src/frontend
+cd frontend
 npm install
 npx vite --host 0.0.0.0 --port 5173
 ```
@@ -400,15 +422,14 @@ Arcadia/
 │   │   └── challenge.py
 │   └── models/schemas.py
 │
-├── arcadia_react_frontend/
-│   └── src/frontend/
-│       ├── .env
-│       ├── vite.config.js
-│       └── src/
-│           ├── App.tsx
-│           ├── pages/
-│           ├── store/useAppStore.ts
-│           └── services/api.ts
+├── frontend/
+│   ├── .env (optional)
+│   ├── vite.config.js
+│   └── src/
+│       ├── App.tsx
+│       ├── pages/
+│       ├── store/useAppStore.ts
+│       └── services/api.ts
 │
 └── README.md
 ```
@@ -425,3 +446,35 @@ If you are an AI generating frontend code for Arcadia:
 - do not hardcode `http://localhost:8000` in page components; use `api.ts` + Vite proxy.
 
 This README should be treated as the canonical integration spec for React frontend parity with FastAPI backend.
+
+---
+
+## 11) Responsible AI Test Plan (Manual)
+
+Use these checks after starting backend on `localhost:8000`.
+
+### 11.1 Upload block: harmful instructions in document text
+1. Create a text file with harmful content (example phrase containing `how to make a bomb`).
+2. Upload it using Notes upload UI or `POST /api/upload`.
+3. Expected: `HTTP 400` and safety error message.
+
+### 11.2 Upload block: explicit image
+1. Upload an image expected to be unsafe (18+ explicit content).
+2. Expected: `HTTP 400` and adult/explicit rejection message.
+3. If you get "Image moderation is not available right now", set `HUGGINGFACEHUB_API_TOKEN` and retry.
+
+### 11.3 Chat block: harmful user prompt
+1. Ask in chat: content requesting weapon/explosive instructions.
+2. Expected: request rejected with `HTTP 400` and no answer returned.
+
+### 11.4 Streaming chat block
+1. Use chat stream endpoint with a harmful prompt.
+2. Expected: early `[ERROR]` SSE event with safety reason, no unsafe content streamed.
+
+### 11.5 Study generation block (`/generate/*`)
+1. Trigger cheatsheet/flashcards/diagram generation with harmful `focus_topic`.
+2. Expected: `HTTP 400` safety error.
+
+### 11.6 Quiz generation block (`/quiz/generate`)
+1. Generate quiz with harmful `focus_topic` or unsafe source doc.
+2. Expected: `HTTP 400` safety error.

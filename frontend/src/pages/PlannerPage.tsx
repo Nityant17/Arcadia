@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { apiClient, type PlannerSubjectStat, type PlannerTask } from "@/services/api";
+import { apiClient, getApiErrorMessage, type PlannerSubjectStat, type PlannerTask } from "@/services/api";
 import { CalendarClock, Loader2 } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -219,8 +219,8 @@ export default function PlannerPage() {
         }
         return next;
       });
-    } catch {
-      toast.error("Failed to load planner data");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to load planner data"));
     }
   }
 
@@ -257,8 +257,8 @@ export default function PlannerPage() {
       });
       await loadPlannerData();
       toast.success("AI timetable generated");
-    } catch {
-      toast.error("Failed to generate AI timetable");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to generate AI timetable"));
     } finally {
       setGeneratingPlan(false);
     }
@@ -289,8 +289,8 @@ export default function PlannerPage() {
       setAllTasks([]);
       await loadPlannerData();
       toast.success("Planner cleared");
-    } catch {
-      toast.error("Failed to clear planner");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to clear planner"));
     } finally {
       setClearingPlan(false);
     }

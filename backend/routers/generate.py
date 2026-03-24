@@ -123,6 +123,8 @@ async def generate_cheatsheet(
         result = await generate_service.generate_cheatsheet(
             request.document_id, request.language, request.focus_topic
         )
+    except PermissionError as e:
+        raise HTTPException(400, str(e))
     except ValueError as e:
         raise HTTPException(422, str(e))
     except ConnectionError as e:
@@ -173,6 +175,8 @@ async def generate_flashcards(
         result = await generate_service.generate_flashcards(
             request.document_id, request.language, request.focus_topic
         )
+    except PermissionError as e:
+        raise HTTPException(400, str(e))
     except ValueError as e:
         raise HTTPException(422, str(e))
     except ConnectionError as e:
@@ -220,6 +224,8 @@ async def generate_diagram(
 
     try:
         result = await generate_service.generate_diagram(request.document_id)
+    except PermissionError as e:
+        raise HTTPException(400, str(e))
     except ValueError as e:
         raise HTTPException(422, str(e))
     except ConnectionError as e:

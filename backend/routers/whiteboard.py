@@ -48,6 +48,10 @@ async def whiteboard_hint(
             tmp_path = Path(tmp.name)
 
         try:
+            image_safety = safety_service.check_image_file(str(tmp_path))
+            if not image_safety.allowed:
+                raise HTTPException(400, image_safety.reason)
+
             ocr_text = ocr_service.extract_text(str(tmp_path))
         finally:
             tmp_path.unlink(missing_ok=True)

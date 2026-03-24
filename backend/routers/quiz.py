@@ -34,6 +34,8 @@ async def generate_quiz(
             language=request.language,
             focus_topic=request.focus_topic,
         )
+    except PermissionError as e:
+        raise HTTPException(400, str(e))
     except ValueError as e:
         raise HTTPException(422, str(e))
     except ConnectionError as e:
