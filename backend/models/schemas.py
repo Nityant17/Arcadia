@@ -10,6 +10,8 @@ from datetime import datetime
 
 class DocumentResponse(BaseModel):
     id: str
+    note_id: str = ""
+    note_title: str = ""
     filename: str
     original_name: str
     subject: str
@@ -40,11 +42,37 @@ class PinnedDocumentItem(BaseModel):
     to: str
 
 
+class NoteResponse(BaseModel):
+    id: str
+    title: str
+    subject: str
+    document_count: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class NoteUpdateRequest(BaseModel):
+    title: Optional[str] = None
+    subject: Optional[str] = None
+    topic: Optional[str] = None
+
+
+class NoteUpdateResponse(BaseModel):
+    note: NoteResponse
+    documents: List[DocumentResponse]
+
+
+class NoteStarUpdateResponse(BaseModel):
+    note_id: str
+    is_starred: bool
+
+
 # ─── Chat ─────────────────────────────────────────────────────
 
 class ChatRequest(BaseModel):
     document_id: str = ""
     document_ids: List[str] = []
+    note_id: str = ""
     topic: str = ""
     user_id: str = "guest"
     message: str
@@ -60,7 +88,8 @@ class ChatResponse(BaseModel):
 # ─── Quiz ─────────────────────────────────────────────────────
 
 class QuizGenerateRequest(BaseModel):
-    document_id: str
+    document_id: str = ""
+    note_id: str = ""
     tier: int = Field(default=1, ge=1, le=3)
     num_questions: int = Field(default=5, ge=1, le=15)
     language: str = "en"
@@ -77,6 +106,7 @@ class QuizQuestion(BaseModel):
 class QuizGenerateResponse(BaseModel):
     quiz_id: str
     document_id: str
+    note_id: str = ""
     tier: int
     questions: List[QuizQuestion]
 
@@ -88,7 +118,8 @@ class QuizAnswer(BaseModel):
 
 class QuizSubmitRequest(BaseModel):
     quiz_id: str
-    document_id: str
+    document_id: str = ""
+    note_id: str = ""
     user_id: str = "guest"
     answers: List[QuizAnswer]
 
@@ -116,7 +147,8 @@ class QuizSubmitResponse(BaseModel):
 # ─── Generate ─────────────────────────────────────────────────
 
 class GenerateRequest(BaseModel):
-    document_id: str
+    document_id: str = ""
+    note_id: str = ""
     language: str = "en"
     focus_topic: str = ""  # Optional: focus on a specific chapter/topic
 
@@ -143,6 +175,20 @@ class DiagramResponse(BaseModel):
     document_id: str
     mermaid_code: str
     title: str
+
+
+class CodeRunRequest(BaseModel):
+    language: str = "python"
+    code: str
+    stdin: str = ""
+
+
+class CodeRunResponse(BaseModel):
+    language: str
+    stdout: str
+    stderr: str
+    exit_code: int
+    duration_ms: int
 
 
 # ─── TTS ──────────────────────────────────────────────────────

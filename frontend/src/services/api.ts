@@ -81,6 +81,8 @@ export interface AuthResponse {
 
 export interface DocumentItem {
   id: string;
+  note_id: string;
+  note_title?: string;
   filename: string;
   original_name: string;
   subject: string;
@@ -99,6 +101,18 @@ export interface PinnedItem {
 export interface TopicItem {
   title: string;
   summary: string;
+}
+
+export interface NoteUpdateResponse {
+  note: {
+    id: string;
+    title: string;
+    subject: string;
+    document_count: number;
+    created_at: string;
+    updated_at: string;
+  };
+  documents: DocumentItem[];
 }
 
 export interface PlannerTask {
@@ -123,6 +137,7 @@ export interface PlannerSubjectStat {
 export interface ChatRequest {
   document_id?: string;
   document_ids?: string[];
+  note_id?: string;
   topic?: string;
   message: string;
   language: string;
@@ -161,6 +176,14 @@ export interface StoredStudyMaterialsResponse {
     title: string;
     mermaid_code: string;
   } | null;
+}
+
+export interface CodeRunResponse {
+  language: string;
+  stdout: string;
+  stderr: string;
+  exit_code: number;
+  duration_ms: number;
 }
 
 const api = axios.create({
@@ -229,10 +252,20 @@ export const apiClient = {
       starred,
     }),
 
+  setNoteStar: (noteId: string, starred: boolean) =>
+    api.patch<{ note_id: string; is_starred: boolean }>(`/notes/${noteId}/star`, {
+      starred,
+    }),
+
   updateDocument: (
     docId: string,
     payload: { filename?: string; subject?: string; topic?: string }
   ) => api.patch<DocumentItem>(`/documents/${docId}`, payload),
+
+  updateNote: (
+    noteId: string,
+    payload: { title?: string; subject?: string; topic?: string }
+  ) => api.patch<NoteUpdateResponse>(`/notes/${noteId}`, payload),
 
   deleteDocument: (docId: string) => api.delete(`/documents/${docId}`),
 
@@ -284,6 +317,7 @@ export const apiClient = {
 
   generateQuiz: (payload: {
     document_id: string;
+    note_id?: string;
     tier: number;
     num_questions: number;
     language: string;
@@ -292,6 +326,7 @@ export const apiClient = {
     api.post<{
       quiz_id: string;
       document_id: string;
+      note_id?: string;
       tier: number;
       questions: Array<{
         id: number;
@@ -304,6 +339,7 @@ export const apiClient = {
   submitQuiz: (payload: {
     quiz_id: string;
     document_id: string;
+    note_id?: string;
     answers: Array<{ question_id: number; selected_option: number }>;
   }) =>
     api.post<{
@@ -326,16 +362,18 @@ export const apiClient = {
 
   getStoredStudyMaterials: (payload: {
     document_id: string;
+    note_id?: string;
     language: string;
     focus_topic: string;
   }) =>
     api.get<StoredStudyMaterialsResponse>(
-      `/generate/stored/${payload.document_id}?language=${encodeURIComponent(payload.language)}&focus_topic=${encodeURIComponent(payload.focus_topic || "")}`,
+      `/generate/stored/${payload.document_id}?note_id=${encodeURIComponent(payload.note_id || "")}&language=${encodeURIComponent(payload.language)}&focus_topic=${encodeURIComponent(payload.focus_topic || "")}`,
     ),
 
   generateCheatsheet: (
     payload: {
       document_id: string;
+      note_id?: string;
       language: string;
       focus_topic: string;
     },
@@ -349,6 +387,7 @@ export const apiClient = {
   generateFlashcards: (
     payload: {
       document_id: string;
+      note_id?: string;
       language: string;
       focus_topic: string;
     },
@@ -362,6 +401,7 @@ export const apiClient = {
   generateDiagram: (
     payload: {
       document_id: string;
+      note_id?: string;
       language: string;
       focus_topic: string;
     },
@@ -374,6 +414,7 @@ export const apiClient = {
 
   createChallengeRoom: (payload: {
     document_id: string;
+    note_id?: string;
     tier: number;
     num_questions: number;
     language: string;
@@ -444,4 +485,7 @@ export const apiClient = {
     topic?: string;
     rough_work_text?: string;
   }) => api.post<{ hint: string; ocr_text: string }>("/whiteboard/hint", payload),
+
+  runCode: (payload: { language: "python" | "javascript" | "c" | "cpp" | "java"; code: string; stdin?: string }) =>
+    api.post<CodeRunResponse>("/code/run", payload),
 };

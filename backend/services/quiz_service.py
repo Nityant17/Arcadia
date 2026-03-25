@@ -18,7 +18,7 @@ from config import MASTERY_THRESHOLD_TIER2, MASTERY_THRESHOLD_TIER3, QUIZ_QUESTI
 
 class QuizService:
 
-    async def generate_quiz(self, document_id: str, tier: int = 1,
+    async def generate_quiz(self, context_id: str, document_ids: List[str], tier: int = 1,
                             num_questions: int = QUIZ_QUESTIONS_PER_TIER,
                             language: str = "en", focus_topic: str = "") -> Dict:
         """Generate quiz questions from a document's content."""
@@ -27,16 +27,28 @@ class QuizService:
             raise PermissionError(focus_safety.reason)
 
         # 1. Get document context
+        if not document_ids:
+            raise ValueError("No source documents found for this quiz")
+
         if focus_topic:
-            # Use RAG to fetch chunks relevant to the specific topic
-            chunks = rag_service.query(focus_topic, document_id=document_id, top_k=8)
+            chunks = []
+            for doc_id in document_ids:
+                chunks.extend(rag_service.query(focus_topic, document_id=doc_id, top_k=5))
+            chunks.sort(key=lambda c: c.get("distance", 1.0))
+            chunks = chunks[:10]
             context = "\n\n".join(c["text"] for c in chunks) if chunks else ""
             if not context:
-                context = rag_service.get_document_text(document_id) or ""
+                context = "\n\n".join(
+                    rag_service.get_document_text(doc_id) or ""
+                    for doc_id in document_ids
+                ).strip()
         else:
-            context = rag_service.get_document_text(document_id)
+            context = "\n\n".join(
+                rag_service.get_document_text(doc_id) or ""
+                for doc_id in document_ids
+            ).strip()
         if not context:
-            raise ValueError(f"No content found for document '{document_id}'")
+            raise ValueError(f"No content found for context '{context_id}'")
 
         # Truncate context if too long (LLM context window)
         max_context_chars = 6000
@@ -102,12 +114,15 @@ class QuizService:
 
         return {
             "quiz_id": quiz_id,
-            "document_id": document_id,
+            "document_id": context_id,
+            "note_id": context_id,
+            "document_ids": document_ids,
+            "context_id": context_id,
             "tier": tier,
             "questions": formatted_questions,
         }
 
-    def submit_quiz(self, quiz_id: str, document_id: str,
+    def submit_quiz(self, quiz_id: str, context_id: str,
                     questions: List[Dict], answers: List[Dict], user_id: str = "guest") -> Dict:
         """Score a quiz attempt and update mastery."""
         # Build answer lookup
@@ -140,7 +155,7 @@ class QuizService:
         try:
             attempt = QuizAttempt(
                 id=quiz_id,
-                document_id=document_id,
+                document_id=context_id,
                 tier=tier,
                 total_questions=total,
                 correct_answers=correct_count,
@@ -151,16 +166,16 @@ class QuizService:
 
             # Update mastery score
             mastery = db.query(MasteryScore).filter(
-                MasteryScore.document_id == document_id
+                MasteryScore.document_id == context_id
             ).first()
 
             if not mastery:
                 # Look up document name for a human-readable topic label
-                doc = db.query(Document).filter(Document.id == document_id).first()
-                doc_topic = doc.original_name.rsplit('.', 1)[0] if doc else document_id[:8]
+                doc = db.query(Document).filter(Document.id == context_id).first()
+                doc_topic = doc.original_name.rsplit('.', 1)[0] if doc else context_id[:8]
                 mastery = MasteryScore(
                     id=str(uuid.uuid4()),
-                    document_id=document_id,
+                    document_id=context_id,
                     topic=doc_topic,
                     mastery_score=0.0,
                     tier_unlocked=1,
@@ -192,14 +207,14 @@ class QuizService:
             if wrong_count > 0:
                 weak = db.query(WeakTopic).filter(
                     WeakTopic.user_id == user_id,
-                    WeakTopic.document_id == document_id,
+                    WeakTopic.document_id == context_id,
                     WeakTopic.topic == mastery.topic,
                 ).first()
                 if not weak:
                     weak = WeakTopic(
                         id=str(uuid.uuid4()),
                         user_id=user_id,
-                        document_id=document_id,
+                        document_id=context_id,
                         topic=mastery.topic,
                         wrong_attempts=0,
                         weakness_score=0.0,

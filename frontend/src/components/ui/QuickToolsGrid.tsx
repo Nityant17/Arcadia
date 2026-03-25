@@ -4,12 +4,12 @@ import {
   BarChart3,
   BookOpen,
   CloudUpload,
-  FileText,
   Brain,
   MessageSquare,
-  Sparkles,
   Swords,
   Calendar,
+  Code2,
+  NotebookPen,
 } from 'lucide-react';
 
 export type QuickToolId =
@@ -20,8 +20,8 @@ export type QuickToolId =
   | 'planner'
   | 'challenge'
   | 'dashboard'
-  | 'cheatsheet'
-  | 'topics';
+  | 'notes'
+  | 'code';
 
 interface QuickToolsGridProps {
   onToolClick?: (toolId: QuickToolId) => void;
@@ -33,11 +33,11 @@ const toolItems: Array<{ id: QuickToolId; label: string; icon: React.ReactNode }
   { id: 'upload', label: 'Upload Note', icon: <CloudUpload className="tool-icon" size={22} /> },
   { id: 'quiz', label: 'Quick Quiz', icon: <Brain className="tool-icon" size={22} /> },
   { id: 'study', label: 'Study', icon: <BookOpen className="tool-icon" size={22} /> },
-  { id: 'cheatsheet', label: 'Cheatsheet', icon: <FileText className="tool-icon" size={22} /> },
+  { id: 'notes', label: 'Notes', icon: <NotebookPen className="tool-icon" size={22} /> },
   { id: 'challenge', label: 'Challenge', icon: <Swords className="tool-icon" size={22} /> },
   { id: 'planner', label: 'Planner', icon: <Calendar className="tool-icon" size={22} /> },
   { id: 'dashboard', label: 'Dashboard', icon: <BarChart3 className="tool-icon" size={22} /> },
-  { id: 'topics', label: 'Extract Topics', icon: <Sparkles className="tool-icon" size={22} /> },
+  { id: 'code', label: 'Code Lab', icon: <Code2 className="tool-icon" size={22} /> },
 ];
 
 export const QuickToolsGrid = ({ onToolClick, disabled = false }: QuickToolsGridProps) => {

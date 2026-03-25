@@ -19,7 +19,7 @@ import {
   Volume2,
 } from "lucide-react";
 import { motion } from "motion/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 function parseCitation(source: string, index: number) {
@@ -108,6 +108,28 @@ export default function ChatPage() {
 
   const pendingQueryStorageKey = "arcadia:pending-chat-query";
   const pendingDocumentStorageKey = "arcadia:pending-chat-document-id";
+  const activeDocument = documents.find(
+    (document) => document.id === activeDocumentId || document.note_id === activeDocumentId,
+  );
+  const activeNoteId = activeDocument?.note_id || activeDocumentId;
+  const noteOptions = useMemo(() => {
+    const grouped = new Map<string, { noteId: string; label: string; documentId: string; count: number }>();
+    for (const doc of documents) {
+      const noteId = doc.note_id || doc.id;
+      const existing = grouped.get(noteId);
+      if (existing) {
+        existing.count += 1;
+        continue;
+      }
+      grouped.set(noteId, {
+        noteId,
+        label: doc.note_title || doc.topic || doc.original_name || doc.filename,
+        documentId: doc.id,
+        count: 1,
+      });
+    }
+    return Array.from(grouped.values());
+  }, [documents]);
 
   const refreshChatHistory = useCallback(
     async (documentId: string, shouldApply: () => boolean = () => true) => {
@@ -172,10 +194,10 @@ export default function ChatPage() {
         if (nextDocuments.length > 0) {
           const preferredDocumentId = window.sessionStorage.getItem(pendingDocumentStorageKey);
           const preferredExists = preferredDocumentId
-            ? nextDocuments.some((document) => document.id === preferredDocumentId)
+            ? nextDocuments.some((document) => document.id === preferredDocumentId || document.note_id === preferredDocumentId)
             : false;
 
-          setActiveDocumentId(preferredExists ? preferredDocumentId! : nextDocuments[0].id);
+          setActiveDocumentId(preferredExists ? preferredDocumentId! : (nextDocuments[0].note_id || nextDocuments[0].id));
           window.sessionStorage.removeItem(pendingDocumentStorageKey);
         }
       } catch (error) {
@@ -226,7 +248,8 @@ export default function ChatPage() {
 
       try {
         const response = await apiClient.chat({
-          document_id: activeDocumentId,
+          document_id: activeDocument?.id || activeDocumentId,
+          note_id: activeNoteId,
           message: messageForModel,
           language: currentLanguage?.id ?? "en",
         });
@@ -247,7 +270,7 @@ export default function ChatPage() {
         setSending(false);
       }
     },
-    [activeDocumentId, addMessage, currentLanguage?.id, localContextName, localContextText, sending],
+    [activeDocument, activeDocumentId, activeNoteId, addMessage, currentLanguage?.id, localContextName, localContextText, sending],
   );
 
   useEffect(() => {
@@ -269,7 +292,7 @@ export default function ChatPage() {
     setHasLoadedInitialHistory(false);
 
     void (async () => {
-      await refreshChatHistory(activeDocumentId, () => isMounted);
+      await refreshChatHistory(activeNoteId || activeDocumentId, () => isMounted);
       if (isMounted) {
         setHasLoadedInitialHistory(true);
       }
@@ -279,7 +302,7 @@ export default function ChatPage() {
       isMounted = false;
       stop();
     };
-  }, [activeDocumentId, refreshChatHistory, setAllMessages, stop]);
+  }, [activeDocumentId, activeNoteId, refreshChatHistory, setAllMessages, stop]);
 
   useEffect(() => {
     const nextLanguage = currentLanguage?.id ?? "en";
@@ -386,28 +409,28 @@ export default function ChatPage() {
           </div>
 
           <div className="flex items-center gap-2 overflow-x-auto pr-2 pb-1">
-            {documents.length === 0 ? (
+            {noteOptions.length === 0 ? (
               <div className="text-xs text-muted-foreground rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
                 No source documents uploaded
               </div>
             ) : (
-              documents.map((document) => {
-                const isActive = activeDocumentId === document.id;
+              noteOptions.map((note) => {
+                const isActive = activeNoteId === note.noteId || activeDocumentId === note.noteId;
                 return (
                   <button
-                    key={document.id}
+                    key={note.noteId}
                     type="button"
-                    onClick={() => setActiveDocumentId(document.id)}
+                    onClick={() => setActiveDocumentId(note.noteId)}
                     className={`shrink-0 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs border transition-all ${
                       isActive
                         ? "border-cyan-500/40 bg-cyan-500/12 text-cyan-200 shadow-[0_0_20px_rgba(6,182,212,0.18)]"
                         : "border-white/10 bg-white/5 text-muted-foreground hover:text-foreground hover:bg-white/10"
                     }`}
-                    data-ocid={`chat.document.${document.id}`}
+                    data-ocid={`chat.document.${note.noteId}`}
                   >
                     <FileText className="h-3.5 w-3.5" />
                     <span className="max-w-[190px] truncate">
-                      {document.original_name || document.filename}
+                      {note.label} ({note.count})
                     </span>
                   </button>
                 );

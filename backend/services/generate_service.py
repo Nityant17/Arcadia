@@ -13,7 +13,8 @@ from services.safety_service import safety_service
 
 class GenerateService:
 
-    async def generate_cheatsheet(self, document_id: str, 
+    async def generate_cheatsheet(self, context_id: str,
+                                   document_ids: List[str],
                                    language: str = "en",
                                    focus_topic: str = "") -> Dict:
         """Generate a one-page cheatsheet from document content."""
@@ -21,15 +22,28 @@ class GenerateService:
         if not focus_safety.allowed:
             raise PermissionError(focus_safety.reason)
 
+        if not document_ids:
+            raise ValueError("No source documents found for this generation")
+
         if focus_topic:
-            chunks = rag_service.query(focus_topic, document_id=document_id, top_k=10)
+            chunks = []
+            for doc_id in document_ids:
+                chunks.extend(rag_service.query(focus_topic, document_id=doc_id, top_k=4))
+            chunks.sort(key=lambda c: c.get("distance", 1.0))
+            chunks = chunks[:10]
             context = "\n\n".join(c["text"] for c in chunks) if chunks else ""
             if not context:
-                context = rag_service.get_document_text_with_fallback(document_id) or ""
+                context = "\n\n".join(
+                    rag_service.get_document_text_with_fallback(doc_id) or ""
+                    for doc_id in document_ids
+                ).strip()
         else:
-            context = rag_service.get_document_text_with_fallback(document_id)
+            context = "\n\n".join(
+                rag_service.get_document_text_with_fallback(doc_id) or ""
+                for doc_id in document_ids
+            ).strip()
         if not context:
-            raise ValueError(f"No content found for document '{document_id}'")
+            raise ValueError(f"No content found for context '{context_id}'")
 
         # Truncate if needed
         if len(context) > 8000:
@@ -56,13 +70,14 @@ class GenerateService:
                 pass  # Keep English if translation fails
 
         return {
-            "document_id": document_id,
-            "title": f"Cheatsheet — {document_id[:8]}",
+            "document_id": context_id,
+            "title": f"Cheatsheet — {context_id[:8]}",
             "content": content,
             "language": language,
         }
 
-    async def generate_flashcards(self, document_id: str,
+    async def generate_flashcards(self, context_id: str,
+                                   document_ids: List[str],
                                    language: str = "en",
                                    focus_topic: str = "") -> Dict:
         """Generate a set of flashcards from document content."""
@@ -70,15 +85,28 @@ class GenerateService:
         if not focus_safety.allowed:
             raise PermissionError(focus_safety.reason)
 
+        if not document_ids:
+            raise ValueError("No source documents found for this generation")
+
         if focus_topic:
-            chunks = rag_service.query(focus_topic, document_id=document_id, top_k=8)
+            chunks = []
+            for doc_id in document_ids:
+                chunks.extend(rag_service.query(focus_topic, document_id=doc_id, top_k=4))
+            chunks.sort(key=lambda c: c.get("distance", 1.0))
+            chunks = chunks[:8]
             context = "\n\n".join(c["text"] for c in chunks) if chunks else ""
             if not context:
-                context = rag_service.get_document_text_with_fallback(document_id) or ""
+                context = "\n\n".join(
+                    rag_service.get_document_text_with_fallback(doc_id) or ""
+                    for doc_id in document_ids
+                ).strip()
         else:
-            context = rag_service.get_document_text_with_fallback(document_id)
+            context = "\n\n".join(
+                rag_service.get_document_text_with_fallback(doc_id) or ""
+                for doc_id in document_ids
+            ).strip()
         if not context:
-            raise ValueError(f"No content found for document '{document_id}'")
+            raise ValueError(f"No content found for context '{context_id}'")
 
         if len(context) > 6000:
             context = context[:6000]
@@ -114,16 +142,22 @@ class GenerateService:
                     pass  # Keep English if translation fails
 
         return {
-            "document_id": document_id,
+            "document_id": context_id,
             "cards": processed_cards,
             "language": language,
         }
 
-    async def generate_diagram(self, document_id: str) -> Dict:
+    async def generate_diagram(self, context_id: str, document_ids: List[str]) -> Dict:
         """Generate a Mermaid.js diagram from document content."""
-        context = rag_service.get_document_text_with_fallback(document_id)
+        if not document_ids:
+            raise ValueError("No source documents found for this generation")
+
+        context = "\n\n".join(
+            rag_service.get_document_text_with_fallback(doc_id) or ""
+            for doc_id in document_ids
+        ).strip()
         if not context:
-            raise ValueError(f"No content found for document '{document_id}'")
+            raise ValueError(f"No content found for context '{context_id}'")
 
         if len(context) > 6000:
             context = context[:6000]
@@ -153,7 +187,7 @@ class GenerateService:
             raise PermissionError(diagram_safety.reason)
 
         return {
-            "document_id": document_id,
+            "document_id": context_id,
             "mermaid_code": mermaid_code,
             "title": title,
         }

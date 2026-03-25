@@ -2,6 +2,7 @@
 Planner Router — timetable + spaced repetition schedule.
 """
 import datetime
+import math
 import re
 import uuid
 from typing import List
@@ -189,7 +190,9 @@ def create_plan(
         "allocation": allocation,
     }
 
-    for subject in request.subjects:
+    used_slots: set[str] = set()
+
+    for subject_index, subject in enumerate(request.subjects):
         subject_name = subject.subject.strip()
         if not subject_name:
             continue
@@ -209,54 +212,98 @@ def create_plan(
         topic_cycle = weak_topics + [t for t in doc_topics if t not in weak_topics]
 
         days_left = max((subject.exam_date - today).days, 1)
-        subject_hours = allocation.get(subject_name, {}).get("adjusted_weekly_hours", subject.weekly_hours)
-        sessions_per_week = max(2, int(round((subject_hours * 60) / 90)))
-        total_sessions = max(3, int(round((days_left / 7) * sessions_per_week)))
-        spacing_days = max(1, days_left // total_sessions)
-        base_minutes = int(max(40, min(150, (subject_hours * 60) / sessions_per_week)))
+        weeks_left = max(1, int(math.ceil(days_left / 7)))
+        weekly_hours = max(1.0, float(subject.weekly_hours))
+        # Make exam proximity matter: closer exams get a modest intensity boost.
+        urgency_boost = 1.0 + max(0.0, (21 - min(days_left, 21)) / 21) * 0.35
+        total_minutes_budget = int(weekly_hours * 60 * weeks_left * urgency_boost)
+        session_minutes = 90
+        total_sessions = max(1, int(round(total_minutes_budget / session_minutes)))
+        spacing_days = max(1, int(round(days_left / max(1, total_sessions))))
+        base_minutes = int(max(45, min(120, session_minutes)))
 
-        session_day = today
-        session_index = 0
-        while session_day <= subject.exam_date and session_index < total_sessions:
-            slot_hour = [17, 19, 21][session_index % 3]
-            task_type = "study_block" if (session_index % 3 != 2) else "quiz_revision"
+        preferred_hours = [8, 9, 10, 11, 12, 14, 16, 18, 20]
+        if subject_index % 2 == 1:
+            preferred_hours = [10, 12, 9, 14, 8, 16, 20, 18, 11]
+
+        subject_day_counts: dict[datetime.date, int] = {}
+        max_subject_sessions_per_day = 2 if days_left <= 14 else 1
+
+        def reserve_slot(target_day: datetime.date, session_idx: int) -> datetime.datetime | None:
+            day_offsets = [0, -1, 1, -2, 2, -3, 3]
+            for day_offset in day_offsets:
+                candidate_day = target_day + datetime.timedelta(days=day_offset)
+                if candidate_day < today or candidate_day > subject.exam_date:
+                    continue
+                if subject_day_counts.get(candidate_day, 0) >= max_subject_sessions_per_day:
+                    continue
+                for offset in range(len(preferred_hours)):
+                    hour = preferred_hours[(session_idx + offset) % len(preferred_hours)]
+                    due = datetime.datetime.combine(candidate_day, datetime.time(hour=hour))
+                    key = due.isoformat()
+                    if key not in used_slots:
+                        used_slots.add(key)
+                        subject_day_counts[candidate_day] = subject_day_counts.get(candidate_day, 0) + 1
+                        return due
+
+            search_day = target_day
+            while search_day <= subject.exam_date:
+                if subject_day_counts.get(search_day, 0) >= max_subject_sessions_per_day:
+                    search_day = search_day + datetime.timedelta(days=1)
+                    continue
+                for offset in range(len(preferred_hours)):
+                    hour = preferred_hours[(session_idx + offset) % len(preferred_hours)]
+                    due = datetime.datetime.combine(search_day, datetime.time(hour=hour))
+                    key = due.isoformat()
+                    if key not in used_slots:
+                        used_slots.add(key)
+                        subject_day_counts[search_day] = subject_day_counts.get(search_day, 0) + 1
+                        return due
+                search_day = search_day + datetime.timedelta(days=1)
+            return None
+
+        topic_next_due: dict[str, datetime.date] = {}
+        topic_gap_days: dict[str, int] = {}
+        for session_index in range(total_sessions):
             focus_topic = topic_cycle[session_index % len(topic_cycle)] if topic_cycle else ""
-            task = StudyTask(
+            if session_index % 4 == 2:
+                task_type = "spaced_repetition"
+            elif session_index % 4 == 3:
+                task_type = "quiz_revision"
+            else:
+                task_type = "study_block"
+
+            # Fill days more consistently while still respecting exam horizon.
+            window_days = min(days_left, max(1, total_sessions - 1))
+            progress = session_index / max(1, (total_sessions - 1))
+            target_offset = int(round(progress * window_days))
+            target_day = today + datetime.timedelta(days=target_offset)
+
+            # Spaced repetition should constrain only the current topic, not the whole subject.
+            if task_type == "spaced_repetition" and focus_topic:
+                next_due_for_topic = topic_next_due.get(focus_topic, today)
+                if target_day < next_due_for_topic:
+                    target_day = next_due_for_topic
+
+                current_gap = topic_gap_days.get(focus_topic, max(1, spacing_days))
+                topic_next_due[focus_topic] = target_day + datetime.timedelta(days=current_gap)
+                topic_gap_days[focus_topic] = min(14, max(1, current_gap * 2))
+
+            due_date = reserve_slot(target_day, session_index)
+            if not due_date:
+                break
+
+            db.add(StudyTask(
                 id=str(uuid.uuid4()),
                 plan_id=plan.id,
                 user_id=request.user_id,
                 subject=subject_name,
                 task_type=f"{task_type}::{focus_topic}" if focus_topic else task_type,
-                due_date=datetime.datetime.combine(session_day, datetime.time(hour=slot_hour)),
+                due_date=due_date,
                 estimated_minutes=base_minutes,
-                spaced_interval_days=spacing_days,
+                spaced_interval_days=spacing_days if task_type == "spaced_repetition" else 0,
                 status="pending",
-            )
-            db.add(task)
-
-            session_index += 1
-            session_day = session_day + datetime.timedelta(days=spacing_days)
-
-        weakness = allocation.get(subject_name, {}).get("weakness_score", 0.0)
-        if weakness >= 0.35:
-            booster_day = today + datetime.timedelta(days=2)
-            weak_cycle = weak_topics if weak_topics else topic_cycle
-            booster_index = 0
-            while booster_day <= subject.exam_date:
-                booster_topic = weak_cycle[booster_index % len(weak_cycle)] if weak_cycle else ""
-                db.add(StudyTask(
-                    id=str(uuid.uuid4()),
-                    plan_id=plan.id,
-                    user_id=request.user_id,
-                    subject=subject_name,
-                    task_type=f"weakness_booster::{booster_topic}" if booster_topic else "weakness_booster",
-                    due_date=datetime.datetime.combine(booster_day, datetime.time(hour=20)),
-                    estimated_minutes=max(30, int(base_minutes * 0.6)),
-                    spaced_interval_days=5,
-                    status="pending",
-                ))
-                booster_day = booster_day + datetime.timedelta(days=5)
-                booster_index += 1
+            ))
 
     db.commit()
     return {"plan_id": plan.id, "status": "created"}

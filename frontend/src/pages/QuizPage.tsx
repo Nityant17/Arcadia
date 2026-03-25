@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { motion } from "motion/react";
 import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 type Tier = 1 | 2 | 3;
@@ -70,6 +70,26 @@ export default function QuizPage() {
 
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [documentId, setDocumentId] = useState("");
+  const selectedDocument = documents.find((doc) => doc.id === documentId || doc.note_id === documentId);
+  const selectedNoteId = selectedDocument?.note_id || documentId;
+  const noteOptions = useMemo(() => {
+    const grouped = new Map<string, { noteId: string; label: string; documentId: string; count: number }>();
+    for (const doc of documents) {
+      const noteId = doc.note_id || doc.id;
+      const existing = grouped.get(noteId);
+      if (existing) {
+        existing.count += 1;
+        continue;
+      }
+      grouped.set(noteId, {
+        noteId,
+        label: doc.note_title || doc.topic || doc.original_name || doc.filename,
+        documentId: doc.id,
+        count: 1,
+      });
+    }
+    return Array.from(grouped.values());
+  }, [documents]);
 
   const [step, setStep] = useState<"config" | "quiz" | "review">("config");
   const [tier, setTier] = useState<Tier>(1);
@@ -111,7 +131,8 @@ export default function QuizPage() {
         return;
       }
       try {
-        const response = await apiClient.extractTopics(documentId);
+        const contextDocId = selectedNoteId || selectedDocument?.id || documentId;
+        const response = await apiClient.extractTopics(contextDocId);
         setTopics(response.data.topics);
       } catch {
         setTopics([]);
@@ -119,7 +140,7 @@ export default function QuizPage() {
     };
 
     void loadTopics();
-  }, [documentId]);
+  }, [documentId, selectedDocument?.id, selectedNoteId]);
 
   async function requestWhiteboardHint() {
     let imageBase64ToSend = hintImageBase64;
@@ -248,11 +269,11 @@ export default function QuizPage() {
         setDocuments(response.data.documents);
         // Check sessionStorage for pending-quiz-document-id
         const pendingId = window.sessionStorage.getItem("arcadia:pending-quiz-document-id");
-        if (pendingId && response.data.documents.some((doc: any) => doc.id === pendingId)) {
+        if (pendingId && response.data.documents.some((doc: any) => doc.id === pendingId || doc.note_id === pendingId)) {
           setDocumentId(pendingId);
           window.sessionStorage.removeItem("arcadia:pending-quiz-document-id");
         } else if (response.data.documents.length > 0) {
-          setDocumentId(response.data.documents[0].id);
+          setDocumentId(response.data.documents[0].note_id || response.data.documents[0].id);
         }
       } catch (error) {
         toast.error(getApiErrorMessage(error, "Failed to load documents for quiz"));
@@ -270,7 +291,8 @@ export default function QuizPage() {
     setLoadingGenerate(true);
     try {
       const response = await apiClient.generateQuiz({
-        document_id: documentId,
+        document_id: selectedDocument?.id || documentId,
+        note_id: selectedNoteId,
         tier,
         num_questions: 5,
         language: currentLanguage?.id ?? "en",
@@ -319,7 +341,8 @@ export default function QuizPage() {
     try {
       const response = await apiClient.submitQuiz({
         quiz_id: quizId,
-        document_id: documentId,
+        document_id: selectedDocument?.id || documentId,
+        note_id: selectedNoteId,
         answers: payloadAnswers,
       });
 
@@ -373,9 +396,9 @@ export default function QuizPage() {
               {documents.length === 0 ? (
                 <option value="">No documents uploaded</option>
               ) : (
-                documents.map((document) => (
-                  <option key={document.id} value={document.id}>
-                    {document.original_name || document.filename}
+                noteOptions.map((note) => (
+                  <option key={note.noteId} value={note.noteId}>
+                    {note.label} · {note.count} file{note.count > 1 ? "s" : ""}
                   </option>
                 ))
               )}

@@ -98,6 +98,26 @@ export default function StudyPage() {
 
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [documentId, setDocumentId] = useState("");
+  const selectedDocument = documents.find((doc) => doc.id === documentId || doc.note_id === documentId);
+  const selectedNoteId = selectedDocument?.note_id || documentId;
+  const noteOptions = useMemo(() => {
+    const grouped = new Map<string, { noteId: string; label: string; documentId: string; count: number }>();
+    for (const doc of documents) {
+      const noteId = doc.note_id || doc.id;
+      const existing = grouped.get(noteId);
+      if (existing) {
+        existing.count += 1;
+        continue;
+      }
+      grouped.set(noteId, {
+        noteId,
+        label: doc.note_title || doc.topic || doc.original_name || doc.filename,
+        documentId: doc.id,
+        count: 1,
+      });
+    }
+    return Array.from(grouped.values());
+  }, [documents]);
   const [focusTopic, setFocusTopic] = useState("");
   const [debouncedFocusTopic, setDebouncedFocusTopic] = useState("");
   const [topics, setTopics] = useState<Array<{ title: string; summary: string }>>([]);
@@ -121,11 +141,11 @@ export default function StudyPage() {
         setDocuments(response.data.documents);
         // Check sessionStorage for pending-study-document-id
         const pendingId = window.sessionStorage.getItem("arcadia:pending-study-document-id");
-        if (pendingId && response.data.documents.some((doc: any) => doc.id === pendingId)) {
+        if (pendingId && response.data.documents.some((doc: any) => doc.id === pendingId || doc.note_id === pendingId)) {
           setDocumentId(pendingId);
           window.sessionStorage.removeItem("arcadia:pending-study-document-id");
         } else if (response.data.documents.length > 0) {
-          setDocumentId(response.data.documents[0].id);
+          setDocumentId(response.data.documents[0].note_id || response.data.documents[0].id);
         }
       } catch (error) {
         toast.error(getApiErrorMessage(error, "Failed to load documents for study generation"));
@@ -160,7 +180,7 @@ export default function StudyPage() {
   }, [flashcards]);
 
   useEffect(() => {
-    if (!documentId || flashcards.length === 0) {
+    if (!selectedNoteId || flashcards.length === 0) {
       setPinnedFlashcards(new Set());
       return;
     }
@@ -168,11 +188,11 @@ export default function StudyPage() {
     const saved = getPinnedFlashcards();
     const ids = new Set(
       saved
-        .filter((item) => item.documentId === documentId)
+        .filter((item) => item.documentId === selectedNoteId)
         .map((item) => item.id),
     );
     setPinnedFlashcards(ids);
-  }, [documentId, flashcards]);
+  }, [selectedNoteId, flashcards]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -189,7 +209,8 @@ export default function StudyPage() {
       }
 
       try {
-        const response = await apiClient.extractTopics(documentId);
+        const contextDocId = selectedNoteId || selectedDocument?.id || documentId;
+        const response = await apiClient.extractTopics(contextDocId);
         setTopics(response.data.topics);
       } catch {
         setTopics([]);
@@ -197,7 +218,7 @@ export default function StudyPage() {
     };
 
     void loadTopics();
-  }, [documentId]);
+  }, [documentId, selectedDocument?.id, selectedNoteId]);
 
   useEffect(() => {
     const loadStored = async () => {
@@ -211,7 +232,8 @@ export default function StudyPage() {
 
       try {
         const response = await apiClient.getStoredStudyMaterials({
-          document_id: documentId,
+          document_id: selectedDocument?.id || documentId,
+          note_id: selectedNoteId,
           language: currentLanguage?.id ?? "en",
           focus_topic: debouncedFocusTopic,
         });
@@ -237,7 +259,7 @@ export default function StudyPage() {
     };
 
     void loadStored();
-  }, [documentId, currentLanguage?.id, debouncedFocusTopic]);
+  }, [documentId, selectedDocument?.id, selectedNoteId, currentLanguage?.id, debouncedFocusTopic]);
 
   const cheatsheetHtml = useMemo(() => {
     if (!cheatsheetContent.trim()) return "";
@@ -253,7 +275,8 @@ export default function StudyPage() {
     setLoading(true);
     try {
       const response = await apiClient.generateCheatsheet({
-        document_id: documentId,
+        document_id: selectedDocument?.id || documentId,
+        note_id: selectedNoteId,
         language: currentLanguage?.id ?? "en",
         focus_topic: focusTopic,
       }, true);
@@ -277,7 +300,8 @@ export default function StudyPage() {
     setLoading(true);
     try {
       const response = await apiClient.generateFlashcards({
-        document_id: documentId,
+        document_id: selectedDocument?.id || documentId,
+        note_id: selectedNoteId,
         language: currentLanguage?.id ?? "en",
         focus_topic: focusTopic,
       }, true);
@@ -300,7 +324,8 @@ export default function StudyPage() {
     setLoading(true);
     try {
       const response = await apiClient.generateDiagram({
-        document_id: documentId,
+        document_id: selectedDocument?.id || documentId,
+        note_id: selectedNoteId,
         language: currentLanguage?.id ?? "en",
         focus_topic: focusTopic,
       }, true);
@@ -338,9 +363,9 @@ export default function StudyPage() {
           {documents.length === 0 ? (
             <option value="">No documents uploaded</option>
           ) : (
-            documents.map((document) => (
-              <option key={document.id} value={document.id}>
-                {document.original_name || document.filename}
+            noteOptions.map((note) => (
+              <option key={note.noteId} value={note.noteId}>
+                {note.label} · {note.count} file{note.count > 1 ? "s" : ""}
               </option>
             ))
           )}
@@ -462,23 +487,23 @@ export default function StudyPage() {
                   answer={flashcards[flashcardIndex]?.back ?? ""}
                   isPinned={pinnedFlashcards.has(
                     buildPinnedFlashcardId(
-                      documentId,
+                      selectedNoteId,
                       flashcards[flashcardIndex]?.front ?? "",
                       flashcards[flashcardIndex]?.back ?? "",
                     ),
                   )}
                   onPin={() => {
                     const activeCard = flashcards[flashcardIndex];
-                    if (!activeCard || !documentId) return;
+                    if (!activeCard || !selectedNoteId) return;
 
                     const id = buildPinnedFlashcardId(
-                      documentId,
+                      selectedNoteId,
                       activeCard.front,
                       activeCard.back,
                     );
                     const isNowPinned = togglePinnedFlashcard({
                       id,
-                      documentId,
+                      documentId: selectedNoteId,
                       question: activeCard.front,
                       answer: activeCard.back,
                       language: currentLanguage?.id ?? "en",

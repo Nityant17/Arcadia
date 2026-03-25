@@ -14,6 +14,7 @@ from services.rag_service import rag_service
 from services.llm_service import llm_service
 from services.translate_service import translate_service
 from services.safety_service import safety_service
+from services.note_service import note_service
 
 router = APIRouter()
 
@@ -30,14 +31,13 @@ async def chat(
     RAG chatbot: retrieves relevant chunks from the student's notes,
     then generates a contextual answer using the LLM.
     """
-    selected_doc_ids = []
-    if request.document_ids:
-        selected_doc_ids = request.document_ids
-    elif request.topic:
-        topic_docs = db.query(Document).filter(Document.topic == request.topic).all()
-        selected_doc_ids = [d.id for d in topic_docs]
-    elif request.document_id:
-        selected_doc_ids = [request.document_id]
+    selected_doc_ids, context_id = note_service.resolve_context(
+        db,
+        document_id=request.document_id,
+        document_ids=request.document_ids,
+        note_id=request.note_id,
+        topic=request.topic,
+    )
 
     if not selected_doc_ids:
         raise HTTPException(404, "No documents found for this request.")
@@ -105,13 +105,13 @@ async def chat(
     try:
         db.add(ChatHistory(
             id=str(uuid.uuid4()),
-            document_id=selected_doc_ids[0],
+            document_id=context_id or selected_doc_ids[0],
             role="user",
             content=request.message,
         ))
         db.add(ChatHistory(
             id=str(uuid.uuid4()),
-            document_id=selected_doc_ids[0],
+            document_id=context_id or selected_doc_ids[0],
             role="assistant",
             content=answer,
         ))
@@ -140,11 +140,14 @@ async def chat_stream(
     """
     Streaming RAG chat — returns tokens as Server-Sent Events (SSE).
     """
-    if not request.document_id:
-        raise HTTPException(400, "document_id is required for stream chat")
-
-    doc = db.query(Document).filter(Document.id == request.document_id).first()
-    if not doc:
+    selected_doc_ids, _ = note_service.resolve_context(
+        db,
+        document_id=request.document_id,
+        document_ids=request.document_ids,
+        note_id=request.note_id,
+        topic=request.topic,
+    )
+    if not selected_doc_ids:
         raise HTTPException(404, "Document not found.")
 
     safety = safety_service.check_text(request.message)
@@ -152,7 +155,11 @@ async def chat_stream(
         raise HTTPException(400, safety.reason)
 
     # Retrieve context
-    chunks = rag_service.query(request.message, document_id=request.document_id)
+    chunks = []
+    for doc_id in selected_doc_ids:
+        chunks.extend(rag_service.query(request.message, document_id=doc_id))
+    chunks.sort(key=lambda c: c.get("distance", 1.0))
+    chunks = chunks[:6]
     system_prompt, user_prompt = llm_service.build_rag_prompt(
         request.message, chunks, request.language
     )
@@ -189,9 +196,10 @@ async def get_chat_history(
     db: Session = Depends(get_db),
 ):
     """Get chat history for a document."""
+    context_id = note_service.resolve_context_id_from_any_id(db, document_id)
     messages = (
         db.query(ChatHistory)
-        .filter(ChatHistory.document_id == document_id)
+        .filter(ChatHistory.document_id == context_id)
         .order_by(ChatHistory.created_at.asc())
         .limit(100)
         .all()
@@ -209,10 +217,11 @@ async def clear_chat_history(
     db: Session = Depends(get_db),
 ):
     """Clear chat history for a document."""
+    context_id = note_service.resolve_context_id_from_any_id(db, document_id)
     deleted = (
         db.query(ChatHistory)
-        .filter(ChatHistory.document_id == document_id)
+        .filter(ChatHistory.document_id == context_id)
         .delete(synchronize_session=False)
     )
     db.commit()
-    return {"status": "cleared", "document_id": document_id, "deleted": deleted}
+    return {"status": "cleared", "document_id": context_id, "deleted": deleted}

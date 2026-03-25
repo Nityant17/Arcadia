@@ -10,6 +10,9 @@ from models.schemas import (
 )
 from services.quiz_service import quiz_service
 from routers.auth import get_current_user
+from models.database import get_db
+from sqlalchemy.orm import Session
+from services.note_service import note_service
 
 router = APIRouter()
 
@@ -21,14 +24,24 @@ _active_quizzes = {}
 async def generate_quiz(
     request: QuizGenerateRequest,
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """
     Generate a quiz for a document at the specified tier.
     Tier 1 = Recall, Tier 2 = Application, Tier 3 = Analysis.
     """
+    document_ids, context_id = note_service.resolve_context(
+        db,
+        document_id=request.document_id,
+        note_id=request.note_id,
+    )
+    if not document_ids:
+        raise HTTPException(404, "No documents found for this quiz request")
+
     try:
         quiz_data = await quiz_service.generate_quiz(
-            document_id=request.document_id,
+            context_id=context_id or request.document_id,
+            document_ids=document_ids,
             tier=request.tier,
             num_questions=request.num_questions,
             language=request.language,
@@ -50,6 +63,7 @@ async def generate_quiz(
     return QuizGenerateResponse(
         quiz_id=quiz_data["quiz_id"],
         document_id=quiz_data["document_id"],
+        note_id=quiz_data.get("note_id", ""),
         tier=quiz_data["tier"],
         questions=[
             QuizQuestion(
@@ -80,7 +94,7 @@ async def submit_quiz(
     try:
         result = quiz_service.submit_quiz(
             quiz_id=request.quiz_id,
-            document_id=request.document_id,
+            context_id=quiz_data.get("context_id") or request.note_id or request.document_id,
             questions=quiz_data["questions"],
             user_id=request.user_id,
             answers=[a.model_dump() for a in request.answers],

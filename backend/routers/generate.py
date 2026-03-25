@@ -14,6 +14,7 @@ from models.schemas import (
     FlashcardsResponse, Flashcard, DiagramResponse,
 )
 from services.generate_service import generate_service
+from services.note_service import note_service
 
 router = APIRouter()
 
@@ -71,17 +72,25 @@ def _save_cached_material(
 @router.get("/generate/stored/{document_id}")
 def get_stored_materials(
     document_id: str,
+    note_id: str = "",
     language: str = "en",
     focus_topic: str = "",
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     normalized_focus_topic = _normalize_focus_topic(focus_topic)
+    _, context_id = note_service.resolve_context(
+        db,
+        document_id=document_id,
+        note_id=note_id,
+    )
+    resolved_context_id = context_id or document_id
+
     rows = (
         db.query(StudyMaterial)
         .filter(
             StudyMaterial.user_id == current_user.id,
-            StudyMaterial.document_id == document_id,
+            StudyMaterial.document_id == resolved_context_id,
             StudyMaterial.language == language,
             StudyMaterial.focus_topic == normalized_focus_topic,
         )
@@ -89,7 +98,7 @@ def get_stored_materials(
     )
     cached = {row.material_type: (row.payload_json or {}) for row in rows}
     return {
-        "document_id": document_id,
+        "document_id": resolved_context_id,
         "language": language,
         "focus_topic": normalized_focus_topic,
         "cheatsheet": cached.get("cheatsheet"),
@@ -107,11 +116,20 @@ async def generate_cheatsheet(
 ):
     """Generate a one-page cheatsheet from a document's content."""
     request.focus_topic = _normalize_focus_topic(request.focus_topic)
+    document_ids, context_id = note_service.resolve_context(
+        db,
+        document_id=request.document_id,
+        note_id=request.note_id,
+    )
+    if not document_ids:
+        raise HTTPException(404, "No documents found for this study request")
+    resolved_context_id = context_id or request.document_id
+
     if not force:
         cached = _get_cached_material(
             db,
             current_user.id,
-            request.document_id,
+            resolved_context_id,
             request.language,
             request.focus_topic,
             "cheatsheet",
@@ -121,7 +139,7 @@ async def generate_cheatsheet(
 
     try:
         result = await generate_service.generate_cheatsheet(
-            request.document_id, request.language, request.focus_topic
+            resolved_context_id, document_ids, request.language, request.focus_topic
         )
     except PermissionError as e:
         raise HTTPException(400, str(e))
@@ -135,7 +153,7 @@ async def generate_cheatsheet(
     _save_cached_material(
         db,
         current_user.id,
-        request.document_id,
+        resolved_context_id,
         request.language,
         request.focus_topic,
         "cheatsheet",
@@ -154,11 +172,20 @@ async def generate_flashcards(
 ):
     """Generate a flashcard deck from a document's content."""
     request.focus_topic = _normalize_focus_topic(request.focus_topic)
+    document_ids, context_id = note_service.resolve_context(
+        db,
+        document_id=request.document_id,
+        note_id=request.note_id,
+    )
+    if not document_ids:
+        raise HTTPException(404, "No documents found for this study request")
+    resolved_context_id = context_id or request.document_id
+
     if not force:
         cached = _get_cached_material(
             db,
             current_user.id,
-            request.document_id,
+            resolved_context_id,
             request.language,
             request.focus_topic,
             "flashcards",
@@ -166,14 +193,14 @@ async def generate_flashcards(
         if cached and cached.payload_json:
             payload = cached.payload_json
             return FlashcardsResponse(
-                document_id=payload.get("document_id", request.document_id),
+                document_id=payload.get("document_id", resolved_context_id),
                 cards=[Flashcard(**c) for c in payload.get("cards", [])],
                 language=payload.get("language", request.language),
             )
 
     try:
         result = await generate_service.generate_flashcards(
-            request.document_id, request.language, request.focus_topic
+            resolved_context_id, document_ids, request.language, request.focus_topic
         )
     except PermissionError as e:
         raise HTTPException(400, str(e))
@@ -187,7 +214,7 @@ async def generate_flashcards(
     _save_cached_material(
         db,
         current_user.id,
-        request.document_id,
+        resolved_context_id,
         request.language,
         request.focus_topic,
         "flashcards",
@@ -210,11 +237,20 @@ async def generate_diagram(
 ):
     """Generate a Mermaid.js concept diagram from a document."""
     request.focus_topic = _normalize_focus_topic(request.focus_topic)
+    document_ids, context_id = note_service.resolve_context(
+        db,
+        document_id=request.document_id,
+        note_id=request.note_id,
+    )
+    if not document_ids:
+        raise HTTPException(404, "No documents found for this study request")
+    resolved_context_id = context_id or request.document_id
+
     if not force:
         cached = _get_cached_material(
             db,
             current_user.id,
-            request.document_id,
+            resolved_context_id,
             request.language,
             request.focus_topic,
             "diagram",
@@ -223,7 +259,7 @@ async def generate_diagram(
             return DiagramResponse(**cached.payload_json)
 
     try:
-        result = await generate_service.generate_diagram(request.document_id)
+        result = await generate_service.generate_diagram(resolved_context_id, document_ids)
     except PermissionError as e:
         raise HTTPException(400, str(e))
     except ValueError as e:
@@ -241,7 +277,7 @@ async def generate_diagram(
     _save_cached_material(
         db,
         current_user.id,
-        request.document_id,
+        resolved_context_id,
         request.language,
         request.focus_topic,
         "diagram",

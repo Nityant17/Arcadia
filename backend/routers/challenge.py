@@ -18,12 +18,14 @@ from models.database import (
 )
 from routers.auth import get_current_user
 from services.quiz_service import quiz_service
+from services.note_service import note_service
 
 router = APIRouter()
 
 
 class CreateRoomRequest(BaseModel):
-    document_id: str
+    document_id: str = ""
+    note_id: str = ""
     tier: int = Field(default=1, ge=1, le=3)
     num_questions: int = Field(default=5, ge=3, le=10)
     language: str = "en"
@@ -53,8 +55,17 @@ async def create_room(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    quiz_data = await quiz_service.generate_quiz(
+    document_ids, context_id = note_service.resolve_context(
+        db,
         document_id=request.document_id,
+        note_id=request.note_id,
+    )
+    if not document_ids:
+        raise HTTPException(404, "No documents found for this challenge request")
+
+    quiz_data = await quiz_service.generate_quiz(
+        context_id=context_id or request.document_id,
+        document_ids=document_ids,
         tier=request.tier,
         num_questions=request.num_questions,
         language=request.language,
@@ -65,7 +76,7 @@ async def create_room(
         id=str(uuid.uuid4()),
         code=_generate_room_code(db),
         host_user_id=current_user.id,
-        document_id=request.document_id,
+        document_id=context_id or request.document_id,
         tier=request.tier,
         num_questions=request.num_questions,
         status="waiting",

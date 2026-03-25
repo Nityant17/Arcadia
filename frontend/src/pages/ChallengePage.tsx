@@ -5,7 +5,7 @@ import { apiClient, getApiErrorMessage, type DocumentItem } from "@/services/api
 import { useAppStore } from "@/store/useAppStore";
 import { CheckCircle2, Clock, Copy, Loader2, LogOut, Users, Zap } from "lucide-react";
 import { motion, useMotionValue } from "motion/react";
-import { useEffect, useState, type MouseEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type MouseEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 
 type Screen = "menu" | "join-form" | "room";
@@ -93,6 +93,26 @@ export default function ChallengePage() {
   const [screen, setScreen] = useState<Screen>("menu");
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [documentId, setDocumentId] = useState("");
+  const selectedDocument = documents.find((doc) => doc.id === documentId || doc.note_id === documentId);
+  const selectedNoteId = selectedDocument?.note_id || documentId;
+  const noteOptions = useMemo(() => {
+    const grouped = new Map<string, { noteId: string; label: string; documentId: string; count: number }>();
+    for (const doc of documents) {
+      const noteId = doc.note_id || doc.id;
+      const existing = grouped.get(noteId);
+      if (existing) {
+        existing.count += 1;
+        continue;
+      }
+      grouped.set(noteId, {
+        noteId,
+        label: doc.note_title || doc.topic || doc.original_name || doc.filename,
+        documentId: doc.id,
+        count: 1,
+      });
+    }
+    return Array.from(grouped.values());
+  }, [documents]);
   const [code, setCode] = useState("");
   const [joinInput, setJoinInput] = useState("");
   const [participants, setParticipants] = useState<Participant[]>([]);
@@ -100,13 +120,32 @@ export default function ChallengePage() {
   const [loading, setLoading] = useState(false);
   const [isHost, setIsHost] = useState(false);
 
+  function setRoomUrl(nextCode: string) {
+    const base = `${window.location.pathname}`;
+    if (!nextCode) {
+      window.history.replaceState({}, "", base);
+      return;
+    }
+    const params = new URLSearchParams(window.location.search);
+    params.set("room", nextCode);
+    window.history.replaceState({}, "", `${base}?${params.toString()}`);
+  }
+
   useEffect(() => {
     const loadDocuments = async () => {
       try {
         const response = await apiClient.listDocuments();
         setDocuments(response.data.documents);
         if (response.data.documents.length > 0) {
-          setDocumentId(response.data.documents[0].id);
+          setDocumentId(response.data.documents[0].note_id || response.data.documents[0].id);
+        }
+
+        const roomFromUrl = (new URLSearchParams(window.location.search).get("room") || "").trim().toUpperCase();
+        if (roomFromUrl.length === 6) {
+          setCode(roomFromUrl);
+          setScreen("room");
+          const hostCode = window.sessionStorage.getItem("arcadia:challenge-host-room") || "";
+          setIsHost(hostCode === roomFromUrl);
         }
       } catch (error) {
         toast.error(getApiErrorMessage(error, "Failed to load documents for challenge room"));
@@ -162,7 +201,8 @@ export default function ChallengePage() {
     setLoading(true);
     try {
       const response = await apiClient.createChallengeRoom({
-        document_id: documentId,
+        document_id: selectedDocument?.id || documentId,
+        note_id: selectedNoteId,
         tier: 1,
         num_questions: 5,
         language: currentLanguage?.id ?? "en",
@@ -172,6 +212,8 @@ export default function ChallengePage() {
       setCode(response.data.code);
       setScreen("room");
       setIsHost(true);
+      window.sessionStorage.setItem("arcadia:challenge-host-room", response.data.code);
+      setRoomUrl(response.data.code);
       toast.success("Challenge room created");
     } catch (error) {
       toast.error(getApiErrorMessage(error, "Failed to create challenge room"));
@@ -192,6 +234,8 @@ export default function ChallengePage() {
       setCode(response.data.code);
       setScreen("room");
       setIsHost(false);
+      window.sessionStorage.removeItem("arcadia:challenge-host-room");
+      setRoomUrl(response.data.code);
       toast.success("Joined challenge room");
     } catch (error) {
       toast.error(getApiErrorMessage(error, "Failed to join challenge room"));
@@ -220,6 +264,8 @@ export default function ChallengePage() {
     setJoinInput("");
     setRoomStatus("waiting");
     setIsHost(false);
+    window.sessionStorage.removeItem("arcadia:challenge-host-room");
+    setRoomUrl("");
   }
 
   if (screen === "menu") {
@@ -251,9 +297,9 @@ export default function ChallengePage() {
               {documents.length === 0 ? (
                 <option value="">No documents uploaded</option>
               ) : (
-                documents.map((document) => (
-                  <option key={document.id} value={document.id}>
-                    {document.original_name || document.filename}
+                noteOptions.map((note) => (
+                  <option key={note.noteId} value={note.noteId}>
+                    {note.label} · {note.count} file{note.count > 1 ? "s" : ""}
                   </option>
                 ))
               )}

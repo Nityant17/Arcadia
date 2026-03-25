@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { LampContainer } from "@/components/ui/lamp";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -20,12 +21,14 @@ import {
   Edit2,
 } from "lucide-react";
 import { motion } from "motion/react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import styled from "styled-components";
 import { toast } from "sonner";
 
 interface Note {
   id: string;
+  noteId: string;
+  noteTitle: string;
   filename: string;
   subject: string;
   topic: string;
@@ -37,6 +40,8 @@ interface Note {
 function mapDocumentToNote(document: DocumentItem): Note {
   return {
     id: document.id,
+    noteId: document.note_id || document.id,
+    noteTitle: document.note_title || document.topic || document.original_name || document.filename,
     filename: document.original_name || document.filename,
     subject: document.subject,
     topic: document.topic,
@@ -153,9 +158,11 @@ export default function NotesPage() {
   const [uploadSubject, setUploadSubject] = useState("General");
   const [uploadTopic, setUploadTopic] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [appendToSelectedNote, setAppendToSelectedNote] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [extractedTopics, setExtractedTopics] = useState<Array<{ title: string; summary: string }>>([]);
   const [extractingTopics, setExtractingTopics] = useState(false);
+  const [regeneratingSummary, setRegeneratingSummary] = useState(false);
   const [noteSummaries, setNoteSummaries] = useState<Record<string, string>>({});
   const [noteTopics, setNoteTopics] = useState<Record<string, Array<{ title: string; summary: string }>>>({});
   const [loadingSummary, setLoadingSummary] = useState(false);
@@ -164,12 +171,34 @@ export default function NotesPage() {
 
   // --- EDIT MODAL STATE ---
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
-  const [editFilename, setEditFilename] = useState("");
+  const [editTitle, setEditTitle] = useState("");
   const [editSubject, setEditSubject] = useState("");
   const [editTopic, setEditTopic] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
 
-  const selectedNote = notes.find((note) => note.id === selectedId) ?? null;
+  const noteCards = useMemo(() => {
+    const grouped = new Map<string, { noteId: string; primary: Note; documents: Note[] }>();
+    for (const doc of notes) {
+      const key = doc.noteId || doc.id;
+      const existing = grouped.get(key);
+      if (!existing) {
+        grouped.set(key, { noteId: key, primary: doc, documents: [doc] });
+        continue;
+      }
+      existing.documents.push(doc);
+      if (new Date(doc.uploadDate).getTime() > new Date(existing.primary.uploadDate).getTime()) {
+        existing.primary = doc;
+      }
+    }
+    return Array.from(grouped.values()).sort(
+      (a, b) => new Date(b.primary.uploadDate).getTime() - new Date(a.primary.uploadDate).getTime(),
+    );
+  }, [notes]);
+
+  const selectedCard = noteCards.find((card) => card.noteId === selectedId) ?? null;
+  const selectedNote = selectedCard?.primary ?? null;
+  const selectedNoteDocs = selectedCard?.documents ?? [];
+  const selectedCacheKey = selectedNote?.noteId || selectedNote?.id || "";
 
   const loadNotes = async () => {
     setLoadingNotes(true);
@@ -179,8 +208,10 @@ export default function NotesPage() {
       const preferredNoteId = new URLSearchParams(window.location.search).get("noteId") ?? "";
       setNotes(mapped);
       if (mapped.length > 0) {
-        const preferredExists = preferredNoteId && mapped.some((note) => note.id === preferredNoteId);
-        setSelectedId((prev) => prev || (preferredExists ? preferredNoteId : mapped[0].id));
+        const preferredMatch = preferredNoteId
+          ? mapped.find((note) => note.noteId === preferredNoteId || note.id === preferredNoteId)
+          : null;
+        setSelectedId((prev) => prev || preferredMatch?.noteId || mapped[0].noteId);
       } else {
         setSelectedId("");
       }
@@ -200,40 +231,40 @@ export default function NotesPage() {
       setExtractedTopics([]);
       return;
     }
-    setExtractedTopics(noteTopics[selectedNote.id] || []);
+    setExtractedTopics(noteTopics[selectedCacheKey] || []);
   }, [selectedNote, noteTopics]);
 
   useEffect(() => {
     const loadSummary = async () => {
       if (!selectedNote) return;
 
-      if (noteSummaries[selectedNote.id] && noteTopics[selectedNote.id]) {
-        setExtractedTopics(noteTopics[selectedNote.id]);
+      if (noteSummaries[selectedCacheKey] && noteTopics[selectedCacheKey]) {
+        setExtractedTopics(noteTopics[selectedCacheKey]);
         return;
       }
 
       setLoadingSummary(true);
       try {
-        const response = await apiClient.extractTopics(selectedNote.id);
+        const response = await apiClient.extractTopics(selectedNote.noteId || selectedNote.id);
         const topics = response.data.topics;
         setExtractedTopics(topics);
         setNoteTopics((prev) => ({
           ...prev,
-          [selectedNote.id]: topics,
+          [selectedCacheKey]: topics,
         }));
 
         setNoteSummaries((prev) => ({
           ...prev,
-          [selectedNote.id]: response.data.summary || selectedNote.preview || "No summary available for this note.",
+          [selectedCacheKey]: response.data.summary || selectedNote.preview || "No summary available for this note.",
         }));
       } catch {
         setNoteTopics((prev) => ({
           ...prev,
-          [selectedNote.id]: [],
+          [selectedCacheKey]: [],
         }));
         setNoteSummaries((prev) => ({
           ...prev,
-          [selectedNote.id]: selectedNote.preview || "No summary available for this note.",
+          [selectedCacheKey]: selectedNote.preview || "No summary available for this note.",
         }));
       } finally {
         setLoadingSummary(false);
@@ -241,7 +272,7 @@ export default function NotesPage() {
     };
 
     void loadSummary();
-  }, [selectedNote, noteSummaries]);
+  }, [selectedNote, selectedCacheKey, noteSummaries, noteTopics]);
 
   async function handleUpload(fileOverride?: File) {
     const fileToUpload = fileOverride ?? uploadFile;
@@ -251,6 +282,9 @@ export default function NotesPage() {
     formData.append("file", fileToUpload);
     formData.append("subject", uploadSubject || "General");
     formData.append("topic", uploadTopic);
+    if (appendToSelectedNote && selectedNote?.noteId) {
+      formData.append("note_id", selectedNote.noteId);
+    }
 
     setUploading(true);
     setUploadProgress(0);
@@ -260,7 +294,7 @@ export default function NotesPage() {
       const created = mapDocumentToNote(response.data);
 
       setNotes((prev) => [created, ...prev]);
-      setSelectedId(created.id);
+      setSelectedId(created.noteId);
       setUploadFile(null);
       setUploadTopic("");
       setUploadProgress(0);
@@ -280,21 +314,24 @@ export default function NotesPage() {
 
     setDeletingId(id);
     try {
+      const removed = notes.find((note) => note.id === id);
+      const removedKey = removed?.noteId || id;
       await apiClient.deleteDocument(id);
       const remaining = notes.filter((note) => note.id !== id);
       setNotes(remaining);
       setNoteSummaries((prev) => {
         const next = { ...prev };
-        delete next[id];
+        delete next[removedKey];
         return next;
       });
       setNoteTopics((prev) => {
         const next = { ...prev };
-        delete next[id];
+        delete next[removedKey];
         return next;
       });
-      if (selectedId === id) {
-        setSelectedId(remaining[0]?.id ?? "");
+      const stillExists = remaining.some((item) => item.noteId === selectedId);
+      if (!stillExists) {
+        setSelectedId(remaining[0]?.noteId ?? "");
       }
       await refreshPinnedItems();
       toast.success("Note deleted");
@@ -305,15 +342,17 @@ export default function NotesPage() {
     }
   }
 
-  async function toggleStar(note: Note) {
+  async function toggleStar(noteCard: { noteId: string; primary: Note; documents: Note[] }) {
     if (starringId) return;
-    setStarringId(note.id);
+    const note = noteCard.primary;
+    const targetNoteId = noteCard.noteId || note.noteId || note.id;
+    setStarringId(targetNoteId);
     try {
       const nextStarState = !note.isStarred;
-      await apiClient.setDocumentStar(note.id, nextStarState);
+      await apiClient.setNoteStar(targetNoteId, nextStarState);
       setNotes((prev) =>
         prev.map((item) =>
-          item.id === note.id ? { ...item, isStarred: nextStarState } : item,
+          item.noteId === targetNoteId ? { ...item, isStarred: nextStarState } : item,
         ),
       );
       await refreshPinnedItems();
@@ -330,15 +369,15 @@ export default function NotesPage() {
 
     setExtractingTopics(true);
     try {
-      const response = await apiClient.extractTopics(selectedNote.id, true);
+      const response = await apiClient.extractTopics(selectedNote.noteId || selectedNote.id, true);
       setExtractedTopics(response.data.topics);
       setNoteTopics((prev) => ({
         ...prev,
-        [selectedNote.id]: response.data.topics,
+        [selectedCacheKey]: response.data.topics,
       }));
       setNoteSummaries((prev) => ({
         ...prev,
-        [selectedNote.id]: response.data.summary || selectedNote.preview || "No summary available for this note.",
+        [selectedCacheKey]: response.data.summary || selectedNote.preview || "No summary available for this note.",
       }));
       if (response.data.topics.length > 0) {
         setUploadTopic(response.data.topics[0].title);
@@ -352,37 +391,39 @@ export default function NotesPage() {
   }
 
   // --- EDIT HANDLERS ---
-  function openEditModal(note: Note) {
-    setEditingNoteId(note.id);
-    setEditFilename(note.filename);
-    setEditSubject(note.subject || "General");
-    setEditTopic(note.topic || "");
+  function openEditModal(noteCard: { noteId: string; primary: Note; documents: Note[] }) {
+    setEditingNoteId(noteCard.noteId);
+    setEditTitle(noteCard.primary.noteTitle || noteCard.primary.filename);
+    setEditSubject(noteCard.primary.subject || "General");
+    setEditTopic(noteCard.primary.topic || "");
   }
 
   async function saveNoteEdit() {
     if (!editingNoteId) return;
     setIsUpdating(true);
     try {
-      const res = await apiClient.updateDocument(editingNoteId, {
-        filename: editFilename,
+      const res = await apiClient.updateNote(editingNoteId, {
+        title: editTitle,
         subject: editSubject,
         topic: editTopic,
       });
-      
+
+      const updatedDocsById = new Map(res.data.documents.map((doc) => [doc.id, doc]));
       setNotes((prev) =>
-        prev.map((n) =>
-          n.id === editingNoteId
-            ? {
-                ...n,
-                filename: res.data.original_name || res.data.filename,
-                subject: res.data.subject,
-                topic: res.data.topic,
-              }
-            : n
-        )
+        prev.map((n) => {
+          const updated = updatedDocsById.get(n.id);
+          if (!updated) return n;
+          return {
+            ...n,
+            noteTitle: res.data.note.title,
+            subject: updated.subject,
+            topic: updated.topic,
+            filename: updated.original_name || updated.filename,
+          };
+        }),
       );
-      
-      toast.success("Note details updated");
+
+      toast.success("Combined note details updated");
       setEditingNoteId(null);
     } catch (error) {
       toast.error(getApiErrorMessage(error, "Failed to update note"));
@@ -391,9 +432,33 @@ export default function NotesPage() {
     }
   }
 
+  async function regenerateSummary() {
+    if (!selectedNote || regeneratingSummary) return;
+    setRegeneratingSummary(true);
+    setExtractingTopics(true);
+    try {
+      const response = await apiClient.extractTopics(selectedNote.noteId || selectedNote.id, true);
+      setExtractedTopics(response.data.topics);
+      setNoteTopics((prev) => ({
+        ...prev,
+        [selectedCacheKey]: response.data.topics,
+      }));
+      setNoteSummaries((prev) => ({
+        ...prev,
+        [selectedCacheKey]: response.data.summary || selectedNote.preview || "No summary available for this note.",
+      }));
+      toast.success("Summary regenerated");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to regenerate summary"));
+    } finally {
+      setRegeneratingSummary(false);
+      setExtractingTopics(false);
+    }
+  }
+
   const handleNextStepNavigate = () => {
-    if (selectedNote?.id) {
-      window.sessionStorage.setItem("arcadia:pending-chat-document-id", selectedNote.id);
+    if (selectedNote?.noteId) {
+      window.sessionStorage.setItem("arcadia:pending-chat-document-id", selectedNote.noteId);
     }
     setShowNextSteps(false);
   };
@@ -444,6 +509,15 @@ export default function NotesPage() {
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-foreground"
                 placeholder="Topic (optional)"
               />
+              <label className="flex items-center gap-2 px-0.5 text-xs text-muted-foreground leading-none">
+                <Checkbox
+                  checked={appendToSelectedNote}
+                  onCheckedChange={(checked) => setAppendToSelectedNote(Boolean(checked))}
+                  disabled={!selectedNote}
+                  className="mt-0.5 border-cyan-400/40 bg-slate-900/90 data-[state=checked]:border-cyan-400 data-[state=checked]:bg-cyan-400 data-[state=checked]:text-slate-950"
+                />
+                <span className="leading-none">Upload into current note (multi-file note)</span>
+              </label>
               <Button
                 size="sm"
                 onClick={() => fileInputRef.current?.click()}
@@ -473,36 +547,38 @@ export default function NotesPage() {
                   <Skeleton className="h-10 w-full bg-white/10 rounded-xl" />
                   <Skeleton className="h-10 w-full bg-white/10 rounded-xl" />
                 </>
-              ) : notes.length === 0 ? (
+              ) : noteCards.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-white/20 bg-slate-950/40 px-3 py-5 text-center">
                   <FileText className="mx-auto mb-2 h-4 w-4 text-cyan-300/60 drop-shadow-[0_0_12px_rgba(6,182,212,0.28)]" />
                   <p className="text-xs text-muted-foreground">No notes uploaded yet.</p>
                 </div>
               ) : (
-                notes.map((note) => (
+                noteCards.map((card) => {
+                  const note = card.primary;
+                  return (
                   <div
-                    key={note.id}
+                    key={card.noteId}
                     className={`group w-full flex items-start justify-between gap-2 rounded-xl px-3 py-2.5 text-left transition-all duration-300 cursor-pointer ${
-                      note.id === selectedId
+                      card.noteId === selectedId
                         ? "bg-[oklch(0.78_0.16_196)]/15 border border-[oklch(0.78_0.16_196)]/30"
                         : "bg-slate-950/45 backdrop-blur-xl border border-white/10 hover:scale-[1.01] hover:bg-slate-900/60 hover:border-cyan-400/35 hover:shadow-[inset_0px_0px_20px_rgba(6,182,212,0.15)]"
                     }`}
-                    onClick={() => setSelectedId(note.id)}
-                    data-ocid={`notes.item.${note.id}`}
+                    onClick={() => setSelectedId(card.noteId)}
+                    data-ocid={`notes.item.${card.noteId}`}
                   >
                     <div className="min-w-0 flex-1 text-left pr-2">
-                      <p className="text-sm text-foreground truncate">{note.filename}</p>
+                      <p className="text-sm text-foreground truncate">{note.noteTitle || note.filename}</p>
                       <p className="mt-1 text-xs text-muted-foreground truncate">
-                        {note.subject || "General"} · {note.topic || "General"}
+                        {note.subject || "General"} · {card.documents.length} file{card.documents.length > 1 ? "s" : ""}
                       </p>
                     </div>
                     <button
                       type="button"
                       onClick={(event) => {
                         event.stopPropagation();
-                        void toggleStar(note);
+                        void toggleStar(card);
                       }}
-                      disabled={starringId === note.id}
+                      disabled={starringId === card.noteId}
                       className={`mt-0.5 shrink-0 rounded-lg p-1.5 transition-colors ${
                         note.isStarred
                           ? "text-yellow-300 hover:bg-yellow-400/10"
@@ -521,13 +597,13 @@ export default function NotesPage() {
                       }}
                       disabled={deletingId === note.id}
                       className="uiverse-delete-button uiverse-delete-button--xs mt-0.5 shrink-0 disabled:opacity-50"
-                      aria-label={`Delete note ${note.filename}`}
+                      aria-label={`Delete file ${note.filename}`}
                       data-ocid={`notes.delete.${note.id}`}
                     >
                       <Trash2 className="uiverse-delete-icon" />
                     </button>
                   </div>
-                ))
+                )})
               )}
             </div>
           </div>
@@ -538,9 +614,9 @@ export default function NotesPage() {
             <>
               <div className="p-4 border-b border-white/10 flex items-center justify-between gap-3">
                 <div className="min-w-0 pr-4">
-                  <h2 className="text-xl font-bold text-foreground truncate">{selectedNote.filename}</h2>
+                  <h2 className="text-xl font-bold text-foreground truncate">{selectedNote.noteTitle || selectedNote.filename}</h2>
                   <div className="text-xs text-muted-foreground mt-1 truncate">
-                    {selectedNote.subject} · {selectedNote.topic} · {new Date(selectedNote.uploadDate).toLocaleString()}
+                    {selectedNote.subject} · {selectedNoteDocs.length} files · {new Date(selectedNote.uploadDate).toLocaleString()}
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
@@ -548,7 +624,7 @@ export default function NotesPage() {
                     variant="ghost"
                     size="icon"
                     className="text-muted-foreground hover:text-cyan-300 hover:bg-white/5"
-                    onClick={() => openEditModal(selectedNote)}
+                    onClick={() => selectedCard && openEditModal(selectedCard)}
                     aria-label="Edit document details"
                   >
                     <Edit2 className="w-4 h-4" />
@@ -568,8 +644,29 @@ export default function NotesPage() {
                   <div className="text-sm text-foreground whitespace-pre-wrap">
                     {loadingSummary
                       ? "Generating summary..."
-                      : noteSummaries[selectedNote.id] || selectedNote.preview || "No summary available for this note."}
+                      : noteSummaries[selectedCacheKey] || selectedNote.preview || "No summary available for this note."}
                   </div>
+                  {selectedNoteDocs.length > 0 && (
+                    <div className="mt-4 rounded-xl border border-white/10 bg-slate-950/40 p-3">
+                      <div className="text-xs font-semibold text-cyan-300 mb-2">Files in this note</div>
+                      <div className="space-y-1.5">
+                        {selectedNoteDocs.map((doc) => (
+                          <div key={doc.id} className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                            <span className="truncate">{doc.filename}</span>
+                            {selectedNoteDocs.length > 1 ? (
+                              <button
+                                type="button"
+                                onClick={() => void deleteNote(doc.id)}
+                                className="text-red-300 hover:text-red-200"
+                              >
+                                Delete file
+                              </button>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="border-l border-white/10 p-4 overflow-auto">
@@ -577,25 +674,20 @@ export default function NotesPage() {
                     <div className="text-sm font-semibold text-foreground">All Topics</div>
                     <Button
                       variant="outline"
-                      size="sm"
-                      className="border-cyan-400/40 text-cyan-300"
-                      onClick={extractTopics}
-                      disabled={extractingTopics}
+                      className="h-6 px-2 text-[10px] border-cyan-400/40 text-cyan-300 whitespace-nowrap"
+                      onClick={regenerateSummary}
+                      disabled={regeneratingSummary || extractingTopics}
                     >
-                      {extractingTopics ? (
-                        <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
-                      ) : (
-                        <ScanText className="w-3.5 h-3.5 mr-1" />
-                      )}
-                      Extract Topics
+                      {(regeneratingSummary || extractingTopics) ? (
+                        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                      ) : null}
+                      Regenerate
                     </Button>
                   </div>
                   {extractedTopics.length === 0 ? (
                     <div className="rounded-xl border border-dashed border-white/20 bg-slate-950/40 p-4 text-center">
                       <ScanText className="mx-auto mb-2 h-4 w-4 text-cyan-300/60 drop-shadow-[0_0_12px_rgba(6,182,212,0.28)]" />
-                      <p className="text-xs text-muted-foreground">
-                        Click Extract Topics to let Arcadia analyze this note and suggest focus areas.
-                      </p>
+                      <p className="text-xs text-muted-foreground">No topics yet.</p>
                     </div>
                   ) : (
                     <div className="space-y-2">
@@ -631,12 +723,12 @@ export default function NotesPage() {
             
             <div className="space-y-3">
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Document Name</label>
+                <label className="text-xs text-muted-foreground mb-1 block">Note Title</label>
                 <input
-                  value={editFilename}
-                  onChange={(e) => setEditFilename(e.target.value)}
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:border-cyan-500/50"
-                  placeholder="Filename"
+                  placeholder="Note title"
                 />
               </div>
               <div>
@@ -728,8 +820,8 @@ export default function NotesPage() {
                   <Link
                     to="/quiz"
                     onClick={() => {
-                      if (selectedNote?.id) {
-                        window.sessionStorage.setItem("arcadia:pending-quiz-document-id", selectedNote.id);
+                      if (selectedNote?.noteId) {
+                        window.sessionStorage.setItem("arcadia:pending-quiz-document-id", selectedNote.noteId);
                       }
                       handleNextStepNavigate();
                     }}
@@ -751,8 +843,8 @@ export default function NotesPage() {
                   <Link
                     to="/study"
                     onClick={() => {
-                      if (selectedNote?.id) {
-                        window.sessionStorage.setItem("arcadia:pending-study-document-id", selectedNote.id);
+                      if (selectedNote?.noteId) {
+                        window.sessionStorage.setItem("arcadia:pending-study-document-id", selectedNote.noteId);
                       }
                       handleNextStepNavigate();
                     }}

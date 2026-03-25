@@ -18,6 +18,7 @@ class Document(Base):
     __tablename__ = "documents"
 
     id = Column(String, primary_key=True)               # UUID
+    note_id = Column(String, nullable=False, default="")
     filename = Column(String, nullable=False)
     original_name = Column(String, nullable=False)
     subject = Column(String, default="General")
@@ -35,6 +36,17 @@ class DocumentInsight(Base):
     document_id = Column(String, nullable=False, unique=True)
     topics_json = Column(JSON, default=[])
     summary_text = Column(Text, default="")
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow,
+                        onupdate=datetime.datetime.utcnow)
+
+
+class Note(Base):
+    __tablename__ = "notes"
+
+    id = Column(String, primary_key=True)
+    title = Column(String, nullable=False, default="Untitled note")
+    subject = Column(String, default="General")
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow,
                         onupdate=datetime.datetime.utcnow)
 
@@ -185,6 +197,19 @@ def init_db():
         if "is_starred" not in column_names:
             connection.execute(text("ALTER TABLE documents ADD COLUMN is_starred BOOLEAN DEFAULT 0"))
             connection.commit()
+        if "note_id" not in column_names:
+            connection.execute(text("ALTER TABLE documents ADD COLUMN note_id TEXT DEFAULT ''"))
+            connection.commit()
+
+        connection.execute(text("UPDATE documents SET note_id = id WHERE note_id IS NULL OR note_id = ''"))
+        connection.execute(text("""
+            INSERT INTO notes (id, title, subject, created_at, updated_at)
+            SELECT d.note_id, COALESCE(NULLIF(d.topic, ''), d.original_name), COALESCE(NULLIF(d.subject, ''), 'General'), d.created_at, d.created_at
+            FROM documents d
+            LEFT JOIN notes n ON n.id = d.note_id
+            WHERE n.id IS NULL
+        """))
+        connection.commit()
     print("📦 SQLite database initialized")
 
 

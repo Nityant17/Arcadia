@@ -32,6 +32,12 @@ function getMonday(referenceDate: Date) {
   return date;
 }
 
+function formatTaskTypeLabel(taskType: string) {
+  const clean = (taskType || "").replaceAll("_", " ").trim();
+  if (clean === "spaced repetition") return "Spaced repetition";
+  return clean;
+}
+
 interface EditingCell {
   day: number;
   hour: number;
@@ -172,7 +178,8 @@ export default function PlannerPage() {
       if (weekday < 0 || weekday > 6 || hour < 8 || hour > 21) continue;
 
       const focus = task.focus_topic?.trim();
-      const taskLabel = task.task_type.replaceAll("_", " ");
+      const taskLabel = formatTaskTypeLabel(task.task_type);
+      const isSpacedRepetition = task.task_type === "spaced_repetition";
       
       let labelCore = "";
       // If it's a manual custom task, just show the exact text the user typed
@@ -180,9 +187,11 @@ export default function PlannerPage() {
         labelCore = focus || taskLabel;
       } else {
         // Otherwise, format it like standard AI generated tasks
+        const repetitionPrefix = isSpacedRepetition ? "SR" : "";
+        const baseLabel = repetitionPrefix ? `${repetitionPrefix}: ${taskLabel}` : taskLabel;
         labelCore = focus
-          ? `${task.subject}: ${focus} (${taskLabel})`
-          : `${task.subject}: ${taskLabel}`;
+          ? `${task.subject}: ${focus} (${baseLabel})`
+          : `${task.subject}: ${baseLabel}`;
       }
 
       const key = cellKey(weekday, hour);
@@ -549,7 +558,9 @@ export default function PlannerPage() {
             {upcomingTasks.map((task) => (
               <div key={task.id} className="bg-slate-950/40 backdrop-blur-xl border border-white/10 rounded-lg px-3 py-2 text-sm text-foreground hover:border-cyan-500/30 transition-all">
                 <div className="font-medium truncate">{task.subject} · {task.focus_topic || "General"}</div>
-                <div className="text-xs text-arcadia-teal line-clamp-2">{task.task_type.replaceAll("_", " ")}</div>
+                <div className={`text-xs line-clamp-2 ${task.task_type === "spaced_repetition" ? "text-amber-300" : "text-arcadia-teal"}`}>
+                  {task.task_type === "spaced_repetition" ? "Spaced repetition session" : formatTaskTypeLabel(task.task_type)}
+                </div>
                 <div className="text-xs text-muted-foreground">{new Date(task.due_date).toLocaleString()}</div>
               </div>
             ))}

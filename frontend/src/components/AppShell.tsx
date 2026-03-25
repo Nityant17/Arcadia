@@ -6,7 +6,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAppStore } from "@/store/useAppStore";
-import { Link, useLocation } from "@tanstack/react-router";
+import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import {
   BrainIcon,
   CalendarClockIcon,
@@ -20,6 +20,7 @@ import {
   MessageSquareIcon,
   NotebookPenIcon,
   PuzzleIcon,
+  Code2,
   Star,
   SwordsIcon,
 } from "lucide-react";
@@ -40,6 +41,7 @@ const LEARNING_NAV_LINKS = [
   { label: "Study Materials", to: "/study", icon: BrainIcon },
   { label: "Planner", to: "/planner", icon: CalendarClockIcon },
   { label: "Challenge", to: "/challenge", icon: SwordsIcon },
+  { label: "Code Lab", to: "/code", icon: Code2 },
 ] satisfies Array<{ label: string; to: string; icon: LucideIcon }>;
 
 interface PinnedItem {
@@ -60,6 +62,7 @@ export default function AppShell({ children, pinnedItems = [] }: AppShellProps) 
   const minutes = Math.floor((timeLeft % 3600) / 60);
   const seconds = timeLeft % 60;
   const location = useLocation();
+  const navigate = useNavigate();
   const {
     currentLanguage,
     languages,
@@ -67,6 +70,11 @@ export default function AppShell({ children, pinnedItems = [] }: AppShellProps) 
     currentUser,
     logout,
   } = useAppStore();
+
+  function handleLogout() {
+    logout();
+    void navigate({ to: "/auth" });
+  }
 
   return (
     <div className="min-h-screen relative overflow-x-hidden bg-[#0a0a0a]">
@@ -288,7 +296,7 @@ export default function AppShell({ children, pinnedItems = [] }: AppShellProps) 
                 <div className="px-2 py-1.5" data-ocid="nav.logout.button">
                   <button
                     type="button"
-                    onClick={logout}
+                    onClick={handleLogout}
                     className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 rounded-lg hover:bg-red-500/10 hover:text-red-300 transition-colors"
                     aria-label="Sign out"
                   >

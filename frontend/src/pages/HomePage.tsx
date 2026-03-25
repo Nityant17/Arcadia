@@ -141,12 +141,15 @@ export default function HomePage() {
   const [recentNotes, setRecentNotes] = useState<
     Array<{
       id: string;
+      representativeDocId: string;
+      documentIds: string[];
       name: string;
       subject: string;
       topic: string;
+      count: number;
     }>
   >([]);
-  const [askableNotes, setAskableNotes] = useState<Array<{ id: string; name: string }>>([]);
+  const [askableNotes, setAskableNotes] = useState<Array<{ id: string; name: string; documentId: string; count: number }>>([]);
   const [selectedAskNoteId, setSelectedAskNoteId] = useState("");
   const [stats, setStats] = useState({
     totalQuizzes: 0,
@@ -158,6 +161,40 @@ export default function HomePage() {
   const [isDailyGoalsEditing, setIsDailyGoalsEditing] = useState(false);
   const [showNextSteps, setShowNextSteps] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const hasNotes = recentNotes.length > 0;
+  const mapDocumentsToNotes = (documents: Array<{ id: string; note_id: string; note_title?: string; original_name: string; filename: string; subject: string; topic: string }>) => {
+    const grouped = new Map<string, {
+      id: string;
+      representativeDocId: string;
+      documentIds: string[];
+      name: string;
+      subject: string;
+      topic: string;
+      count: number;
+    }>();
+
+    for (const doc of documents) {
+      const noteId = doc.note_id || doc.id;
+      const existing = grouped.get(noteId);
+      if (!existing) {
+        grouped.set(noteId, {
+          id: noteId,
+          representativeDocId: doc.id,
+          documentIds: [doc.id],
+          name: doc.note_title || doc.topic || doc.original_name || doc.filename,
+          subject: doc.subject || "General",
+          topic: formatTopicLabel(doc.topic),
+          count: 1,
+        });
+        continue;
+      }
+      existing.documentIds.push(doc.id);
+      existing.count += 1;
+    }
+
+    return Array.from(grouped.values());
+  };
 
   // --- TASKS & TIMER STATE ---
   const [todayTasks, setTodayTasks] = useState<PlannerTask[]>([]);
@@ -177,24 +214,24 @@ export default function HomePage() {
           apiClient.getPlannerTasks().catch(() => ({ data: { tasks: [] } })), 
         ]);
 
-        const allDocs = docsResponse.data.documents.map((doc) => ({
-          id: doc.id,
-          name: doc.original_name || doc.filename,
-          subject: doc.subject || "General",
-          topic: formatTopicLabel(doc.topic),
-        }));
-        const docs = allDocs.slice(0, 3);
+        const allNotes = mapDocumentsToNotes(docsResponse.data.documents);
+        const docs = allNotes.slice(0, 3);
 
         const dashboardStats = dashboardResponse.data.stats;
 
         setRecentNotes(docs);
-        setAskableNotes(allDocs.map((doc) => ({ id: doc.id, name: doc.name })));
+        setAskableNotes(allNotes.map((doc) => ({
+          id: doc.id,
+          name: doc.name,
+          documentId: doc.representativeDocId,
+          count: doc.count,
+        })));
         setSelectedAskNoteId((previousSelectedId) => {
-          if (!allDocs.length) return "";
-          if (previousSelectedId && allDocs.some((doc) => doc.id === previousSelectedId)) {
+          if (!allNotes.length) return "";
+          if (previousSelectedId && allNotes.some((doc) => doc.id === previousSelectedId)) {
             return previousSelectedId;
           }
-          return allDocs[0].id;
+          return allNotes[0].id;
         });
         setStats({
           totalQuizzes: dashboardStats.total_quizzes_taken,
@@ -254,21 +291,16 @@ export default function HomePage() {
     setUploading(true);
     try {
       const response = await apiClient.uploadDocument(formData);
-      const newDoc = response.data;
-      const newNote = {
-        id: newDoc.id,
-        name: newDoc.original_name || newDoc.filename,
-        subject: newDoc.subject || "General",
-        topic: formatTopicLabel(newDoc.topic),
-      };
-
-      setRecentNotes((prev) => [newNote, ...prev].slice(0, 3));
-      setAskableNotes((prev) => {
-        const alreadyExists = prev.some((note) => note.id === newNote.id);
-        if (alreadyExists) return prev;
-        return [{ id: newNote.id, name: newNote.name }, ...prev];
-      });
-      setSelectedAskNoteId(newNote.id);
+      const allDocs = await apiClient.listDocuments();
+      const allNotes = mapDocumentsToNotes(allDocs.data.documents);
+      setRecentNotes(allNotes.slice(0, 3));
+      setAskableNotes(allNotes.map((doc) => ({
+        id: doc.id,
+        name: doc.name,
+        documentId: doc.representativeDocId,
+        count: doc.count,
+      })));
+      setSelectedAskNoteId(response.data.note_id || response.data.id);
       setShowNextSteps(true);
       toast.success("Uploaded successfully");
     } catch (error) {
@@ -278,8 +310,6 @@ export default function HomePage() {
       setDragActive(false);
     }
   };
-
-  const hasNotes = recentNotes.length > 0;
 
   const handleOmnibarSubmit = (value: string) => {
     if (!value.trim()) return;
@@ -297,7 +327,12 @@ export default function HomePage() {
 
     setDeletingId(id);
     try {
-      await apiClient.deleteDocument(id);
+      const target = recentNotes.find((note) => note.id === id);
+      if (!target) {
+        setDeletingId(null);
+        return;
+      }
+      await Promise.all(target.documentIds.map((docId) => apiClient.deleteDocument(docId)));
       setRecentNotes((prev) => prev.filter((note) => note.id !== id));
       setAskableNotes((prev) => {
         const remainingNotes = prev.filter((note) => note.id !== id);
@@ -324,11 +359,11 @@ export default function HomePage() {
     if (quickToolBusy) return;
 
     const requireDocument = () => {
-      if (!selectedAskNoteId) {
-        toast.error("Upload and select a note first");
-        return null;
-      }
-      return selectedAskNoteId;
+        if (!selectedAskNoteId) {
+          toast.error("Upload and select a note first");
+          return null;
+        }
+        return selectedAskNoteId;
     };
 
     if (toolId === "upload") {
@@ -381,41 +416,18 @@ export default function HomePage() {
       return;
     }
 
-    const docId = requireDocument();
-    if (!docId) return;
-
-    if (toolId === "topics") {
-      setQuickToolBusy(toolId);
-      try {
-        const response = await apiClient.extractTopics(docId, true);
-        toast.success(`Extracted ${response.data.topics.length} topics`);
-      } catch (error) {
-        toast.error(getApiErrorMessage(error, "Failed to extract topics"));
-      } finally {
-        setQuickToolBusy(null);
-      }
+    if (toolId === "code") {
+      void navigate({ to: "/code" });
       return;
     }
 
-    if (toolId === "cheatsheet") {
-      setQuickToolBusy(toolId);
-      try {
-        await apiClient.generateCheatsheet(
-          {
-            document_id: docId,
-            language: currentLanguage?.id ?? "en",
-            focus_topic: "",
-          },
-          true,
-        );
-        toast.success("Cheatsheet generated. Opening Study.");
-        void navigate({ to: "/study" });
-      } catch (error) {
-        toast.error(getApiErrorMessage(error, "Failed to generate cheatsheet"));
-      } finally {
-        setQuickToolBusy(null);
-      }
+    if (toolId === "notes") {
+      void navigate({ to: "/notes" });
+      return;
     }
+
+    const docId = requireDocument();
+    if (!docId) return;
   };
 
   const suggestionPills = [
@@ -483,7 +495,7 @@ export default function HomePage() {
                     >
                       {askableNotes.map((note) => (
                         <option key={note.id} value={note.id}>
-                          {note.name}
+                          {note.name} ({note.count})
                         </option>
                       ))}
                     </select>
@@ -634,7 +646,7 @@ export default function HomePage() {
                         {note.name}
                       </p>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        {note.subject} · {note.topic}
+                        {note.subject} · {note.count} file{note.count > 1 ? "s" : ""} · {note.topic}
                       </p>
                     </div>
                     <button

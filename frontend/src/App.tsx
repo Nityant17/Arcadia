@@ -3,6 +3,7 @@ import { Toaster } from "@/components/ui/sonner";
 import AuthPage from "@/pages/AuthPage";
 import ChallengePage from "@/pages/ChallengePage";
 import ChatPage from "@/pages/ChatPage";
+import CodeLabPage from "@/pages/CodeLabPage";
 import DashboardPage from "@/pages/DashboardPage";
 import HomePage from "@/pages/HomePage";
 import NotesPage from "@/pages/NotesPage";
@@ -124,6 +125,12 @@ const challengeRoute = createRoute({
   component: ChallengePage,
 });
 
+const codeRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: "/code",
+  component: CodeLabPage,
+});
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   authRoute,
@@ -136,6 +143,7 @@ const routeTree = rootRoute.addChildren([
     studyRoute,
     plannerRoute,
     challengeRoute,
+    codeRoute,
   ]),
 ]);
 
