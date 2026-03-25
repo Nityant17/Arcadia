@@ -82,25 +82,52 @@ class RAGService:
     # ─── Indexing ──────────────────────────────────────────────
 
     def index_document(self, doc_id: str, text: str, 
-                       subject: str = "General", topic: str = "") -> int:
+                   subject: str = "General", topic: str = "") -> int:
         """Chunk and index a document. Returns number of chunks created."""
+
         if text is None:
-            return 0
+            raise ValueError("Input text is None")
 
         if not isinstance(text, str):
             text = str(text)
 
-        chunks = self._normalize_chunks(self.chunk_text(text))
-        if not chunks:
-            return 0
+        # ─── STEP 1: Chunk + normalize ─────────────────────────────
+        raw_chunks = self.chunk_text(text)
+        chunks = self._normalize_chunks(raw_chunks)
 
+        # ─── STEP 2: HARD CLEANING (critical fix) ──────────────────
+        clean_chunks = []
+        for c in chunks:
+            if not isinstance(c, str):
+                continue
+
+            c = c.strip()
+
+            # Remove encoding junk (OCR artifacts)
+            c = c.encode("utf-8", "ignore").decode("utf-8")
+
+            # Skip garbage / tiny chunks
+            if len(c) < 10:
+                continue
+
+            clean_chunks.append(c)
+
+        chunks = clean_chunks
+
+        # ─── STEP 3: Validate final chunks ─────────────────────────
+        if not chunks:
+            raise ValueError("No valid chunks after cleaning (bad OCR or empty file)")
+
+        # ─── STEP 4: Prepare data ──────────────────────────────────
         ids = []
         documents = []
         metadatas = []
 
         for i, chunk in enumerate(chunks):
+            clean_chunk = str(chunk).strip()
+
             ids.append(f"{doc_id}_chunk_{i}")
-            documents.append(chunk)
+            documents.append(clean_chunk)
             metadatas.append({
                 "document_id": doc_id,
                 "chunk_index": i,
@@ -108,14 +135,30 @@ class RAGService:
                 "topic": topic,
             })
 
-        # Add in batches of 100 to avoid ChromaDB limits
+        # ─── STEP 5: Batch insert with strict validation ───────────
         batch_size = 100
+
         for start in range(0, len(ids), batch_size):
             end = start + batch_size
+
+            batch_ids = ids[start:end]
+            batch_docs = documents[start:end]
+            batch_meta = metadatas[start:end]
+
+            # 🚨 FINAL SAFETY CHECK (prevents your exact error)
+            for d in batch_docs:
+                if not isinstance(d, str):
+                    raise ValueError(f"Invalid chunk type: {type(d)}")
+                if not d.strip():
+                    raise ValueError("Empty chunk detected in batch")
+
+            # DEBUG (optional, remove later)
+            print("DEBUG → Sample docs:", batch_docs[:2])
+
             self._collection.add(
-                ids=ids[start:end],
-                documents=documents[start:end],
-                metadatas=metadatas[start:end],
+                ids=batch_ids,
+                documents=batch_docs,
+                metadatas=batch_meta,
             )
 
         return len(chunks)

@@ -38,6 +38,12 @@ from services.safety_service import safety_service
 
 router = APIRouter()
 
+# ADD THIS HELPER AT TOP (after imports)
+
+def clean_unicode(text: str) -> str:
+    if not text:
+        return ""
+    return text.encode("utf-8", "ignore").decode("utf-8", "ignore")
 
 @router.post("/upload", response_model=DocumentResponse)
 async def upload_document(
@@ -76,6 +82,7 @@ async def upload_document(
     # OCR / text extraction
     try:
         extracted_text = ocr_service.extract_text(str(save_path))
+        extracted_text = clean_unicode(extracted_text)  # 🔥 FIX
     except Exception as e:
         save_path.unlink(missing_ok=True)
         raise HTTPException(422, f"Text extraction failed: {e}")
@@ -103,7 +110,7 @@ async def upload_document(
         original_name=file.filename,
         subject=subject,
         topic=topic or file.filename.rsplit(".", 1)[0],
-        extracted_text=extracted_text,
+        extracted_text=clean_unicode(extracted_text)[:1000000],
         chunk_count=chunk_count,
     )
     db.add(doc)

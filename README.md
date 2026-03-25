@@ -8,6 +8,58 @@ This README is written as a **build contract** for humans and AI agents. It defi
 - which backend endpoints to call,
 - request/response shapes,
 - integration rules (auth, proxy, static audio, loading/error UX).
+- **Backend service and router coverage:** All backend services, routers, and their responsibilities are documented below for full-stack clarity.
+---
+
+## 2a) Backend Services Overview
+
+All backend logic is modularized in `backend/services/`:
+
+- **ocr_service.py**: Extracts text from images and PDFs using Tesseract (local) or Azure Form Recognizer (cloud). Handles image, PDF, and plain text extraction, with Unicode cleaning.
+- **rag_service.py**: Handles document chunking, embedding, and retrieval using ChromaDB and sentence-transformers. Provides chunking, indexing, retrieval, and deletion for RAG.
+- **llm_service.py**: Unified interface for text generation (Ollama or Azure OpenAI). Handles chat, quiz, cheatsheet, flashcards, diagrams, and prompt building.
+- **quiz_service.py**: Adaptive quiz engine with mastery tracking. Generates, scores, and tracks quizzes, updates mastery, and manages weak topics.
+- **generate_service.py**: Generates cheatsheets, flashcards, and Mermaid diagrams from document content using LLM and RAG.
+- **tts_service.py**: Text-to-speech using gTTS (local) or Azure AI Speech. Returns audio URLs for frontend playback.
+- **translate_service.py**: Translation using deep-translator (local) or Azure Translator. Handles chunked translation for long texts.
+- **safety_service.py**: Responsible AI guardrails. Blocks harmful/explicit uploads, prompts, and output. Uses Hugging Face NSFW detection for images and regex for text.
+
+All services are singletons and imported by routers as needed.
+
+---
+
+## 2b) Backend Routers Overview
+
+All API endpoints are defined in `backend/routers/`:
+
+- **auth.py**: User registration, login, session management, and current user lookup.
+- **upload.py**: File upload, OCR, document CRUD, topic extraction, and ChromaDB indexing.
+- **chat.py**: RAG-powered chat, streaming chat (SSE), chat history, and clearing chat.
+- **quiz.py**: Quiz generation, submission, and history.
+- **generate.py**: Cheatsheet, flashcard, and diagram generation and caching.
+- **tts.py**: Text-to-speech and translation endpoints.
+- **dashboard.py**: Learning analytics, mastery, recent quizzes, and progress reset.
+- **planner.py**: Study plan creation, task management, spaced repetition, and custom tasks.
+- **whiteboard.py**: OCR and hint generation for rough work images or typed input.
+- **challenge.py**: Multiplayer quiz challenge rooms (create, join, start, submit, leaderboard).
+
+All routers use dependency-injected authentication and database sessions.
+
+---
+## 2c) Backend Models and Schemas
+
+All request/response shapes are defined in `backend/models/schemas.py` using Pydantic. This includes:
+- Document upload/response, chat request/response, quiz generation/submission/results, cheatsheet/flashcard/diagram generation, TTS/translation, dashboard stats, topic extraction, and more.
+
+Database models (SQLAlchemy) are in `backend/models/database.py` (not shown here).
+
+---
+## 2d) Backend Config
+
+All configuration is in `backend/config.py`:
+- Switch between "local" and "azure" mode via `ARCADIA_MODE`.
+- Paths, embedding models, chunking, quiz thresholds, supported languages, and all Azure/LLM keys are set here.
+## 9) Project Structure (Important Paths)
 
 ---
 
@@ -407,20 +459,32 @@ Open:
 ```text
 Arcadia/
 ├── backend/
-│   ├── main.py
-│   ├── config.py
-│   ├── routers/
-│   │   ├── auth.py
-│   │   ├── upload.py
-│   │   ├── chat.py
-│   │   ├── quiz.py
-│   │   ├── generate.py
-│   │   ├── tts.py
-│   │   ├── dashboard.py
-│   │   ├── planner.py
-│   │   ├── whiteboard.py
-│   │   └── challenge.py
-│   └── models/schemas.py
+│   ├── main.py                # FastAPI app entrypoint
+│   ├── config.py              # All config/env vars
+│   ├── routers/               # All API endpoints
+│   │   ├── auth.py            # Auth endpoints
+│   │   ├── upload.py          # File upload, OCR, doc CRUD
+│   │   ├── chat.py            # RAG chat, streaming, history
+│   │   ├── quiz.py            # Quiz gen/submit/history
+│   │   ├── generate.py        # Cheatsheet/flashcard/diagram
+│   │   ├── tts.py             # TTS and translation
+│   │   ├── dashboard.py       # Analytics, mastery, reset
+│   │   ├── planner.py         # Study plan, tasks, spaced rep
+│   │   ├── whiteboard.py      # OCR + hint for rough work
+│   │   └── challenge.py       # Multiplayer quiz rooms
+│   ├── services/              # All backend logic modules
+│   │   ├── ocr_service.py     # OCR for images/PDFs
+│   │   ├── rag_service.py     # ChromaDB RAG
+│   │   ├── llm_service.py     # LLM abstraction
+│   │   ├── quiz_service.py    # Quiz engine/mastery
+│   │   ├── generate_service.py# Cheatsheet/flashcard/diagram
+│   │   ├── tts_service.py     # Text-to-speech
+│   │   ├── translate_service.py# Translation
+│   │   └── safety_service.py  # Responsible AI guardrails
+│   ├── models/
+│   │   ├── schemas.py         # Pydantic API schemas
+│   │   └── database.py        # SQLAlchemy models (not shown)
+│   └── data/                  # Uploaded files, ChromaDB, etc.
 │
 ├── frontend/
 │   ├── .env (optional)
@@ -428,8 +492,9 @@ Arcadia/
 │   └── src/
 │       ├── App.tsx
 │       ├── pages/
-│       ├── store/useAppStore.ts
-│       └── services/api.ts
+│       ├── store/
+│       ├── services/api.ts
+│       └── ... (see above)
 │
 └── README.md
 ```

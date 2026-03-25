@@ -77,7 +77,7 @@ class OCRService:
                         text_parts.append(page_text)
         except Exception as e:
             print(f"PDF text extraction failed: {e}")
-        return "\n".join(text_parts)
+        return self._clean_text("\n".join(text_parts))
 
     def _ocr_pdf_pages(self, file_path: str) -> str:
         """Convert PDF pages to images, then OCR each page."""
@@ -149,13 +149,21 @@ class OCRService:
     def _clean_text(text: str) -> str:
         if not text:
             return ""
+
+        # 🔥 CRITICAL FIX: remove invalid unicode (surrogates like \ud835)
+        text = text.encode("utf-8", "ignore").decode("utf-8", "ignore")
+
         # Remove excessive whitespace
         text = re.sub(r'\n{3,}', '\n\n', text)
         text = re.sub(r'[ \t]+', ' ', text)
+
         # Remove common OCR artifacts
         text = re.sub(r'[|}{~`]', '', text)
-        return text.strip()
 
+        # Optional: remove weird control chars
+        text = re.sub(r'[\x00-\x1F\x7F-\x9F]', '', text)
+
+        return text.strip()
 
 # Singleton
 ocr_service = OCRService()
