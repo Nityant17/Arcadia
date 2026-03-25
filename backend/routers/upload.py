@@ -180,6 +180,47 @@ async def set_document_star(
 
     return DocumentStarUpdateResponse(id=doc.id, is_starred=bool(doc.is_starred))
 
+from pydantic import BaseModel
+from typing import Optional
+
+class DocumentUpdateRequest(BaseModel):
+    filename: Optional[str] = None
+    subject: Optional[str] = None
+    topic: Optional[str] = None
+
+@router.patch("/documents/{doc_id}", response_model=DocumentResponse)
+async def update_document(
+    doc_id: str,
+    payload: DocumentUpdateRequest,
+    current_user = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Update a document's display name, subject, or topic."""
+    doc = db.query(Document).filter(Document.id == doc_id).first()
+    if not doc:
+        raise HTTPException(404, "Document not found")
+
+    if payload.filename is not None and payload.filename.strip():
+        doc.original_name = payload.filename.strip()
+    if payload.subject is not None:
+        doc.subject = payload.subject.strip()
+    if payload.topic is not None:
+        doc.topic = payload.topic.strip()
+
+    db.commit()
+    db.refresh(doc)
+
+    return DocumentResponse(
+        id=doc.id,
+        filename=doc.filename,
+        original_name=doc.original_name,
+        subject=doc.subject,
+        topic=doc.topic,
+        is_starred=bool(doc.is_starred),
+        chunk_count=doc.chunk_count,
+        extracted_text_preview=doc.extracted_text[:300] + "..." if doc.extracted_text and len(doc.extracted_text) > 300 else (doc.extracted_text or ""),
+        created_at=doc.created_at,
+    )
 
 @router.get("/documents/{doc_id}", response_model=DocumentResponse)
 async def get_document(doc_id: str, current_user = Depends(get_current_user), db: Session = Depends(get_db)):

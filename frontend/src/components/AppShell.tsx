@@ -26,6 +26,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
+import { useTimer } from "@/context/TimerContext";
 
 const CORE_NAV_LINKS = [
   { label: "Home", to: "/home", icon: HomeIcon },
@@ -54,6 +55,10 @@ interface AppShellProps {
 
 export default function AppShell({ children, pinnedItems = [] }: AppShellProps) {
   const [collapsed, setCollapsed] = useState(false);
+  const { timeLeft, isRunning, start, pause } = useTimer();
+  const hours = Math.floor(timeLeft / 3600);
+  const minutes = Math.floor((timeLeft % 3600) / 60);
+  const seconds = timeLeft % 60;
   const location = useLocation();
   const {
     currentLanguage,
@@ -193,6 +198,32 @@ export default function AppShell({ children, pinnedItems = [] }: AppShellProps) 
           </div>
 
           <div className="mt-3 pt-3 border-t border-white/10 space-y-2">
+            
+            {/* 🔥 TIMER (FIXED) */}
+            <div
+              className={`flex items-center justify-center rounded-xl border border-white/10 bg-white/5 px-2 py-2 ${
+                collapsed ? "flex-col gap-2 py-3" : "gap-2"
+              }`}
+            >
+              <span
+                className={`font-mono ${
+                      collapsed
+                        // Replaced rotate-270 origin-center with writing-mode and rotate-180
+                        ? "text-xs [writing-mode:vertical-lr] rotate-180 whitespace-nowrap tracking-wider"
+                        : "text-sm"
+                    }`}
+              >
+                {hours}h {minutes}m {seconds}s
+              </span>
+
+              {!collapsed && (
+                <button
+                  onClick={isRunning ? pause : start}
+                  className="text-xs px-2 py-1 rounded bg-white/10 hover:bg-white/20 transition-all"                >
+                  {isRunning ? "Pause" : "Start"}
+                </button>
+              )}
+            </div>
             <DropdownMenu>
               <DropdownMenuTrigger
                 className={`w-full flex items-center justify-center gap-2 px-2 py-2 rounded-xl border border-white/10 bg-white/5 text-sm font-medium hover:bg-white/10 transition-all`}

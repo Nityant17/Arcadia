@@ -6,10 +6,11 @@ import { QuickToolsGrid, type QuickToolId } from "@/components/ui/QuickToolsGrid
 import { TaskChecklist } from "@/components/ui/TaskChecklist";
 import { Button } from "@/components/ui/button";
 import { getPinnedFlashcards, togglePinnedFlashcard, type PinnedFlashcardItem } from "@/lib/pinnedFlashcards";
-import { apiClient, getApiErrorMessage } from "@/services/api";
+import { apiClient, getApiErrorMessage, type PlannerTask } from "@/services/api";
 import { useAppStore } from "@/store/useAppStore";
+import { useTimer } from "@/context/TimerContext";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { ChevronDown, CloudUpload, MessageSquare, Star, Trash2, X } from "lucide-react";
+import { ChevronDown, CloudUpload, MessageSquare, Star, Trash2, X, Play, Pause, RotateCcw, CheckCircle } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import styled from "styled-components";
@@ -158,12 +159,22 @@ export default function HomePage() {
   const [showNextSteps, setShowNextSteps] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // --- TASKS & TIMER STATE ---
+  const [todayTasks, setTodayTasks] = useState<PlannerTask[]>([]);
+  const { timeLeft, isRunning, start, pause, reset, setTime } = useTimer();
+  const [customHours, setCustomHours] = useState("");
+  const [customMinutes, setCustomMinutes] = useState("");
+  const hours = Math.floor(timeLeft / 3600);
+  const minutes = Math.floor((timeLeft % 3600) / 60);
+  const seconds = timeLeft % 60;
+
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [docsResponse, dashboardResponse] = await Promise.all([
+        const [docsResponse, dashboardResponse, plannerResponse] = await Promise.all([
           apiClient.listDocuments(),
           apiClient.getDashboardStats(),
+          apiClient.getPlannerTasks().catch(() => ({ data: { tasks: [] } })), 
         ]);
 
         const allDocs = docsResponse.data.documents.map((doc) => ({
@@ -191,6 +202,21 @@ export default function HomePage() {
           averageScore: Math.round((dashboardStats.average_score || 0) * 100),
           streak: Math.max(0, dashboardStats.study_streak),
         });
+
+        const now = new Date();
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const endOfToday = startOfToday + 24 * 60 * 60 * 1000 - 1;
+
+        const tasksForToday = (plannerResponse.data?.tasks || [])
+          .filter((task: PlannerTask) => task.status === "pending")
+          .filter((task: PlannerTask) => {
+            const due = new Date(task.due_date).getTime();
+            return !Number.isNaN(due) && due >= startOfToday && due <= endOfToday;
+          })
+          .sort((a: PlannerTask, b: PlannerTask) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
+
+        setTodayTasks(tasksForToday);
+
       } catch {
         setRecentNotes([]);
         setAskableNotes([]);
@@ -204,6 +230,18 @@ export default function HomePage() {
 
     void loadData();
   }, []);
+
+  const handleCustomTimerSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const h = parseInt(customHours) || 0;
+    const m = parseInt(customMinutes) || 0;
+    
+    if (h > 0 || m > 0) {
+      setTime((h * 3600) + (m * 60));
+      setCustomHours("");
+      setCustomMinutes("");
+    }
+  };
 
   const uploadFileToBackend = async (file: File) => {
     if (uploading) return;
@@ -397,6 +435,7 @@ export default function HomePage() {
       <ArcadiaHero />
 
       <motion.div variants={gridVariants} initial="hidden" animate="show" className="space-y-4">
+        {/* ROW 1 */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
           <motion.section variants={cardVariants} className={`${rowCardClass} md:col-span-2`}>
             <h2 className="text-lg font-semibold bg-gradient-to-r from-cyan-400 to-blue-600 bg-clip-text text-transparent">
@@ -556,7 +595,8 @@ export default function HomePage() {
           </motion.section>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {/* ROW 2 */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
           <motion.section variants={cardVariants} className={`${rowCardClass} md:col-span-3`}>
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-lg font-semibold bg-gradient-to-r from-cyan-400 to-blue-600 bg-clip-text text-transparent">
@@ -644,6 +684,140 @@ export default function HomePage() {
           </motion.section>
         </div>
 
+        {/* --- NEW ROW: Timer & Things To Do Today --- */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+          
+          {/* TIMER */}
+          <motion.section variants={cardVariants} className={`${rowCardClass} md:col-span-1 flex flex-col`}>
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <h2 className="text-lg font-semibold bg-gradient-to-r from-cyan-400 to-blue-600 bg-clip-text text-transparent">
+                Focus Timer
+              </h2>
+            </div>
+            
+            <div className="flex-1 flex flex-col items-center justify-center space-y-5 py-2">
+              <div className="text-4xl font-mono text-foreground font-light tracking-wider drop-shadow-[0_0_15px_rgba(6,182,212,0.4)]">
+                {String(hours).padStart(2, '0')}:{String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
+              </div>
+              
+              <div className="flex items-center gap-3">
+                <Button
+                  size="icon"
+                  variant="outline"
+                  className="rounded-full border-cyan-500/30 bg-cyan-500/10 w-12 h-12 hover:bg-cyan-500/20 text-cyan-400 transition-all"
+                  onClick={isRunning ? pause : start}
+                >
+                  {isRunning ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 ml-1" />}
+                </Button>
+                <Button
+                  size="icon"
+                  variant="outline"
+                  className="rounded-full border-white/10 w-10 h-10 hover:bg-white/10 text-white"
+                  onClick={reset}
+                >
+                  <RotateCcw className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {/* Custom H/M Timer Controls */}
+              <div className="flex items-center justify-center w-full pt-4 border-t border-white/10">
+                <form
+                  onSubmit={handleCustomTimerSubmit}
+                  className="flex items-center gap-2"
+                >
+                  <div className="flex items-center bg-white/5 rounded-lg border border-white/5 hover:border-cyan-500/30 focus-within:border-cyan-500/50 transition-all px-3 py-1.5">
+                    <input
+                      type="number"
+                      placeholder="0"
+                      value={customHours}
+                      onChange={(e) => setCustomHours(e.target.value)}
+                      className="w-8 bg-transparent text-sm text-center text-foreground outline-none placeholder:text-muted-foreground/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      min="0"
+                    />
+                    <span className="text-xs text-muted-foreground mr-2 font-medium">h</span>
+                    
+                    <div className="w-[1px] h-4 bg-white/15 mr-2" />
+                    
+                    <input
+                      type="number"
+                      placeholder="0"
+                      value={customMinutes}
+                      onChange={(e) => setCustomMinutes(e.target.value)}
+                      className="w-8 bg-transparent text-sm text-center text-foreground outline-none placeholder:text-muted-foreground/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      min="0"
+                      max="59"
+                    />
+                    <span className="text-xs text-muted-foreground font-medium">m</span>
+                  </div>
+                  
+                  <button
+                    type="submit"
+                    className="px-3 py-2 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 border border-cyan-500/30 rounded-lg text-xs font-semibold transition-all shadow-[0_0_10px_rgba(6,182,212,0.1)] hover:shadow-[0_0_15px_rgba(6,182,212,0.2)]"
+                  >
+                    Set
+                  </button>
+                </form>
+              </div>
+            </div>
+          </motion.section>
+
+          {/* THINGS TO DO TODAY */}
+          <motion.section variants={cardVariants} className={`${rowCardClass} md:col-span-3 flex flex-col`}>
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <h2 className="text-lg font-semibold bg-gradient-to-r from-cyan-400 to-blue-600 bg-clip-text text-transparent">
+                Things To Do Today
+              </h2>
+              <Button
+                asChild
+                className="rounded-full border border-cyan-500/40 bg-cyan-500/15 text-cyan-200 hover:bg-cyan-500/25 hover:shadow-[0_0_20px_rgba(6,182,212,0.25)] transition-all"
+              >
+                <Link to="/planner">Open Planner</Link>
+              </Button>
+            </div>
+
+            {/* Custom Scrollbar applied here */}
+            <div className="space-y-2 flex-1 overflow-y-auto max-h-[220px] pr-2 
+              [&::-webkit-scrollbar]:w-1.5 
+              [&::-webkit-scrollbar-track]:bg-transparent 
+              [&::-webkit-scrollbar-thumb]:bg-cyan-500/20 
+              [&::-webkit-scrollbar-thumb]:rounded-full 
+              hover:[&::-webkit-scrollbar-thumb]:bg-cyan-500/40 
+              transition-all"
+            >
+              {loading ? (
+                [1, 2].map(i => <div key={i} className="h-14 rounded-2xl border border-white/10 bg-white/5 animate-pulse" />)
+              ) : todayTasks.length > 0 ? (
+                todayTasks.map((task) => (
+                  <div
+                    key={task.id}
+                    className="group flex items-center justify-between rounded-2xl border border-white/10 bg-slate-950/45 px-4 py-3 transition-all duration-300 hover:border-cyan-400/35 hover:bg-slate-900/60"
+                  >
+                    <div className="min-w-0 pr-3 flex items-center gap-3">
+                      <CheckCircle className="w-5 h-5 text-cyan-500/50 shrink-0" />
+                      <div>
+                        <p className="line-clamp-1 text-sm font-medium text-foreground">
+                          {task.subject} {task.focus_topic ? `· ${task.focus_topic}` : ""}
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {new Date(task.due_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · {task.task_type.replaceAll("_", " ")}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-2xl border border-dashed border-white/10 bg-slate-950/40 px-4 py-8 text-center h-full flex flex-col items-center justify-center">
+                  <CheckCircle className="mx-auto mb-2 h-6 w-6 text-cyan-300/60 drop-shadow-[0_0_14px_rgba(6,182,212,0.3)]" />
+                  <p className="text-sm text-muted-foreground">
+                    No tasks scheduled for today. You're all caught up!
+                  </p>
+                </div>
+              )}
+            </div>
+          </motion.section>
+        </div>
+
+        {/* ROW 3: Pinned Flashcards */}
         <motion.section variants={cardVariants} className={rowCardClass}>
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-lg font-semibold bg-gradient-to-r from-cyan-400 to-blue-600 bg-clip-text text-transparent">

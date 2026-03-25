@@ -42,11 +42,13 @@ function CellModal({
   editing,
   onClose,
   onSave,
+  onDelete,
   onChange,
 }: {
   editing: EditingCell;
   onClose: () => void;
   onSave: () => void;
+  onDelete: () => void;
   onChange: (val: string) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -92,6 +94,15 @@ function CellModal({
             data-ocid="planner.cell.save"
           >
             Save
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={onDelete}
+            className="flex-1 border-red-500/30 text-red-400 hover:bg-red-500/20 hover:text-red-300"
+            data-ocid="planner.cell.delete"
+          >
+            Delete
           </Button>
           <Button
             size="sm"
@@ -162,9 +173,17 @@ export default function PlannerPage() {
 
       const focus = task.focus_topic?.trim();
       const taskLabel = task.task_type.replaceAll("_", " ");
-      const labelCore = focus
-        ? `${task.subject}: ${focus} (${taskLabel})`
-        : `${task.subject}: ${taskLabel}`;
+      
+      let labelCore = "";
+      // If it's a manual custom task, just show the exact text the user typed
+      if (task.subject === "Custom") {
+        labelCore = focus || taskLabel;
+      } else {
+        // Otherwise, format it like standard AI generated tasks
+        labelCore = focus
+          ? `${task.subject}: ${focus} (${taskLabel})`
+          : `${task.subject}: ${taskLabel}`;
+      }
 
       const key = cellKey(weekday, hour);
       const current = next.get(key);
@@ -268,15 +287,42 @@ export default function PlannerPage() {
     loadPlannerData();
   }, []);
 
-  function commitEdit() {
+  async function commitEdit(forceClear = false) {
     if (!editing) return;
     const key = cellKey(editing.day, editing.hour);
+    
+    // If forceClear is true, we act like the user wiped the input blank
+    const valueToSave = forceClear ? "" : editing.value.trim();
+
+    // Optimistically update the UI immediately
     setSessions((prev) => {
       const next = new Map(prev);
-      if (editing.value.trim()) next.set(key, editing.value.trim());
+      if (valueToSave) next.set(key, valueToSave);
       else next.delete(key);
       return next;
     });
+
+    // Calculate the exact date and time for this cell
+    const cellDate = new Date(weekStart);
+    cellDate.setDate(weekStart.getDate() + editing.day);
+    cellDate.setHours(editing.hour, 0, 0, 0);
+
+    // Adjust for local timezone so the backend stores the EXACT local hour
+    const tzOffset = cellDate.getTimezoneOffset() * 60000; 
+    const localISOTime = new Date(cellDate.getTime() - tzOffset).toISOString().slice(0, -1);
+
+    try {
+      // Save it permanently to the backend using the corrected local time
+      await apiClient.saveCustomPlannerTask({
+        due_date: localISOTime,
+        label: valueToSave,
+      });
+      // Refresh all tasks in the background to keep React State and DB in sync
+      await loadPlannerData();
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to save custom session"));
+    }
+
     setEditing(null);
   }
 
@@ -515,7 +561,8 @@ export default function PlannerPage() {
         <CellModal
           editing={editing}
           onClose={() => setEditing(null)}
-          onSave={commitEdit}
+          onSave={() => commitEdit(false)}
+          onDelete={() => commitEdit(true)}
           onChange={(val) =>
             setEditing((prev) => (prev ? { ...prev, value: val } : null))
           }

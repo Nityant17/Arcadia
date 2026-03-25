@@ -119,14 +119,18 @@ export default function StudyPage() {
       try {
         const response = await apiClient.listDocuments();
         setDocuments(response.data.documents);
-        if (response.data.documents.length > 0) {
+        // Check sessionStorage for pending-study-document-id
+        const pendingId = window.sessionStorage.getItem("arcadia:pending-study-document-id");
+        if (pendingId && response.data.documents.some((doc: any) => doc.id === pendingId)) {
+          setDocumentId(pendingId);
+          window.sessionStorage.removeItem("arcadia:pending-study-document-id");
+        } else if (response.data.documents.length > 0) {
           setDocumentId(response.data.documents[0].id);
         }
       } catch (error) {
         toast.error(getApiErrorMessage(error, "Failed to load documents for study generation"));
       }
     };
-
     loadDocuments();
   }, []);
 

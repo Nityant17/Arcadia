@@ -261,6 +261,58 @@ def create_plan(
     db.commit()
     return {"plan_id": plan.id, "status": "created"}
 
+class CustomTaskInput(BaseModel):
+    due_date: datetime.datetime
+    label: str
+
+@router.post("/planner/tasks/custom")
+def save_custom_task(
+    data: CustomTaskInput,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    # 🔥 FIX: Find ANY pending task at this exact time (AI generated or custom)
+    existing_tasks = db.query(StudyTask).filter(
+        StudyTask.user_id == current_user.id,
+        StudyTask.due_date == data.due_date,
+        StudyTask.status == "pending"
+    ).all()
+
+    label_clean = data.label.strip()
+
+    # If the user cleared the input, delete ALL tasks at this time
+    if not label_clean:
+        for t in existing_tasks:
+            db.delete(t)
+        db.commit()
+        return {"status": "deleted"}
+
+    # If tasks exist, update the first one and delete duplicates (if any stacked up)
+    if existing_tasks:
+        target = existing_tasks[0]
+        for t in existing_tasks[1:]:
+            db.delete(t)
+            
+        target.subject = "Custom"
+        target.task_type = f"custom::{label_clean}"
+        db.commit()
+        return {"status": "updated"}
+
+    # Otherwise, create a new persistent custom task
+    new_task = StudyTask(
+        id=str(uuid.uuid4()),
+        plan_id="custom",
+        user_id=current_user.id,
+        subject="Custom",
+        task_type=f"custom::{label_clean}",
+        due_date=data.due_date,
+        estimated_minutes=60,
+        spaced_interval_days=0,
+        status="pending"
+    )
+    db.add(new_task)
+    db.commit()
+    return {"status": "created"}
 
 @router.get("/planner/tasks")
 def get_tasks(user_id: str = "", current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):

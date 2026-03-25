@@ -229,6 +229,11 @@ export const apiClient = {
       starred,
     }),
 
+  updateDocument: (
+    docId: string,
+    payload: { filename?: string; subject?: string; topic?: string }
+  ) => api.patch<DocumentItem>(`/documents/${docId}`, payload),
+
   deleteDocument: (docId: string) => api.delete(`/documents/${docId}`),
 
   extractTopics: (docId: string, force = false) =>
@@ -428,6 +433,10 @@ export const apiClient = {
     api.delete<{ status: string; deleted_tasks: number; deleted_plans: number }>(
       `/planner/tasks?include_completed=${includeCompleted ? "true" : "false"}`,
     ),
+
+  // --- NEW ROUTE: Save Custom Planner Task ---
+  saveCustomPlannerTask: (payload: { due_date: string; label: string }) =>
+    api.post<{ status: string }>("/planner/tasks/custom", payload),
 
   getWhiteboardHint: (payload: {
     image_base64?: string;

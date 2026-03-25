@@ -373,7 +373,7 @@ export default function ChatPage() {
               size="sm"
               onClick={handleNewChat}
               disabled={!activeDocumentId || historyLoading || clearing}
-              className="ml-auto border-white/10 bg-white/5 text-muted-foreground hover:text-foreground hover:bg-white/10"
+              className="ml-auto border-cyan-400/40 text-cyan-300"
               data-ocid="chat.new"
             >
               {clearing ? (

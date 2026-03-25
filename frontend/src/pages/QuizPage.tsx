@@ -246,14 +246,18 @@ export default function QuizPage() {
       try {
         const response = await apiClient.listDocuments();
         setDocuments(response.data.documents);
-        if (response.data.documents.length > 0) {
+        // Check sessionStorage for pending-quiz-document-id
+        const pendingId = window.sessionStorage.getItem("arcadia:pending-quiz-document-id");
+        if (pendingId && response.data.documents.some((doc: any) => doc.id === pendingId)) {
+          setDocumentId(pendingId);
+          window.sessionStorage.removeItem("arcadia:pending-quiz-document-id");
+        } else if (response.data.documents.length > 0) {
           setDocumentId(response.data.documents[0].id);
         }
       } catch (error) {
         toast.error(getApiErrorMessage(error, "Failed to load documents for quiz"));
       }
     };
-
     loadDocuments();
   }, []);
 
