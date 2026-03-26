@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 1080 1080">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: none;
+      }
+
+      .cls-1, .cls-2 {
+        stroke-width: 0px;
+      }
+
+      .cls-3 {
+        fill: none;
+        stroke: #2a9f2d;
+        stroke-miterlimit: 10;
+        stroke-width: 1.5px;
+      }
+
+      .cls-2 {
+        fill: #fff;
+      }
+    </style>
+  </defs>
+  <rect class="cls-1" y="-1.3" width="1080" height="1080"/>
+  <polyline class="cls-3" points="364.3 357.1 343.7 307.7 377.9 258.3 364.3 357.1 280.1 519 211.7 625.8 125.8 734 223.8 693.2 275.2 684.6 399.2 659.5 463.2 666.6 685.4 677.5 773.6 695.9 826.6 679.3 880 730.3 838.5 770.2 768.9 765.1 773.6 695.9"/>
+  <circle class="cls-2" cx="377.9" cy="258.3" r="3.3"/>
+  <circle class="cls-2" cx="343.7" cy="307.7" r="3.3"/>
+  <circle class="cls-2" cx="364.3" cy="357.1" r="3.3"/>
+  <circle class="cls-2" cx="280.1" cy="519" r="3.3"/>
+  <circle class="cls-2" cx="125.8" cy="734" r="3.3"/>
+  <circle class="cls-2" cx="223.8" cy="693.2" r="3.3"/>
+  <circle class="cls-2" cx="211.9" cy="626.7" r="3.3"/>
+  <circle class="cls-2" cx="275.2" cy="684.6" r="3.3"/>
+  <circle class="cls-2" cx="399.2" cy="659.5" r="3.3"/>
+  <circle class="cls-2" cx="463.2" cy="666.6" r="3.3"/>
+  <circle class="cls-2" cx="685.4" cy="677.5" r="3.3"/>
+  <circle class="cls-2" cx="773.6" cy="695.9" r="3.3"/>
+  <circle class="cls-2" cx="826.6" cy="679.3" r="3.3"/>
+  <circle class="cls-2" cx="880" cy="730.3" r="3.3"/>
+  <circle class="cls-2" cx="838.5" cy="770.2" r="3.3"/>
+  <circle class="cls-2" cx="768.9" cy="765.1" r="3.3"/>
+</svg>

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 1080 991.4">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: none;
+        stroke: #2a9f2d;
+        stroke-miterlimit: 10;
+        stroke-width: 1.5px;
+      }
+
+      .cls-2 {
+        fill: none;
+      }
+
+      .cls-3 {
+        fill: #fff;
+      }
+    </style>
+  </defs>
+  <!-- Generator: Adobe Illustrator 28.7.1, SVG Export Plug-In . SVG Version: 1.2.0 Build 142)  -->
+  <g>
+    <g id="Layer_1">
+      <rect class="cls-2" width="1080" height="991.4"/>
+      <polyline class="cls-1" points="80.7 681.4 177.6 649.7 280 599.1 479.8 692.5 522.6 670.2 570.9 579.2 599.1 535.2 623.9 515.6 678.8 524.2 718.7 483.2 761.9 511.2 825.1 457.4 804.2 379.5 872 353.1 925.4 323.8 948.2 322.5 970.3 333 962.9 356.4 952.1 353.8 943.2 327.5"/>
+      <circle class="cls-3" cx="80.7" cy="681.4" r="2.2"/>
+      <circle class="cls-3" cx="479.8" cy="692.5" r="1.9"/>
+      <circle class="cls-3" cx="522.6" cy="670.2" r="1.9"/>
+      <circle class="cls-3" cx="570.9" cy="579.2" r="1.9"/>
+      <circle class="cls-3" cx="599.1" cy="535.2" r="1.9"/>
+      <circle class="cls-3" cx="623.9" cy="515.6" r="1.9"/>
+      <circle class="cls-3" cx="678.8" cy="524.2" r="1.9"/>
+      <circle class="cls-3" cx="718.7" cy="482.8" r="1.9"/>
+      <circle class="cls-3" cx="761.9" cy="511.2" r="1.9"/>
+      <circle class="cls-3" cx="804.2" cy="379.5" r="1.9"/>
+      <circle class="cls-3" cx="872" cy="353.1" r="1.9"/>
+      <circle class="cls-3" cx="925.4" cy="323.8" r="1.9"/>
+      <circle class="cls-3" cx="948.2" cy="322.5" r="1.9"/>
+      <circle class="cls-3" cx="970.3" cy="333" r="1.9"/>
+      <circle class="cls-3" cx="962.9" cy="356.4" r="1.9"/>
+      <circle class="cls-3" cx="952.1" cy="353.8" r="1.9"/>
+      <circle class="cls-3" cx="943.2" cy="327.5" r="1.9"/>
+      <circle class="cls-3" cx="825.1" cy="457.4" r="3"/>
+      <circle class="cls-3" cx="177.6" cy="649.7" r="2.6"/>
+      <circle class="cls-3" cx="280" cy="599.1" r="2.6"/>
+    </g>
+  </g>
+</svg>

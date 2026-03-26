@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 1080 1080">
+  <!-- Generator: Adobe Illustrator 29.0.1, SVG Export Plug-In . SVG Version: 2.1.0 Build 192)  -->
+  <defs>
+    <style>
+      .st0 {
+        fill: none;
+        stroke: #2a9f2d;
+        stroke-miterlimit: 10;
+        stroke-width: 1.5px;
+      }
+
+      .st1 {
+        fill: none;
+      }
+
+      .st2 {
+        fill: #fff;
+      }
+    </style>
+  </defs>
+  <rect class="st1" y="-1.3" width="1080" height="1080"/>
+  <polygon class="st0" points="184.4 349.8 462 391.1 450.9 644.2 126.4 616.7 184.4 349.8"/>
+  <polyline class="st0" points="842.4 735.4 720.2 817 561.6 730.7 450.9 644.2"/>
+  <polyline class="st0" points="804.3 427.4 713 440.3 537.8 479.7 462 391.1 552.9 350.3 692.6 287.7"/>
+  <circle class="st2" cx="184.4" cy="349.8" r="7.5"/>
+  <circle class="st2" cx="126.4" cy="616.7" r="5.3" transform="translate(-60.2 15.5) rotate(-5.7)"/>
+  <circle class="st2" cx="450.9" cy="644.2" r="5.3"/>
+  <circle class="st2" cx="561.5" cy="730.1" r="4"/>
+  <circle class="st2" cx="537.8" cy="479.7" r="4"/>
+  <circle class="st2" cx="713" cy="440.3" r="4"/>
+  <circle class="st2" cx="552.9" cy="350.3" r="4"/>
+  <circle class="st2" cx="804.3" cy="427.4" r="3.5"/>
+  <circle class="st2" cx="692.6" cy="287.7" r="3.5"/>
+  <circle class="st2" cx="719.6" cy="815.8" r="4"/>
+  <circle class="st2" cx="462" cy="391.1" r="6.7"/>
+  <circle class="st2" cx="842.6" cy="734.5" r="6.7"/>
+</svg>

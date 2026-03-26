@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generator: Adobe Illustrator 28.1.0, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
+<svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+	 viewBox="0 0 1080 1080" style="enable-background:new 0 0 1080 1080;" xml:space="preserve">
+<style type="text/css">
+	.st0{fill:none;}
+	.st1{fill:none;stroke:#2A9F2D;stroke-width:1.5;stroke-miterlimit:10;}
+	.st2{fill:#FFFFFF;}
+</style>
+<rect class="st0" width="1080" height="1080"/>
+<polygon class="st1" points="405.3,727.3 360.9,652.1 429.1,623.5 "/>
+<polygon class="st1" points="528.9,462 429.1,623.5 666.6,394.6 "/>
+<line class="st1" x1="764.4" y1="296.5" x2="666.6" y2="394.6"/>
+<g>
+	<circle class="st2" cx="405.3" cy="727.3" r="3.9"/>
+</g>
+<g>
+	<circle class="st2" cx="429.1" cy="623.5" r="3.9"/>
+</g>
+<g>
+	<circle class="st2" cx="764.4" cy="296.5" r="3.9"/>
+</g>
+<g>
+	<circle class="st2" cx="666.6" cy="394.6" r="6.1"/>
+</g>
+<g>
+	<circle class="st2" cx="360.9" cy="652.1" r="2.6"/>
+</g>
+<g>
+	<circle class="st2" cx="528.9" cy="462" r="2.6"/>
+</g>
+</svg>

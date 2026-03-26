@@ -8,7 +8,7 @@ const VIEWBOX_WIDTH = 1920;
 const VIEWBOX_HEIGHT = 1280;
 
 // Increased scale and distance for the larger footprint
-const STAR_SCALE = 2.4; 
+const STAR_SCALE = 2.2; 
 const MIN_LAYOUT_DISTANCE = 420; 
 
 const mulberry32 = (seed: number) => {
@@ -26,7 +26,7 @@ export default function Galaxy() {
   const [scale, setScale] = useState(1);
   
   const controls = useAnimation();
-  const DEBUG_STREAK: number | null = 116;
+  const DEBUG_STREAK: number | null = 1000;
 
   useEffect(() => {
     let mounted = true;
