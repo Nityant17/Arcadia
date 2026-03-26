@@ -6,7 +6,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAppStore } from "@/store/useAppStore";
-import { Link, useLocation } from "@tanstack/react-router";
+import { QuickToolsGrid, type QuickToolId } from "@/components/ui/QuickToolsGrid";
+import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import {
   BrainIcon,
   CalendarClockIcon,
@@ -24,6 +25,7 @@ import {
   Star,
   SwordsIcon,
   Gamepad2,
+  Sparkles,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
@@ -44,6 +46,7 @@ const LEARNING_NAV_LINKS = [
   { label: "Challenge", to: "/challenge", icon: SwordsIcon },
   { label: "Game", to: "/game", icon: Gamepad2 },
   { label: "Code Lab", to: "/code", icon: Code2 },
+  { label: "Galaxy", to: "/galaxy", icon: Sparkles },
 ] satisfies Array<{ label: string; to: string; icon: LucideIcon }>;
 
 interface PinnedItem {
@@ -64,13 +67,55 @@ export default function AppShell({ children, pinnedItems = [] }: AppShellProps) 
   const minutes = Math.floor((timeLeft % 3600) / 60);
   const seconds = timeLeft % 60;
   const location = useLocation();
+  const navigate = useNavigate();
   const {
     currentLanguage,
     languages,
     setCurrentLanguage,
     currentUser,
     logout,
+    uiOverlayActive,
   } = useAppStore();
+
+  const handleQuickToolClick = (toolId: QuickToolId) => {
+    if (toolId === "upload") {
+      window.sessionStorage.setItem("arcadia:quicktools-upload", "1");
+      void navigate({ to: "/home" });
+      return;
+    }
+    if (toolId === "ask") {
+      void navigate({ to: "/home" });
+      return;
+    }
+    if (toolId === "quiz") {
+      void navigate({ to: "/quiz" });
+      return;
+    }
+    if (toolId === "study") {
+      void navigate({ to: "/study" });
+      return;
+    }
+    if (toolId === "planner") {
+      void navigate({ to: "/planner" });
+      return;
+    }
+    if (toolId === "challenge") {
+      void navigate({ to: "/challenge" });
+      return;
+    }
+    if (toolId === "dashboard") {
+      void navigate({ to: "/dashboard" });
+      return;
+    }
+    if (toolId === "code") {
+      void navigate({ to: "/code" });
+      return;
+    }
+    if (toolId === "notes") {
+      void navigate({ to: "/notes" });
+      return;
+    }
+  };
 
   function handleLogout() {
     logout();
@@ -331,6 +376,11 @@ export default function AppShell({ children, pinnedItems = [] }: AppShellProps) 
           })}
         </nav>
       </aside>
+
+      <QuickToolsGrid
+        onToolClick={handleQuickToolClick}
+        hidden={uiOverlayActive}
+      />
 
       <main
         className={`relative z-10 px-4 pt-8 pb-20 lg:pt-6 lg:pr-8 lg:pb-6 transition-all duration-300 ${

@@ -38,7 +38,9 @@ export default function AuthPage() {
     const email = params.get("oauth_email") || "";
     const provider = params.get("oauth_provider") || "";
     const oauthError = params.get("oauth_error") || "";
-    return { token, name, email, provider, oauthError };
+    const newStar = params.get("oauth_new_star") === "true";
+    const streak = Number(params.get("oauth_streak") || "");
+    return { token, name, email, provider, oauthError, newStar, streak: Number.isNaN(streak) ? 0 : streak };
   }, []);
 
   useEffect(() => {
@@ -58,6 +60,9 @@ export default function AuthPage() {
       emailVerified: true,
     });
     toast.success(`Signed in with ${oauthRedirectData.provider || "OAuth"}`);
+    if (oauthRedirectData.newStar) {
+      toast.success(`New star appeared. Streak: ${oauthRedirectData.streak || 1} days`);
+    }
     window.history.replaceState({}, "", "/auth");
     void navigate({ to: "/home" });
   }, [oauthRedirectData, navigate, setAuthToken, setCurrentUser]);
@@ -85,6 +90,9 @@ export default function AuthPage() {
         emailVerified: !data.verification_required,
       });
       toast.success("Signed in successfully");
+      if (data.new_star) {
+        toast.success(`New star appeared. Streak: ${data.streak || 1} days`);
+      }
       navigate({ to: "/home" });
     } catch (err) {
       const message = getApiErrorMessage(err, "Failed to sign in");
@@ -123,6 +131,9 @@ export default function AuthPage() {
         emailVerified: true,
       });
       toast.success("Account created successfully");
+      if (data.new_star) {
+        toast.success(`New star appeared. Streak: ${data.streak || 1} days`);
+      }
       navigate({ to: "/home" });
     } catch (err) {
       const message = getApiErrorMessage(err, "Failed to create account");
@@ -154,6 +165,9 @@ export default function AuthPage() {
       });
       setShowVerification(false);
       toast.success("Email verified. Welcome to Arcadia!");
+      if (data.new_star) {
+        toast.success(`New star appeared. Streak: ${data.streak || 1} days`);
+      }
       void navigate({ to: "/home" });
     } catch (err) {
       const message = getApiErrorMessage(err, "Failed to verify OTP");

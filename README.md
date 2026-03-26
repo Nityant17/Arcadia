@@ -27,7 +27,10 @@ It supports note ingestion, AI chat, quiz/study generation, planner scheduling, 
 - Challenge rooms with room codes
 - Room URL persistence (`/challenge?room=XXXXXX`)
 - Code Lab runner (Python/JS/C/C++/Java)
+- Code Lab OCR upload (code files + handwritten images)
 - Translation + TTS
+- Galaxy streak visualization (daily login stars + constellations)
+- Floating Quick Tools accessibility ball (draggable + persistent)
 
 ## Multi-File Note Data Model
 
@@ -49,6 +52,7 @@ Because the note is logical:
 - Zustand state store
 - Axios API client
 - Tailwind + custom UI components
+- Tesseract.js (client-side OCR for Code Lab)
 
 ## Backend
 - FastAPI routers
@@ -80,6 +84,7 @@ Because the note is logical:
 - `code_runner.py`
 - `dashboard.py`
 - `tts.py`
+- `user.py`
 
 ## Frontend Routes
 
@@ -94,6 +99,7 @@ Defined in `frontend/src/App.tsx`:
 - `/planner`
 - `/challenge`
 - `/code`
+- `/galaxy`
 
 ## API Quick Reference
 
@@ -150,6 +156,7 @@ Defined in `frontend/src/App.tsx`:
 - `POST /api/translate`
 - `POST /api/tts`
 - `GET /api/health/azure`
+- `GET /api/user/streak`
 
 ## Local Setup
 
@@ -217,17 +224,40 @@ AZURE_SEARCH_KEY=<key>
 
 If Azure credentials are missing/invalid, features fall back or fail per service behavior.
 
-## Security and Hosting Notes
+## Deployment Readiness Checklist
 
-## Current
-- Token-based auth
-- Safety filters for uploads/prompts/output
+Arcadia is functional but **not fully production-hardened** yet. Before public hosting, review:
 
-## Recommended before public hosting
-- Add email verification (OTP) or social login (Google)
-- Add password reset and SMTP provider integration
-- Add rate limiting and brute-force controls
-- Add audit logs and stricter CORS policy
+1. **Passwords & Auth Security**
+   - Current hashing uses SHA-256. Replace with `bcrypt` or `argon2`.
+   - Consider moving auth tokens to HttpOnly cookies to reduce XSS risk.
+   - Ensure session expiration/rotation is enforced.
+
+2. **CORS + Allowed Origins**
+   - Update CORS in `backend/main.py` to your deployed frontend domain.
+   - Remove `localhost` in production.
+
+3. **TLS / HTTPS**
+   - Ensure HTTPS everywhere (frontend + backend).
+
+4. **Secrets Management**
+   - Use environment variables or Azure Key Vault for API keys.
+   - Avoid hardcoded secrets.
+
+5. **Rate Limiting + Abuse Protection**
+   - Add rate limits to `/auth`, `/chat`, `/quiz`, `/upload`, `/code/run`.
+   - Add upload size limits and throttling.
+
+6. **Database & Persistence**
+   - SQLite is fine for dev; use Postgres or managed DB for production.
+   - Add backups and migrations.
+
+7. **Observability**
+   - Add request logging and centralized error tracking.
+   - Enable Azure Application Insights if hosting on Azure.
+
+8. **OAuth Redirects**
+   - Ensure OAuth redirect URIs match deployed domains.
 
 ## Calendar Sync (Planner)
 

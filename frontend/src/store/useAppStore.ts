@@ -52,12 +52,14 @@ interface AppState {
   currentLanguage: Language | null;
   languages: Language[];
   pinnedItems: PinnedItem[];
+  uiOverlayActive: boolean;
   // actions
   setAuthToken: (token: string | null) => void;
   setCurrentUser: (user: CurrentUser | null) => void;
   setCurrentLanguage: (lang: Language | null) => void;
   setLanguages: (langs: Language[]) => void;
   setPinnedItems: (items: PinnedItem[]) => void;
+  setUiOverlayActive: (active: boolean) => void;
   refreshPinnedItems: () => Promise<void>;
   logout: () => void;
   initLanguages: () => Promise<void>;
@@ -71,12 +73,14 @@ export const useAppStore = create<AppState>()(
       currentLanguage: null,
       languages: FALLBACK_LANGUAGES,
       pinnedItems: [],
+      uiOverlayActive: false,
 
       setAuthToken: (token) => set({ authToken: token }),
       setCurrentUser: (user) => set({ currentUser: user }),
       setCurrentLanguage: (lang) => set({ currentLanguage: lang }),
       setLanguages: (langs) => set({ languages: langs }),
       setPinnedItems: (items) => set({ pinnedItems: items }),
+      setUiOverlayActive: (active) => set({ uiOverlayActive: active }),
 
       refreshPinnedItems: async () => {
         try {
@@ -92,6 +96,7 @@ export const useAppStore = create<AppState>()(
           authToken: null,
           currentUser: null,
           currentLanguage: null,
+          uiOverlayActive: false,
         }),
 
       initLanguages: async () => {

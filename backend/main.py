@@ -20,7 +20,7 @@ from config import (
 )
 from models.database import init_db
 from services.rag_service import rag_service
-from routers import upload, chat, quiz, generate, tts, dashboard, auth, planner, whiteboard, challenge, code_runner
+from routers import upload, chat, quiz, generate, tts, dashboard, auth, planner, whiteboard, challenge, code_runner, user, calendar
 
 
 def _azure_env_status() -> dict:
@@ -89,6 +89,8 @@ app.include_router(planner.router,   prefix="/api", tags=["Timetable & Spaced Re
 app.include_router(whiteboard.router, prefix="/api", tags=["Whiteboard Hints"])
 app.include_router(challenge.router, prefix="/api", tags=["Challenge Rooms"])
 app.include_router(code_runner.router, prefix="/api", tags=["Code Runner"])
+app.include_router(user.router, prefix="/api", tags=["User"])
+app.include_router(calendar.router, prefix="/api", tags=["Calendar"])
 
 
 @app.get("/", tags=["Health"])

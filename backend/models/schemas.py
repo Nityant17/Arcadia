@@ -216,6 +216,12 @@ class TranslateResponse(BaseModel):
     target_language: str
 
 
+# ─── User ─────────────────────────────────────────────────────
+
+class UserStreakResponse(BaseModel):
+    streak: int
+
+
 # ─── Dashboard ────────────────────────────────────────────────
 
 class TopicMastery(BaseModel):

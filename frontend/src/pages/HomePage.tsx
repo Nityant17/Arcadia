@@ -2,7 +2,6 @@ import { ArcadiaHero } from "@/components/ui/ArcadiaHero";
 import { Flashcard } from "@/components/ui/Flashcard";
 import { LampContainer } from "@/components/ui/lamp";
 import { PlaceholdersAndVanishInput } from "@/components/ui/placeholders-and-vanish-input";
-import { QuickToolsGrid, type QuickToolId } from "@/components/ui/QuickToolsGrid";
 import { TaskChecklist } from "@/components/ui/TaskChecklist";
 import { Button } from "@/components/ui/button";
 import { getPinnedFlashcards, togglePinnedFlashcard, type PinnedFlashcardItem } from "@/lib/pinnedFlashcards";
@@ -163,13 +162,13 @@ function HamsterLoader() {
 export default function HomePage() {
   const navigate = useNavigate();
   const { currentLanguage } = useAppStore();
+  const setUiOverlayActive = useAppStore((s) => s.setUiOverlayActive);
   const [loading, setLoading] = useState(true);
   const [dragActive, setDragActive] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadTargetProgress, setUploadTargetProgress] = useState(0);
   const [uploadOverlayState, setUploadOverlayState] = useState<"idle" | "uploading" | "uploaded">("idle");
-  const [quickToolBusy, setQuickToolBusy] = useState<QuickToolId | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [recentNotes, setRecentNotes] = useState<
     Array<{
@@ -311,6 +310,16 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
+    if (uploading || uploadOverlayState !== "idle") return;
+    if (!fileInputRef.current) return;
+    const shouldOpen = window.sessionStorage.getItem("arcadia:quicktools-upload");
+    if (shouldOpen) {
+      window.sessionStorage.removeItem("arcadia:quicktools-upload");
+      fileInputRef.current.click();
+    }
+  }, [uploading, uploadOverlayState]);
+
+  useEffect(() => {
     if (uploadOverlayState === "idle") return;
 
     const timer = window.setInterval(() => {
@@ -327,6 +336,11 @@ export default function HomePage() {
 
     return () => window.clearInterval(timer);
   }, [uploadOverlayState, uploadTargetProgress]);
+
+  useEffect(() => {
+    setUiOverlayActive(shouldLockUi || showNextSteps);
+    return () => setUiOverlayActive(false);
+  }, [setUiOverlayActive, shouldLockUi, showNextSteps]);
 
   const handleCustomTimerSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -450,81 +464,6 @@ export default function HomePage() {
     setPinnedFlashcards(getPinnedFlashcards());
   };
 
-  const handleQuickToolClick = async (toolId: QuickToolId) => {
-    if (quickToolBusy) return;
-
-    const requireDocument = () => {
-        if (!selectedAskNoteId) {
-          toast.error("Upload and select a note first");
-          return null;
-        }
-        return selectedAskNoteId;
-    };
-
-    if (toolId === "upload") {
-      fileInputRef.current?.click();
-      return;
-    }
-
-    if (toolId === "ask") {
-      handleOmnibarSubmit("Summarize my selected note");
-      return;
-    }
-
-    if (toolId === "quiz") {
-      if (!askableNotes.length) {
-        toast.error("Upload a note before starting a quiz");
-        void navigate({ to: "/notes" });
-        return;
-      }
-      void navigate({ to: "/quiz" });
-      return;
-    }
-
-    if (toolId === "study") {
-      if (!askableNotes.length) {
-        toast.error("Upload a note before opening study tools");
-        void navigate({ to: "/notes" });
-        return;
-      }
-      void navigate({ to: "/study" });
-      return;
-    }
-
-    if (toolId === "planner") {
-      void navigate({ to: "/planner" });
-      return;
-    }
-
-    if (toolId === "challenge") {
-      if (!askableNotes.length) {
-        toast.error("Upload a note before starting a challenge");
-        void navigate({ to: "/notes" });
-        return;
-      }
-      void navigate({ to: "/challenge" });
-      return;
-    }
-
-    if (toolId === "dashboard") {
-      void navigate({ to: "/dashboard" });
-      return;
-    }
-
-    if (toolId === "code") {
-      void navigate({ to: "/code" });
-      return;
-    }
-
-    if (toolId === "notes") {
-      void navigate({ to: "/notes" });
-      return;
-    }
-
-    const docId = requireDocument();
-    if (!docId) return;
-  };
-
   const suggestionPills = [
     "Summarize",
     "Explain in Simple Terms",
@@ -622,7 +561,7 @@ export default function HomePage() {
             </div>
           </motion.section>
 
-          <motion.section variants={cardVariants} className={`${rowCardClass} md:col-span-1`}>
+          <motion.section variants={cardVariants} className={`${rowCardClass} md:col-span-2`}>
             <h2 className="text-lg font-semibold bg-gradient-to-r from-cyan-400 to-blue-600 bg-clip-text text-transparent">
               Quick Upload
             </h2>
@@ -673,22 +612,11 @@ export default function HomePage() {
             </button>
           </motion.section>
 
-          <motion.section
-            variants={cardVariants}
-            className={`${rowCardClass} md:col-span-1 relative overflow-visible flex flex-col items-center justify-center`}
-          >
-            <h2 className="text-lg font-semibold bg-gradient-to-r from-cyan-400 to-blue-600 bg-clip-text text-transparent">
-              Utilities
-            </h2>
-            <div className="relative z-10 mt-4 flex items-center justify-center">
-              <QuickToolsGrid onToolClick={(toolId) => void handleQuickToolClick(toolId)} disabled={uploading || uploadOverlayState !== "idle" || quickToolBusy !== null} />
-            </div>
-          </motion.section>
         </div>
 
         {/* ROW 2 */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-          <motion.section variants={cardVariants} className={`${rowCardClass} md:col-span-3`}>
+      <motion.section variants={cardVariants} className={`${rowCardClass} md:col-span-3`}>
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-lg font-semibold bg-gradient-to-r from-cyan-400 to-blue-600 bg-clip-text text-transparent">
                 Recent Notes
@@ -706,7 +634,8 @@ export default function HomePage() {
               >
                 Next
               </Button>
-            </div>
+      </div>
+
 
             <div className="mt-4 space-y-2">
               {(loading ? [1, 2, 3] : recentNotes).map((note) => {

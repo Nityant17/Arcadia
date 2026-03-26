@@ -13,6 +13,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from models.database import get_db, StudyPlan, StudyTask, WeakTopic, Document, QuizAttempt, ChatHistory
+from services.streak_service import update_user_streak
 from models.database import User
 from routers.auth import get_current_user
 
@@ -477,6 +478,7 @@ def complete_task(task_id: str, current_user: User = Depends(get_current_user), 
         raise HTTPException(403, "Not allowed")
 
     task.status = "completed"
+    update_user_streak(db, current_user.id)
 
     if task.spaced_interval_days:
         next_due = task.due_date + datetime.timedelta(days=task.spaced_interval_days * 2)

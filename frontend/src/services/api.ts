@@ -81,6 +81,8 @@ export interface AuthResponse {
   message?: string;
   auth_provider?: string;
   dev_otp?: string | null;
+  streak?: number;
+  new_star?: boolean;
 }
 
 export interface MeResponse {
@@ -506,4 +508,16 @@ export const apiClient = {
 
   runCode: (payload: { language: "python" | "javascript" | "c" | "cpp" | "java"; code: string; stdin?: string }) =>
     api.post<CodeRunResponse>("/code/run", payload),
+
+  getUserStreak: () => api.get<{ streak: number }>("/user/streak"),
+
+  getGoogleCalendarStatus: () => api.get<{ connected: boolean }>("/calendar/google/status"),
+
+  getGoogleCalendarAuthUrl: () => api.get<{ url: string }>("/calendar/google/url"),
+
+  pushTasksToGoogleCalendar: (payload?: { task_ids?: string[] }) =>
+    api.post<{ status: string; created: number; skipped: number }>(
+      "/calendar/google/push",
+      payload || {},
+    ),
 };

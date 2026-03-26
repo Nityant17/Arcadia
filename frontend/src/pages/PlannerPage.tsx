@@ -131,6 +131,9 @@ export default function PlannerPage() {
   const [allTasks, setAllTasks] = useState<PlannerTask[]>([]);
   const [generatingPlan, setGeneratingPlan] = useState(false);
   const [clearingPlan, setClearingPlan] = useState(false);
+  const [calendarConnected, setCalendarConnected] = useState(false);
+  const [calendarLoading, setCalendarLoading] = useState(true);
+  const [calendarPushing, setCalendarPushing] = useState(false);
   const [planInputs, setPlanInputs] = useState<
     Record<string, { examDate: string; weeklyHours: number }>
   >({});
@@ -296,6 +299,43 @@ export default function PlannerPage() {
     loadPlannerData();
   }, []);
 
+  useEffect(() => {
+    apiClient
+      .getGoogleCalendarStatus()
+      .then((response) => setCalendarConnected(Boolean(response.data.connected)))
+      .catch(() => setCalendarConnected(false))
+      .finally(() => setCalendarLoading(false));
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("calendar") === "google" && params.get("connected") === "1") {
+      toast.success("Google Calendar connected");
+      window.history.replaceState({}, "", "/planner");
+      apiClient
+        .getGoogleCalendarStatus()
+        .then((response) => setCalendarConnected(Boolean(response.data.connected)))
+        .catch(() => setCalendarConnected(false));
+    }
+    const error = params.get("error");
+    if (params.get("calendar") === "google" && error) {
+      toast.error("Google Calendar connection failed");
+      window.history.replaceState({}, "", "/planner");
+    }
+  }, []);
+
+  async function pushTasksToCalendar() {
+    setCalendarPushing(true);
+    try {
+      const response = await apiClient.pushTasksToGoogleCalendar();
+      toast.success(`Pushed ${response.data.created} tasks to Google Calendar`);
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to push tasks"));
+    } finally {
+      setCalendarPushing(false);
+    }
+  }
+
   async function commitEdit(forceClear = false) {
     if (!editing) return;
     const key = cellKey(editing.day, editing.hour);
@@ -419,6 +459,40 @@ export default function PlannerPage() {
           >
             {clearingPlan ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : null}
             Clear All
+          </Button>
+        </div>
+      </div>
+
+      <div className="rounded-2xl bg-slate-950/40 backdrop-blur-xl border border-white/10 p-4 mb-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <div>
+          <div className="text-xs uppercase tracking-widest text-muted-foreground">Calendar Sync</div>
+          <p className="text-sm text-foreground/90">
+            Push your pending tasks into Google Calendar (one-way sync).
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            className="border-white/10"
+            disabled={calendarLoading}
+            onClick={async () => {
+              try {
+                const response = await apiClient.getGoogleCalendarAuthUrl();
+                window.location.assign(response.data.url);
+              } catch (error) {
+                toast.error(getApiErrorMessage(error, "Failed to start Google OAuth"));
+              }
+            }}
+          >
+            {calendarConnected ? "Reconnect Google Calendar" : "Connect Google Calendar"}
+          </Button>
+          <Button
+            className="sparkle-generate-button"
+            disabled={!calendarConnected || calendarPushing}
+            onClick={pushTasksToCalendar}
+          >
+            {calendarPushing ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : null}
+            Push Tasks
           </Button>
         </div>
       </div>

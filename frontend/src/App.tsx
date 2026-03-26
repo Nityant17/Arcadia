@@ -7,6 +7,7 @@ import CodeLabPage from "@/pages/CodeLabPage";
 import DashboardPage from "@/pages/DashboardPage";
 import HomePage from "@/pages/HomePage";
 import GamePage from "@/pages/GamePage";
+import Galaxy from "@/pages/Galaxy";
 import NotesPage from "@/pages/NotesPage";
 import PlannerPage from "@/pages/PlannerPage";
 import QuizPage from "@/pages/QuizPage";
@@ -138,6 +139,12 @@ const gameRoute = createRoute({
   component: GamePage,
 });
 
+const galaxyRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: "/galaxy",
+  component: Galaxy,
+});
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   authRoute,
@@ -152,6 +159,7 @@ const routeTree = rootRoute.addChildren([
     challengeRoute,
     gameRoute,
     codeRoute,
+    galaxyRoute,
   ]),
 ]);
 

@@ -35,6 +35,7 @@ from config import (
     SMTP_USERNAME,
 )
 from models.database import EmailVerificationCode, User, UserSession, get_db
+from services.streak_service import record_daily_login
 
 router = APIRouter()
 
@@ -71,6 +72,8 @@ class AuthResponse(BaseModel):
     message: str = ""
     auth_provider: str = "local"
     dev_otp: str | None = None
+    streak: int = 0
+    new_star: bool = False
 
 
 def _hash_password(password: str) -> str:
@@ -250,6 +253,7 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)):
         )
 
     token = _create_user_session(db, user.id)
+    streak, new_star = record_daily_login(db, user.id)
     db.commit()
     return AuthResponse(
         user_id=user.id,
@@ -259,6 +263,8 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)):
         verification_required=False,
         message="Account created",
         auth_provider="local",
+        streak=streak.current_streak or 0,
+        new_star=new_star,
     )
 
 
@@ -291,6 +297,7 @@ def verify_email(req: VerifyEmailRequest, db: Session = Depends(get_db)):
     otp_row.used_at = datetime.utcnow()
     user.email_verified = True
     token = _create_user_session(db, user.id)
+    streak, new_star = record_daily_login(db, user.id)
     db.commit()
 
     return AuthResponse(
@@ -301,6 +308,8 @@ def verify_email(req: VerifyEmailRequest, db: Session = Depends(get_db)):
         verification_required=False,
         message="Email verified",
         auth_provider=user.auth_provider or "local",
+        streak=streak.current_streak or 0,
+        new_star=new_star,
     )
 
 
@@ -342,6 +351,7 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(403, detail)
 
     token = _create_user_session(db, user.id)
+    streak, new_star = record_daily_login(db, user.id)
     db.commit()
 
     return AuthResponse(
@@ -352,6 +362,8 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
         verification_required=False,
         message="Signed in",
         auth_provider=user.auth_provider or "local",
+        streak=streak.current_streak or 0,
+        new_star=new_star,
     )
 
 
@@ -539,6 +551,7 @@ async def oauth_callback(
 
         user = _upsert_oauth_user(db, profile)
         token = _create_user_session(db, user.id)
+        streak, new_star = record_daily_login(db, user.id)
         db.commit()
 
         params = urlencode(
@@ -547,6 +560,8 @@ async def oauth_callback(
                 "oauth_name": user.name,
                 "oauth_email": user.email,
                 "oauth_provider": provider,
+                "oauth_streak": streak.current_streak or 0,
+                "oauth_new_star": "true" if new_star else "false",
             }
         )
         return RedirectResponse(f"{AUTH_FRONTEND_URL.rstrip('/')}/auth?{params}")

@@ -2,7 +2,7 @@
 SQLite database — documents, quiz attempts, mastery scores.
 """
 import datetime
-from sqlalchemy import create_engine, Column, String, Integer, Float, DateTime, Text, JSON, Boolean, text
+from sqlalchemy import create_engine, Column, String, Integer, Float, DateTime, Date, Text, JSON, Boolean, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 from config import SQLITE_DB_PATH
@@ -200,6 +200,43 @@ class StudyMaterial(Base):
     payload_json = Column(JSON, default={})
     updated_at = Column(DateTime, default=datetime.datetime.utcnow,
                         onupdate=datetime.datetime.utcnow)
+
+
+class UserStreak(Base):
+    __tablename__ = "user_streaks"
+
+    user_id = Column(String, primary_key=True)
+    current_streak = Column(Integer, default=0)
+    longest_streak = Column(Integer, default=0)
+    last_completed_date = Column(Date, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow,
+                        onupdate=datetime.datetime.utcnow)
+
+
+class UserCalendarToken(Base):
+    __tablename__ = "user_calendar_tokens"
+
+    id = Column(String, primary_key=True)
+    user_id = Column(String, nullable=False)
+    provider = Column(String, nullable=False)  # google
+    access_token = Column(Text, nullable=False, default="")
+    refresh_token = Column(Text, nullable=True)
+    expires_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow,
+                        onupdate=datetime.datetime.utcnow)
+
+
+class CalendarEventLink(Base):
+    __tablename__ = "calendar_event_links"
+
+    id = Column(String, primary_key=True)
+    user_id = Column(String, nullable=False)
+    provider = Column(String, nullable=False)  # google
+    task_id = Column(String, nullable=False)
+    event_id = Column(String, nullable=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
 
 # ─── Init ─────────────────────────────────────────────────────
