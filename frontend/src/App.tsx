@@ -6,6 +6,7 @@ import ChatPage from "@/pages/ChatPage";
 import CodeLabPage from "@/pages/CodeLabPage";
 import DashboardPage from "@/pages/DashboardPage";
 import HomePage from "@/pages/HomePage";
+import GamePage from "@/pages/GamePage";
 import NotesPage from "@/pages/NotesPage";
 import PlannerPage from "@/pages/PlannerPage";
 import QuizPage from "@/pages/QuizPage";
@@ -131,6 +132,12 @@ const codeRoute = createRoute({
   component: CodeLabPage,
 });
 
+const gameRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: "/game",
+  component: GamePage,
+});
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   authRoute,
@@ -143,6 +150,7 @@ const routeTree = rootRoute.addChildren([
     studyRoute,
     plannerRoute,
     challengeRoute,
+    gameRoute,
     codeRoute,
   ]),
 ]);

@@ -116,7 +116,7 @@ export default function ChallengePage() {
   const [code, setCode] = useState("");
   const [joinInput, setJoinInput] = useState("");
   const [participants, setParticipants] = useState<Participant[]>([]);
-  const [roomStatus, setRoomStatus] = useState<"waiting" | "active" | "finished">("waiting");
+  const [roomStatus, setRoomStatus] = useState<"preparing" | "waiting" | "active" | "finished" | "failed">("waiting");
   const [loading, setLoading] = useState(false);
   const [isHost, setIsHost] = useState(false);
 
@@ -211,10 +211,11 @@ export default function ChallengePage() {
 
       setCode(response.data.code);
       setScreen("room");
+      setRoomStatus((response.data.status as "preparing" | "waiting" | "active" | "finished" | "failed") || "preparing");
       setIsHost(true);
       window.sessionStorage.setItem("arcadia:challenge-host-room", response.data.code);
       setRoomUrl(response.data.code);
-      toast.success("Challenge room created");
+      toast.success("Challenge room created. Preparing quiz in background...");
     } catch (error) {
       toast.error(getApiErrorMessage(error, "Failed to create challenge room"));
     } finally {
@@ -233,6 +234,7 @@ export default function ChallengePage() {
       const response = await apiClient.joinChallengeRoom(joinInput.trim().toUpperCase());
       setCode(response.data.code);
       setScreen("room");
+      setRoomStatus((response.data.status as "preparing" | "waiting" | "active" | "finished" | "failed") || "waiting");
       setIsHost(false);
       window.sessionStorage.removeItem("arcadia:challenge-host-room");
       setRoomUrl(response.data.code);
@@ -375,6 +377,16 @@ export default function ChallengePage() {
         <div className="text-xs text-muted-foreground">
           Status: <span className="text-foreground">{roomStatus}</span>
         </div>
+        {roomStatus === "preparing" && (
+          <p className="text-xs text-cyan-300/90">
+            Quiz is being generated. You are already in the room; starting will unlock once ready.
+          </p>
+        )}
+        {roomStatus === "failed" && (
+          <p className="text-xs text-red-300/90">
+            Quiz generation failed for this room. Create a new room to continue.
+          </p>
+        )}
 
         <div className="space-y-2">
           {participants.map((participant) => (

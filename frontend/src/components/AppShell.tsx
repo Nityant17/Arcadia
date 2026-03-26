@@ -23,6 +23,7 @@ import {
   Code2,
   Star,
   SwordsIcon,
+  Gamepad2,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
@@ -41,6 +42,7 @@ const LEARNING_NAV_LINKS = [
   { label: "Study Materials", to: "/study", icon: BrainIcon },
   { label: "Planner", to: "/planner", icon: CalendarClockIcon },
   { label: "Challenge", to: "/challenge", icon: SwordsIcon },
+  { label: "Game", to: "/game", icon: Gamepad2 },
   { label: "Code Lab", to: "/code", icon: Code2 },
 ] satisfies Array<{ label: string; to: string; icon: LucideIcon }>;
 
@@ -174,7 +176,7 @@ export default function AppShell({ children, pinnedItems = [] }: AppShellProps) 
               })}
             </div>
 
-            {!collapsed && <h3 className="px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 mt-6">Pinned</h3>}
+            {!collapsed && <h3 className="px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 mt-6">Favourites</h3>}
             <div className="space-y-1">
               {pinnedItems.length > 0 ? (
                 pinnedItems.map((item) => (
@@ -198,7 +200,7 @@ export default function AppShell({ children, pinnedItems = [] }: AppShellProps) 
                 !collapsed && (
                   <div className="mx-4 p-3 rounded-lg border border-dashed border-white/10 text-center flex flex-col items-center justify-center gap-1 opacity-60">
                     <Star size={14} className="text-slate-500" />
-                    <p className="text-[11px] text-slate-500">Star a note to pin it here</p>
+                    <p className="text-[11px] text-slate-500">Star a note to save it here</p>
                   </div>
                 )
               )}

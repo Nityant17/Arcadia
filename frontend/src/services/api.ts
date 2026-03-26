@@ -433,7 +433,7 @@ export const apiClient = {
   getChallengeRoom: (code: string) =>
     api.get<{
       code: string;
-      status: "waiting" | "active" | "finished";
+      status: "preparing" | "waiting" | "active" | "finished" | "failed";
       tier: number;
       num_questions: number;
       participants: Array<{ name: string; score: number; submitted: boolean }>;

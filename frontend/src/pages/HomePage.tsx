@@ -130,12 +130,44 @@ const StyledNextStepButton = styled.div`
   }
 `;
 
+function HamsterLoader() {
+  return (
+    <div className="uiverse-wheel-and-hamster-wrap">
+      <div
+        aria-label="Upload in progress"
+        role="img"
+        className="uiverse-wheel-and-hamster"
+      >
+        <div className="uiverse-wheel" />
+        <div className="uiverse-hamster">
+          <div className="uiverse-hamster__body">
+            <div className="uiverse-hamster__head">
+              <div className="uiverse-hamster__ear" />
+              <div className="uiverse-hamster__eye" />
+              <div className="uiverse-hamster__nose" />
+            </div>
+            <div className="uiverse-hamster__limb uiverse-hamster__limb--fr" />
+            <div className="uiverse-hamster__limb uiverse-hamster__limb--fl" />
+            <div className="uiverse-hamster__limb uiverse-hamster__limb--br" />
+            <div className="uiverse-hamster__limb uiverse-hamster__limb--bl" />
+            <div className="uiverse-hamster__tail" />
+          </div>
+        </div>
+        <div className="uiverse-spoke" />
+      </div>
+    </div>
+  );
+}
+
 export default function HomePage() {
   const navigate = useNavigate();
   const { currentLanguage } = useAppStore();
   const [loading, setLoading] = useState(true);
   const [dragActive, setDragActive] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadTargetProgress, setUploadTargetProgress] = useState(0);
+  const [uploadOverlayState, setUploadOverlayState] = useState<"idle" | "uploading" | "uploaded">("idle");
   const [quickToolBusy, setQuickToolBusy] = useState<QuickToolId | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [recentNotes, setRecentNotes] = useState<
@@ -149,6 +181,7 @@ export default function HomePage() {
       count: number;
     }>
   >([]);
+  const [selectedRecentNoteId, setSelectedRecentNoteId] = useState("");
   const [askableNotes, setAskableNotes] = useState<Array<{ id: string; name: string; documentId: string; count: number }>>([]);
   const [selectedAskNoteId, setSelectedAskNoteId] = useState("");
   const [stats, setStats] = useState({
@@ -160,9 +193,9 @@ export default function HomePage() {
   const [pinnedFlashcards, setPinnedFlashcards] = useState<PinnedFlashcardItem[]>([]);
   const [isDailyGoalsEditing, setIsDailyGoalsEditing] = useState(false);
   const [showNextSteps, setShowNextSteps] = useState(false);
+  const [nextStepNoteId, setNextStepNoteId] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const hasNotes = recentNotes.length > 0;
   const mapDocumentsToNotes = (documents: Array<{ id: string; note_id: string; note_title?: string; original_name: string; filename: string; subject: string; topic: string }>) => {
     const grouped = new Map<string, {
       id: string;
@@ -220,6 +253,13 @@ export default function HomePage() {
         const dashboardStats = dashboardResponse.data.stats;
 
         setRecentNotes(docs);
+        setSelectedRecentNoteId((previousSelectedId) => {
+          if (!docs.length) return "";
+          if (previousSelectedId && docs.some((doc) => doc.id === previousSelectedId)) {
+            return previousSelectedId;
+          }
+          return docs[0].id;
+        });
         setAskableNotes(allNotes.map((doc) => ({
           id: doc.id,
           name: doc.name,
@@ -268,6 +308,24 @@ export default function HomePage() {
     void loadData();
   }, []);
 
+  useEffect(() => {
+    if (uploadOverlayState === "idle") return;
+
+    const timer = window.setInterval(() => {
+      setUploadProgress((previous) => {
+        const networkCap = Math.min(93, Math.max(6, uploadTargetProgress));
+        const fillerCap = uploadOverlayState === "uploading" ? Math.min(88, previous + 1.8) : previous;
+        const cap = uploadOverlayState === "uploaded" ? 100 : Math.max(networkCap, fillerCap);
+        if (previous >= cap) return previous;
+        const delta = cap - previous;
+        const step = Math.max(1, Math.ceil(delta * 0.22));
+        return Math.min(cap, previous + step);
+      });
+    }, 120);
+
+    return () => window.clearInterval(timer);
+  }, [uploadOverlayState, uploadTargetProgress]);
+
   const handleCustomTimerSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const h = parseInt(customHours) || 0;
@@ -280,8 +338,20 @@ export default function HomePage() {
     }
   };
 
+  const resolveNextStepNoteId = () =>
+    nextStepNoteId || selectedRecentNoteId || selectedAskNoteId || recentNotes[0]?.id || "";
+
+  const openNextStepsForNote = (noteId: string) => {
+    if (!noteId) {
+      toast.error("Select a note first");
+      return;
+    }
+    setNextStepNoteId(noteId);
+    setShowNextSteps(true);
+  };
+
   const uploadFileToBackend = async (file: File) => {
-    if (uploading) return;
+    if (uploading || uploadOverlayState === "uploaded") return;
 
     const formData = new FormData();
     formData.append("file", file);
@@ -289,8 +359,14 @@ export default function HomePage() {
     formData.append("topic", "");
 
     setUploading(true);
+    setUploadProgress(4);
+    setUploadTargetProgress(8);
+    setUploadOverlayState("uploading");
     try {
-      const response = await apiClient.uploadDocument(formData);
+      const response = await apiClient.uploadDocument(formData, (progress) => {
+        const smoothedTarget = Math.min(93, Math.max(8, Math.round(progress * 0.85)));
+        setUploadTargetProgress((previous) => Math.max(previous, smoothedTarget));
+      });
       const allDocs = await apiClient.listDocuments();
       const allNotes = mapDocumentsToNotes(allDocs.data.documents);
       setRecentNotes(allNotes.slice(0, 3));
@@ -300,10 +376,20 @@ export default function HomePage() {
         documentId: doc.representativeDocId,
         count: doc.count,
       })));
-      setSelectedAskNoteId(response.data.note_id || response.data.id);
-      setShowNextSteps(true);
+      const uploadedNoteId = response.data.note_id || response.data.id;
+      setSelectedAskNoteId(uploadedNoteId);
+      setSelectedRecentNoteId(uploadedNoteId);
+      setNextStepNoteId(uploadedNoteId);
+      setUploadTargetProgress(100);
+      setUploadOverlayState("uploaded");
       toast.success("Uploaded successfully");
+      window.setTimeout(() => {
+        window.location.assign(`/notes?noteId=${encodeURIComponent(uploadedNoteId)}`);
+      }, 1200);
     } catch (error) {
+      setUploadOverlayState("idle");
+      setUploadProgress(0);
+      setUploadTargetProgress(0);
       toast.error(getApiErrorMessage(error, "Upload failed"));
     } finally {
       setUploading(false);
@@ -333,7 +419,14 @@ export default function HomePage() {
         return;
       }
       await Promise.all(target.documentIds.map((docId) => apiClient.deleteDocument(docId)));
-      setRecentNotes((prev) => prev.filter((note) => note.id !== id));
+      setRecentNotes((prev) => {
+        const remaining = prev.filter((note) => note.id !== id);
+        setSelectedRecentNoteId((previousSelectedId) => {
+          if (previousSelectedId !== id) return previousSelectedId;
+          return remaining[0]?.id ?? "";
+        });
+        return remaining;
+      });
       setAskableNotes((prev) => {
         const remainingNotes = prev.filter((note) => note.id !== id);
         setSelectedAskNoteId((previousSelectedId) => {
@@ -435,6 +528,23 @@ export default function HomePage() {
     "Explain in Simple Terms",
     "Give me probable interview questions",
   ];
+
+  const applyNextStepContext = (target: "chat" | "quiz" | "study" | "planner") => {
+    const noteId = resolveNextStepNoteId();
+    if (!noteId) return;
+
+    if (target === "chat" || target === "planner") {
+      window.sessionStorage.setItem("arcadia:pending-chat-document-id", noteId);
+    }
+    if (target === "quiz") {
+      window.sessionStorage.setItem("arcadia:pending-quiz-document-id", noteId);
+    }
+    if (target === "study") {
+      window.sessionStorage.setItem("arcadia:pending-study-document-id", noteId);
+    }
+
+    setShowNextSteps(false);
+  };
 
   return (
     <motion.div
@@ -550,47 +660,14 @@ export default function HomePage() {
                 }
               }}
               onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
+              disabled={uploading || uploadOverlayState !== "idle"}
               className={`uiverse-cloud-upload-zone mt-4 ${dragActive ? "uiverse-cloud-upload-zone--active" : ""}`}
             >
-              {uploading ? (
-                <div className="uiverse-wheel-and-hamster-wrap">
-                  <div
-                    aria-label="Upload in progress"
-                    role="img"
-                    className="uiverse-wheel-and-hamster"
-                  >
-                    <div className="uiverse-wheel" />
-                    <div className="uiverse-hamster">
-                      <div className="uiverse-hamster__body">
-                        <div className="uiverse-hamster__head">
-                          <div className="uiverse-hamster__ear" />
-                          <div className="uiverse-hamster__eye" />
-                          <div className="uiverse-hamster__nose" />
-                        </div>
-                        <div className="uiverse-hamster__limb uiverse-hamster__limb--fr" />
-                        <div className="uiverse-hamster__limb uiverse-hamster__limb--fl" />
-                        <div className="uiverse-hamster__limb uiverse-hamster__limb--br" />
-                        <div className="uiverse-hamster__limb uiverse-hamster__limb--bl" />
-                        <div className="uiverse-hamster__tail" />
-                      </div>
-                    </div>
-                    <div className="uiverse-spoke" />
-                  </div>
-                </div>
-              ) : (
-                <div className="uiverse-cloud-upload-icon-wrap">
-                  <CloudUpload className="uiverse-cloud-upload-icon" />
-                </div>
-              )}
-              {uploading ? (
-                <p className="text-base font-semibold text-cyan-300">Uploading...</p>
-              ) : (
-                <>
-                  <p className="text-sm text-foreground">Drop file here or click to upload</p>
-                  <p className="mt-1 text-xs text-muted-foreground">PDF, image, or text file</p>
-                </>
-              )}
+              <div className="uiverse-cloud-upload-icon-wrap">
+                <CloudUpload className="uiverse-cloud-upload-icon" />
+              </div>
+              <p className="text-sm text-foreground">Drop file here or click to upload</p>
+              <p className="mt-1 text-xs text-muted-foreground">PDF, image, or text file</p>
             </button>
           </motion.section>
 
@@ -602,7 +679,7 @@ export default function HomePage() {
               Utilities
             </h2>
             <div className="relative z-10 mt-4 flex items-center justify-center">
-              <QuickToolsGrid onToolClick={(toolId) => void handleQuickToolClick(toolId)} disabled={uploading || quickToolBusy !== null} />
+              <QuickToolsGrid onToolClick={(toolId) => void handleQuickToolClick(toolId)} disabled={uploading || uploadOverlayState !== "idle" || quickToolBusy !== null} />
             </div>
           </motion.section>
         </div>
@@ -615,13 +692,17 @@ export default function HomePage() {
                 Recent Notes
               </h2>
               <Button
-                asChild
                 className="rounded-full border border-cyan-500/40 bg-cyan-500/15 text-cyan-200 hover:bg-cyan-500/25 hover:shadow-[0_0_20px_rgba(6,182,212,0.25)] transition-all"
+                onClick={() => {
+                  const noteId = selectedRecentNoteId || recentNotes[0]?.id || "";
+                  if (!noteId) {
+                    void navigate({ to: "/notes" });
+                    return;
+                  }
+                  openNextStepsForNote(noteId);
+                }}
               >
-                <Link to={hasNotes ? "/chat" : "/notes"}>
-                  <MessageSquare className="h-4 w-4 mr-1" />
-                  Open
-                </Link>
+                Next
               </Button>
             </div>
 
@@ -639,7 +720,15 @@ export default function HomePage() {
                 return (
                   <div
                     key={note.id}
-                    className="group flex items-center justify-between rounded-2xl border border-white/10 bg-slate-950/45 px-4 py-3 transition-all duration-300 hover:border-cyan-400/35 hover:bg-slate-900/60 hover:shadow-[inset_0px_0px_20px_rgba(6,182,212,0.15)]"
+                    onClick={() => {
+                      setSelectedRecentNoteId(note.id);
+                      setSelectedAskNoteId(note.id);
+                    }}
+                    className={`group flex items-center justify-between rounded-2xl border px-4 py-3 transition-all duration-300 cursor-pointer ${
+                      selectedRecentNoteId === note.id
+                        ? "border-cyan-400/45 bg-cyan-500/10 shadow-[inset_0_0_18px_rgba(6,182,212,0.18)]"
+                        : "border-white/10 bg-slate-950/45 hover:border-cyan-400/35 hover:bg-slate-900/60 hover:shadow-[inset_0px_0px_20px_rgba(6,182,212,0.15)]"
+                    }`}
                   >
                     <div className="min-w-0 pr-3">
                       <p className="line-clamp-2 text-sm font-medium text-foreground break-words">
@@ -651,7 +740,8 @@ export default function HomePage() {
                     </div>
                     <button
                       type="button"
-                      onClick={() => {
+                      onClick={(event) => {
+                        event.stopPropagation();
                         void handleDeleteRecentNote(note.id);
                       }}
                       disabled={deletingId === note.id}
@@ -829,11 +919,11 @@ export default function HomePage() {
           </motion.section>
         </div>
 
-        {/* ROW 3: Pinned Flashcards */}
+        {/* ROW 3: Favourite Flashcards */}
         <motion.section variants={cardVariants} className={rowCardClass}>
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-lg font-semibold bg-gradient-to-r from-cyan-400 to-blue-600 bg-clip-text text-transparent">
-              Pinned Flashcards
+              Favourite Flashcards
             </h2>
             <Button
               asChild
@@ -859,7 +949,7 @@ export default function HomePage() {
             <div className="mt-4 rounded-2xl border border-dashed border-white/20 bg-slate-950/40 px-4 py-6 text-center">
               <Star className="mx-auto mb-2 h-5 w-5 text-yellow-300/70" />
               <p className="text-sm text-muted-foreground">
-                Star flashcards in Study and they’ll appear here.
+                Mark flashcards as favourites in Study and they’ll appear here.
               </p>
             </div>
           )}
@@ -897,7 +987,12 @@ export default function HomePage() {
 
               <div className="grid grid-cols-2 gap-3 pt-4">
                 <StyledNextStepButton>
-                  <Link to="/chat" data-ocid="home.next-steps.chat" className="animated-button">
+                  <Link
+                    to="/chat"
+                    onClick={() => applyNextStepContext("chat")}
+                    data-ocid="home.next-steps.chat"
+                    className="animated-button"
+                  >
                     <svg viewBox="0 0 24 24" className="arr-2" xmlns="http://www.w3.org/2000/svg">
                       <path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z" />
                     </svg>
@@ -910,7 +1005,12 @@ export default function HomePage() {
                 </StyledNextStepButton>
 
                 <StyledNextStepButton>
-                  <Link to="/quiz" data-ocid="home.next-steps.quiz" className="animated-button">
+                  <Link
+                    to="/quiz"
+                    onClick={() => applyNextStepContext("quiz")}
+                    data-ocid="home.next-steps.quiz"
+                    className="animated-button"
+                  >
                     <svg viewBox="0 0 24 24" className="arr-2" xmlns="http://www.w3.org/2000/svg">
                       <path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z" />
                     </svg>
@@ -923,7 +1023,12 @@ export default function HomePage() {
                 </StyledNextStepButton>
 
                 <StyledNextStepButton>
-                  <Link to="/study" data-ocid="home.next-steps.study" className="animated-button">
+                  <Link
+                    to="/study"
+                    onClick={() => applyNextStepContext("study")}
+                    data-ocid="home.next-steps.study"
+                    className="animated-button"
+                  >
                     <svg viewBox="0 0 24 24" className="arr-2" xmlns="http://www.w3.org/2000/svg">
                       <path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z" />
                     </svg>
@@ -936,7 +1041,12 @@ export default function HomePage() {
                 </StyledNextStepButton>
 
                 <StyledNextStepButton>
-                  <Link to="/planner" data-ocid="home.next-steps.planner" className="animated-button">
+                  <Link
+                    to="/planner"
+                    onClick={() => applyNextStepContext("planner")}
+                    data-ocid="home.next-steps.planner"
+                    className="animated-button"
+                  >
                     <svg viewBox="0 0 24 24" className="arr-2" xmlns="http://www.w3.org/2000/svg">
                       <path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z" />
                     </svg>
@@ -950,6 +1060,44 @@ export default function HomePage() {
               </div>
             </div>
           </LampContainer>
+        </motion.div>
+      )}
+
+      {uploadOverlayState !== "idle" && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4"
+          data-ocid="home.upload.overlay"
+        >
+          <div className="w-full max-w-md rounded-2xl border border-cyan-500/30 bg-slate-950/95 p-6 text-center shadow-[0_0_40px_rgba(6,182,212,0.22)]">
+            <div className="mx-auto mb-3 flex justify-center">
+              {uploadOverlayState === "uploading" ? (
+                <HamsterLoader />
+              ) : (
+                <div className="flex h-16 w-16 items-center justify-center rounded-full border border-emerald-300/40 bg-emerald-400/15">
+                  <CheckCircle className="h-10 w-10 text-emerald-300" />
+                </div>
+              )}
+            </div>
+            <h3 className="text-xl font-semibold text-cyan-100">
+              {uploadOverlayState === "uploaded" ? "Uploaded" : "Uploading..."}
+            </h3>
+            <p className="mt-1 text-sm text-cyan-100/80">
+              {uploadOverlayState === "uploaded"
+                ? "Upload complete. Redirecting to your note..."
+                : "Please wait while Arcadia processes your file."}
+            </p>
+            <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-white/10">
+              <div
+                className="h-full rounded-full bg-cyan-400 transition-all duration-300"
+                style={{ width: `${Math.max(2, Math.min(100, uploadProgress))}%` }}
+              />
+            </div>
+            <div className="mt-2 text-xs text-cyan-200/80">{Math.round(uploadProgress)}%</div>
+          </div>
         </motion.div>
       )}
     </motion.div>

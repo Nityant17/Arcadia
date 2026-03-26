@@ -6,12 +6,13 @@ import random
 import string
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from models.database import (
     get_db,
+    SessionLocal,
     User,
     ChallengeRoom,
     ChallengeParticipant,
@@ -49,9 +50,51 @@ def _generate_room_code(db: Session) -> str:
     raise HTTPException(500, "Failed to generate room code")
 
 
+async def _prepare_room_quiz(
+    room_id: str,
+    context_id: str,
+    document_ids: list[str],
+    tier: int,
+    num_questions: int,
+    language: str,
+    focus_topic: str,
+):
+    db = SessionLocal()
+    try:
+        room = db.query(ChallengeRoom).filter(ChallengeRoom.id == room_id).first()
+        if not room:
+            return
+
+        quiz_data = await quiz_service.generate_quiz(
+            context_id=context_id,
+            document_ids=document_ids,
+            tier=tier,
+            num_questions=num_questions,
+            language=language,
+            focus_topic=focus_topic,
+        )
+
+        room.quiz_payload_json = quiz_data
+        if room.status == "preparing":
+            room.status = "waiting"
+        db.commit()
+    except Exception as exc:
+        failed_room = db.query(ChallengeRoom).filter(ChallengeRoom.id == room_id).first()
+        if failed_room:
+            failed_room.status = "failed"
+            failed_room.quiz_payload_json = {
+                "questions": [],
+                "error": str(exc),
+            }
+            db.commit()
+    finally:
+        db.close()
+
+
 @router.post("/challenge/create")
 async def create_room(
     request: CreateRoomRequest,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -63,15 +106,6 @@ async def create_room(
     if not document_ids:
         raise HTTPException(404, "No documents found for this challenge request")
 
-    quiz_data = await quiz_service.generate_quiz(
-        context_id=context_id or request.document_id,
-        document_ids=document_ids,
-        tier=request.tier,
-        num_questions=request.num_questions,
-        language=request.language,
-        focus_topic=request.focus_topic,
-    )
-
     room = ChallengeRoom(
         id=str(uuid.uuid4()),
         code=_generate_room_code(db),
@@ -79,8 +113,8 @@ async def create_room(
         document_id=context_id or request.document_id,
         tier=request.tier,
         num_questions=request.num_questions,
-        status="waiting",
-        quiz_payload_json=quiz_data,
+        status="preparing",
+        quiz_payload_json={"questions": [], "status": "preparing"},
     )
     db.add(room)
 
@@ -93,6 +127,17 @@ async def create_room(
         total_questions=request.num_questions,
     ))
     db.commit()
+
+    background_tasks.add_task(
+        _prepare_room_quiz,
+        room.id,
+        context_id or request.document_id,
+        document_ids,
+        request.tier,
+        request.num_questions,
+        request.language,
+        request.focus_topic,
+    )
 
     return {
         "code": room.code,
@@ -144,6 +189,12 @@ def start_room(
         raise HTTPException(404, "Room not found")
     if room.host_user_id != current_user.id:
         raise HTTPException(403, "Only the host can start this challenge")
+    if room.status == "preparing":
+        raise HTTPException(409, "Quiz is still being prepared. Please wait.")
+    if room.status == "failed":
+        raise HTTPException(409, "Quiz generation failed. Please recreate the room.")
+    if not room.quiz_payload_json.get("questions"):
+        raise HTTPException(409, "Quiz is not ready yet. Please wait.")
 
     room.status = "active"
     db.commit()
