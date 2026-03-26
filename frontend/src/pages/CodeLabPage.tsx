@@ -570,12 +570,12 @@ export default function CodeLabPage() {
           </div>
         </section>
 
-        <section className="rounded-2xl border border-white/10 bg-slate-950/40 backdrop-blur-xl p-4 space-y-3 h-full flex flex-col min-h-0">
+        <section className="rounded-2xl border border-white/10 bg-slate-950/40 backdrop-blur-xl p-4 space-y-3 h-full flex flex-col min-h-0 overflow-y-auto">
           <div className="text-sm text-foreground font-medium">Program Input (stdin)</div>
           <textarea
             value={stdin}
             onChange={(event) => setStdin(event.target.value)}
-            className="w-full min-h-[8rem] rounded-xl border border-white/10 bg-slate-900/70 px-3 py-2 text-xs font-mono text-foreground outline-none focus:border-cyan-500/50"
+            className="w-full min-h-[8rem] rounded-xl border border-white/10 bg-slate-900/70 px-3 py-2 text-xs font-mono text-foreground outline-none focus:border-cyan-500/50 shrink-0"
             spellCheck={false}
             placeholder="Input lines here..."
           />
@@ -584,20 +584,21 @@ export default function CodeLabPage() {
             <Terminal className="h-4 w-4 text-cyan-300" />
             Output
           </div>
-          <div className="rounded-xl border border-white/10 bg-slate-900/70 p-3 text-xs font-mono text-foreground min-h-[16rem] whitespace-pre-wrap break-words overflow-auto flex-1">
+          
+          <div className="rounded-xl border border-white/10 bg-slate-900/70 p-3 text-xs font-mono text-foreground min-h-[8rem] whitespace-pre-wrap break-words overflow-auto flex-1">
             {stdout || "(stdout is empty)"}
           </div>
 
           {stderr ? (
             <>
-              <div className="text-xs text-red-300 font-medium">stderr</div>
-              <div className="rounded-xl border border-red-500/30 bg-red-950/20 p-3 text-xs font-mono text-red-200 whitespace-pre-wrap break-words overflow-auto max-h-48">
+              <div className="text-xs text-red-300 font-medium shrink-0">stderr</div>
+              <div className="rounded-xl border border-red-500/30 bg-red-950/20 p-3 text-xs font-mono text-red-200 whitespace-pre-wrap break-words overflow-auto min-h-[8rem] max-h-[16rem] shrink-0">
                 {stderr}
               </div>
             </>
           ) : null}
 
-          <div className="text-xs text-muted-foreground">
+          <div className="text-xs text-muted-foreground shrink-0">
             Exit code: {exitCode === null ? "-" : exitCode} | Runtime: {durationMs === null ? "-" : `${durationMs} ms`}
           </div>
         </section>

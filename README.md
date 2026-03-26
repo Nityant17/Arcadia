@@ -210,6 +210,21 @@ AZURE_SEARCH_ENDPOINT=<https://...search.windows.net>
 AZURE_SEARCH_KEY=<key>
 ```
 
+## Google Calendar (One-Way Push)
+
+Set these backend env vars:
+
+```bash
+GOOGLE_CALENDAR_CLIENT_ID=<client_id>
+GOOGLE_CALENDAR_CLIENT_SECRET=<client_secret>
+GOOGLE_CALENDAR_SCOPES=https://www.googleapis.com/auth/calendar.events
+```
+
+OAuth Redirect URL to register:
+```
+<BACKEND_BASE_URL>/api/calendar/google/callback
+```
+
 ### Azure Validation Checklist
 
 1. Start backend with `ARCADIA_MODE=azure`
@@ -258,6 +273,10 @@ Arcadia is functional but **not fully production-hardened** yet. Before public h
 
 8. **OAuth Redirects**
    - Ensure OAuth redirect URIs match deployed domains.
+
+9. **Calendar OAuth**
+   - Ensure Google Calendar OAuth credentials + redirect URL are configured.
+   - Rotate refresh tokens and secure DB storage for calendar tokens.
 
 ## Calendar Sync (Planner)
 
