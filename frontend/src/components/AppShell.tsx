@@ -36,17 +36,17 @@ const CORE_NAV_LINKS = [
   { label: "Home", to: "/home", icon: HomeIcon },
   { label: "Dashboard", to: "/dashboard", icon: LayoutDashboardIcon },
   { label: "Notes", to: "/notes", icon: NotebookPenIcon },
-  { label: "Chat", to: "/chat", icon: MessageSquareIcon },
+  { label: "Galaxy", to: "/galaxy", icon: Sparkles },
 ] satisfies Array<{ label: string; to: string; icon: LucideIcon }>;
 
 const LEARNING_NAV_LINKS = [
+  { label: "Chat", to: "/chat", icon: MessageSquareIcon },
   { label: "Quiz", to: "/quiz", icon: PuzzleIcon },
   { label: "Study Materials", to: "/study", icon: BrainIcon },
   { label: "Planner", to: "/planner", icon: CalendarClockIcon },
   { label: "Challenge", to: "/challenge", icon: SwordsIcon },
-  { label: "Game", to: "/game", icon: Gamepad2 },
   { label: "Code Lab", to: "/code", icon: Code2 },
-  { label: "Galaxy", to: "/galaxy", icon: Sparkles },
+  { label: "Game", to: "/game", icon: Gamepad2 },
 ] satisfies Array<{ label: string; to: string; icon: LucideIcon }>;
 
 interface PinnedItem {

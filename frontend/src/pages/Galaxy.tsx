@@ -4,15 +4,29 @@ import { CONSTELLATIONS } from "@/data/constellations";
 import { apiClient, getApiErrorMessage } from "@/services/api";
 import { toast } from "sonner";
 
+const VIEWBOX_WIDTH = 1920;
+const VIEWBOX_HEIGHT = 1280;
+
+// Increased scale and distance for the larger footprint
+const STAR_SCALE = 2.4; 
+const MIN_LAYOUT_DISTANCE = 420; 
+
+const mulberry32 = (seed: number) => {
+  return () => {
+    let t = (seed += 0x6d2b79f5);
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+};
+
 export default function Galaxy() {
   const [userStreak, setUserStreak] = useState(0);
   const [loading, setLoading] = useState(true);
   const [scale, setScale] = useState(1);
   
-  // We use Framer Motion's animation controls to smoothly snap the pan back to 0,0
   const controls = useAnimation();
-
-  const DEBUG_STREAK: number | null = 160;
+  const DEBUG_STREAK: number | null = 116;
 
   useEffect(() => {
     let mounted = true;
@@ -38,9 +52,20 @@ export default function Galaxy() {
 
   const effectiveStreak = DEBUG_STREAK ?? userStreak;
 
-  const constellationProgress = useMemo(() => {
+  const { constellationProgress, layout } = useMemo(() => {
+    const rng = mulberry32(0x9a8b4c6d); 
+
+    const shuffledConstellations = [...CONSTELLATIONS];
+    for (let i = shuffledConstellations.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [shuffledConstellations[i], shuffledConstellations[j]] = [
+        shuffledConstellations[j],
+        shuffledConstellations[i],
+      ];
+    }
+
     let remaining = Math.max(0, effectiveStreak);
-    return CONSTELLATIONS.map((constellation) => {
+    const progress = shuffledConstellations.map((constellation) => {
       const total = constellation.stars.length;
       const visibleCount = Math.min(total, remaining);
       const isFinished = remaining >= total;
@@ -48,38 +73,64 @@ export default function Galaxy() {
       remaining = Math.max(0, remaining - total);
       return { constellation, isFinished, isActive, visibleCount };
     });
+
+    const points: Array<{ x: number; y: number; scale: number }> = [];
+    let angle = 0;
+    const angleStep = 0.4; 
+    const radiusStep = 22; 
+
+    for (let i = 0; i < shuffledConstellations.length; i += 1) {
+      let placed = false;
+      while (!placed) {
+        const r = angle * radiusStep;
+        const nextX = VIEWBOX_WIDTH / 2 + r * Math.cos(angle);
+        const nextY = VIEWBOX_HEIGHT / 2 + r * Math.sin(angle);
+
+        const isClear = points.every((point) => {
+          const dx = point.x - nextX;
+          const dy = point.y - nextY;
+          return Math.sqrt(dx * dx + dy * dy) >= MIN_LAYOUT_DISTANCE;
+        });
+
+        if (isClear) {
+          points.push({
+            x: nextX,
+            y: nextY,
+            scale: STAR_SCALE + rng() * 0.3,
+          });
+          placed = true;
+        }
+        angle += angleStep;
+      }
+    }
+    return { constellationProgress: progress, layout: points };
   }, [effectiveStreak]);
 
   const completedCount = constellationProgress.filter((item) => item.isFinished).length;
-  const gridCols = 5;
-  const cellWidth = 40;
-  const cellHeight = 28;
-  const rows = Math.ceil(CONSTELLATIONS.length / gridCols);
-  const viewBoxWidth = gridCols * cellWidth + 20;
-  const viewBoxHeight = rows * cellHeight + 20;
-  const STAR_SCALE = 0.28;
 
   const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
     setScale((prevScale) => {
-      const zoomSensitivity = 0.002;
+      const zoomSensitivity = 0.0012;
       const newScale = prevScale - e.deltaY * zoomSensitivity;
-      return Math.min(Math.max(0.5, newScale), 4); 
+      return Math.min(Math.max(0.3, newScale), 6); 
     });
   };
 
-  // Snaps the zoom to 1x and triggers the animation controls to reset the X/Y drag position
   const handleResetView = () => {
     setScale(1);
-    controls.start({ x: 0, y: 0 });
+    controls.start({ 
+      x: 0, 
+      y: 0,
+      transition: { type: "spring", stiffness: 150, damping: 20, mass: 0.8 }
+    });
   };
 
-  // Dynamic drag limits: as you zoom in (scale increases), the allowable pan area expands
-  const panLimit = 600 * scale;
+  const panLimit = Math.max(VIEWBOX_WIDTH, VIEWBOX_HEIGHT) * scale * 3.5;
 
   return (
     <div className="h-full max-h-[calc(100vh-2rem)] text-white p-6 md:p-10 relative flex flex-col bg-transparent overflow-hidden">
       
-      {/* CSS for Twinkling Stars */}
       <style>
         {`
           @keyframes twinkle {
@@ -89,10 +140,12 @@ export default function Galaxy() {
           .star-twinkle {
             animation: twinkle 3s ease-in-out infinite;
           }
+          .name-glow {
+            filter: drop-shadow(0 0 8px rgba(147, 197, 253, 0.8));
+          }
         `}
       </style>
 
-      {/* Header */}
       <header className="relative z-10 w-full mb-6 shrink-0">
         <p className="text-[11px] uppercase tracking-[0.4em] text-blue-300/70">Galaxy</p>
         <h1 className="mt-3 text-3xl md:text-4xl font-extralight tracking-[0.25em] uppercase text-blue-100">
@@ -106,20 +159,17 @@ export default function Galaxy() {
         </p>
       </header>
 
-      {/* The Interactive Box */}
       <div 
         onWheel={handleWheel}
-        className="relative z-10 flex-1 min-h-0 w-full rounded-[28px] border border-slate-800/80 shadow-[inset_0_0_40px_rgba(0,0,0,0.6)] overflow-hidden cursor-grab active:cursor-grabbing"
+        className="relative z-10 flex-1 min-h-0 w-full rounded-[28px] border border-slate-800/80 shadow-[inset_0_0_40px_rgba(0,0,0,0.6)] overflow-hidden cursor-grab active:cursor-grabbing flex items-center justify-center"
         style={{
           backgroundImage: `radial-gradient(circle at center, rgba(15, 23, 42, 0.8) 0%, rgba(2, 6, 23, 1) 100%), url('https://www.transparenttextures.com/patterns/stardust.png')`,
           backgroundBlendMode: 'screen'
         }}
       >
-        {/* Reset View Button */}
         <button
           onClick={handleResetView}
           className="absolute bottom-6 right-6 z-20 p-3 rounded-full bg-slate-800/80 border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700 hover:border-slate-500 transition-all shadow-lg backdrop-blur-sm group"
-          title="Reset View"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="group-hover:rotate-90 transition-transform duration-300">
             <circle cx="12" cy="12" r="10"></circle>
@@ -132,94 +182,103 @@ export default function Galaxy() {
 
         <motion.div
           drag
-          dragConstraints={{
-            top: -panLimit,
-            bottom: panLimit,
-            left: -panLimit,
-            right: panLimit,
-          }}
-          dragElastic={0.1}
+          dragConstraints={{ top: -panLimit, bottom: panLimit, left: -panLimit, right: panLimit }}
+          dragElastic={0.03}
+          dragMomentum={false}
           animate={controls}
           style={{ scale }}
-          className="w-[150%] h-[150%] relative z-10 flex items-center justify-center origin-center"
+          className="w-[220%] h-[220%] shrink-0 relative z-10 flex items-center justify-center origin-center"
         >
           <svg
             className="w-full h-full overflow-visible"
-            viewBox={`0 0 ${viewBoxWidth} ${viewBoxHeight}`}
+            viewBox={`0 0 ${VIEWBOX_WIDTH} ${VIEWBOX_HEIGHT}`}
             preserveAspectRatio="xMidYMid meet"
           >
             {constellationProgress.map(({ constellation, isFinished, isActive, visibleCount }, index) => {
               if (!isFinished && !isActive) return null;
 
-              const originX = 10 + (index % gridCols) * cellWidth;
-              const originY = 10 + Math.floor(index / gridCols) * cellHeight;
+              const placement = layout[index];
+              const localScale = placement?.scale ?? STAR_SCALE;
+
               const project = (star: { x: number; y: number }) => ({
-                x: originX + star.x * STAR_SCALE,
-                y: originY + star.y * STAR_SCALE,
+                x: (placement?.x ?? VIEWBOX_WIDTH / 2) + (star.x - 50) * localScale,
+                y: (placement?.y ?? VIEWBOX_HEIGHT / 2) + (star.y - 50) * localScale,
               });
 
               const visibleStars = constellation.stars.slice(0, Math.max(visibleCount, 0));
+              const anchor = project(constellation.stars[0]);
+              const artworkX = (placement?.x ?? VIEWBOX_WIDTH / 2) - 50 * localScale;
+              const artworkY = (placement?.y ?? VIEWBOX_HEIGHT / 2) - 50 * localScale;
 
               return (
-                <g key={constellation.name}>
-                  {/* Lines */}
-                  {isFinished
-                    ? constellation.lines.map((line, index) => {
-                        const start = constellation.stars[line[0]];
-                        const end = constellation.stars[line[1]];
-                        if (!start || !end) return null;
-                        const startPos = project(start);
-                        const endPos = project(end);
-                        return (
-                          <motion.line
-                            key={`${constellation.name}-line-${index}`}
-                            x1={startPos.x}
-                            y1={startPos.y}
-                            x2={endPos.x}
-                            y2={endPos.y}
-                            stroke="rgba(147, 197, 253, 0.4)"
-                            strokeWidth="0.5"
-                            initial={{ pathLength: 0 }}
-                            animate={{ pathLength: 1 }}
-                            transition={{ duration: 1.2, delay: index * 0.05 }}
-                          />
-                        );
-                      })
-                    : null}
+                <motion.g 
+                  key={constellation.name}
+                  whileHover="hovered"
+                  initial="initial"
+                  className="cursor-default"
+                >
+                  {isFinished && constellation.artwork && (
+                    <motion.image
+                      href={constellation.artwork}
+                      x={artworkX}
+                      y={artworkY}
+                      width={100 * localScale}
+                      height={100 * localScale}
+                      preserveAspectRatio="xMidYMid meet"
+                      variants={{
+                        initial: { opacity: 0.35 },
+                        hovered: { opacity: 0.8, transition: { duration: 0.3 } }
+                      }}
+                    />
+                  )}
 
-                  {/* Stars */}
-                  {visibleStars.map((star, i) => {
-                    const point = project(star);
+                  {isFinished && constellation.lines.map((line, i) => {
+                    const startPos = project(constellation.stars[line[0]]);
+                    const endPos = project(constellation.stars[line[1]]);
                     return (
-                      <g key={`${constellation.name}-${i}`}>
-                        <motion.circle
-                          cx={point.x}
-                          cy={point.y}
-                          r={isFinished ? "1.0" : "2.0"}
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          transition={{ duration: 0.4, delay: i * 0.08 }}
-                          style={{ animationDelay: `${(i * 0.4) % 3}s` }}
-                          className={`star-twinkle ${isFinished ? "fill-slate-300" : "fill-blue-400"}`}
-                        />
-                      </g>
+                      <motion.line
+                        key={`${constellation.name}-line-${i}`}
+                        x1={startPos.x} y1={startPos.y} x2={endPos.x} y2={endPos.y}
+                        stroke="rgba(191, 219, 254, 0.8)"
+                        strokeWidth="2.2"
+                        initial={{ pathLength: 0 }}
+                        animate={{ pathLength: 1 }}
+                        transition={{ duration: 1.2, delay: i * 0.05 }}
+                      />
                     );
                   })}
 
-                  {/* Text */}
-                  {isFinished ? (
+                  {visibleStars.map((star, i) => {
+                    const point = project(star);
+                    return (
+                      <motion.circle
+                        key={`${constellation.name}-${i}`}
+                        cx={point.x} cy={point.y}
+                        r={isFinished ? "3.5" : "5.5"}
+                        variants={{
+                          initial: { fill: isFinished ? "#cbd5e1" : "#60a5fa", scale: 1 },
+                          hovered: { fill: "#fff", scale: 1.2, transition: { duration: 0.2 } }
+                        }}
+                        className="star-twinkle"
+                        style={{ animationDelay: `${(i * 0.4) % 3}s` }}
+                      />
+                    );
+                  })}
+
+                  {isFinished && (
                     <motion.text
-                      x={project(constellation.stars[0]).x}
-                      y={project(constellation.stars[0]).y - 3}
-                      className="fill-slate-400 text-[1.5px] uppercase tracking-widest font-semibold pointer-events-none"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: 0.4 }}
+                      x={anchor.x}
+                      y={anchor.y - 28}
+                      className="fill-slate-400 text-[20px] uppercase tracking-widest font-semibold pointer-events-none"
+                      variants={{
+                        initial: { fill: "#94a3b8", opacity: 1 },
+                        hovered: { fill: "#fff", opacity: 1, transition: { duration: 0.2 } }
+                      }}
                     >
-                      {constellation.name} · {constellation.philosopher}
+                      {constellation.name}
                     </motion.text>
-                  ) : null}
-                </g>
+                  )}
+                </motion.g>
               );
             })}
           </svg>

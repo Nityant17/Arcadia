@@ -32,6 +32,15 @@ It supports note ingestion, AI chat, quiz/study generation, planner scheduling, 
 - Galaxy streak visualization (daily login stars + constellations)
 - Floating Quick Tools accessibility ball (draggable + persistent)
 
+## Galaxy Experience
+- Supports all 88 IAU constellations from `frontend/src/constellation_pattern`
+- Uses mythological figure overlays from `frontend/src/constellation_outlines` that fade in on completion
+- Constellation geometry (star counts and line arrangements) is derived from the pattern references
+- Interactive navigation:
+  - Mouse wheel zoom
+  - Click-drag pan
+  - Reset-view control (bottom-right)
+
 ## Multi-File Note Data Model
 
 Arcadia uses a **logical grouping** model:
@@ -183,6 +192,12 @@ npm run dev
 
 Frontend default URL: `http://localhost:5173`
 
+Production build:
+```bash
+cd frontend
+npm run build
+```
+
 ## Azure Backend Mode (Production-Ready Path)
 
 Arcadia supports Azure mode via `ARCADIA_MODE=azure`.
@@ -258,6 +273,28 @@ Arcadia is functional but **not fully production-hardened** yet. Before public h
 4. **Secrets Management**
    - Use environment variables or Azure Key Vault for API keys.
    - Avoid hardcoded secrets.
+
+### Pre-Deploy Verification (Current Project)
+
+Run these checks before deploying:
+
+1. Frontend typecheck:
+```bash
+cd frontend
+npx tsc --noEmit
+```
+
+2. Frontend production build:
+```bash
+cd frontend
+npm run build
+```
+
+3. Backend syntax sanity check:
+```bash
+cd backend
+python3 -m compileall .
+```
 
 5. **Rate Limiting + Abuse Protection**
    - Add rate limits to `/auth`, `/chat`, `/quiz`, `/upload`, `/code/run`.
