@@ -13,6 +13,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { ChevronDown, CloudUpload, MessageSquare, Star, Trash2, X, Play, Pause, RotateCcw, CheckCircle } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import styled from "styled-components";
 import { toast } from "sonner";
 
@@ -195,6 +196,7 @@ export default function HomePage() {
   const [showNextSteps, setShowNextSteps] = useState(false);
   const [nextStepNoteId, setNextStepNoteId] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const shouldLockUi = uploadOverlayState !== "idle";
 
   const mapDocumentsToNotes = (documents: Array<{ id: string; note_id: string; note_title?: string; original_name: string; filename: string; subject: string; topic: string }>) => {
     const grouped = new Map<string, {
@@ -1063,43 +1065,46 @@ export default function HomePage() {
         </motion.div>
       )}
 
-      {uploadOverlayState !== "idle" && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.2 }}
-          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4"
-          data-ocid="home.upload.overlay"
-        >
-          <div className="w-full max-w-md rounded-2xl border border-cyan-500/30 bg-slate-950/95 p-6 text-center shadow-[0_0_40px_rgba(6,182,212,0.22)]">
-            <div className="mx-auto mb-3 flex justify-center">
-              {uploadOverlayState === "uploading" ? (
-                <HamsterLoader />
-              ) : (
-                <div className="flex h-16 w-16 items-center justify-center rounded-full border border-emerald-300/40 bg-emerald-400/15">
-                  <CheckCircle className="h-10 w-10 text-emerald-300" />
+      {shouldLockUi && typeof document !== "undefined"
+        ? createPortal(
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 backdrop-blur-sm px-4"
+              data-ocid="home.upload.overlay"
+            >
+              <div className="w-full max-w-md rounded-2xl border border-cyan-500/30 bg-slate-950/95 p-6 text-center shadow-[0_0_40px_rgba(6,182,212,0.22)]">
+                <div className="mx-auto mb-3 flex justify-center">
+                  {uploadOverlayState === "uploading" ? (
+                    <HamsterLoader />
+                  ) : (
+                    <div className="flex h-16 w-16 items-center justify-center rounded-full border border-emerald-300/40 bg-emerald-400/15">
+                      <CheckCircle className="h-10 w-10 text-emerald-300" />
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-            <h3 className="text-xl font-semibold text-cyan-100">
-              {uploadOverlayState === "uploaded" ? "Uploaded" : "Uploading..."}
-            </h3>
-            <p className="mt-1 text-sm text-cyan-100/80">
-              {uploadOverlayState === "uploaded"
-                ? "Upload complete. Redirecting to your note..."
-                : "Please wait while Arcadia processes your file."}
-            </p>
-            <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-white/10">
-              <div
-                className="h-full rounded-full bg-cyan-400 transition-all duration-300"
-                style={{ width: `${Math.max(2, Math.min(100, uploadProgress))}%` }}
-              />
-            </div>
-            <div className="mt-2 text-xs text-cyan-200/80">{Math.round(uploadProgress)}%</div>
-          </div>
-        </motion.div>
-      )}
+                <h3 className="text-xl font-semibold text-cyan-100">
+                  {uploadOverlayState === "uploaded" ? "Uploaded" : "Uploading..."}
+                </h3>
+                <p className="mt-1 text-sm text-cyan-100/80">
+                  {uploadOverlayState === "uploaded"
+                    ? "Upload complete. Redirecting to your note..."
+                    : "Please wait while Arcadia processes your file."}
+                </p>
+                <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-white/10">
+                  <div
+                    className="h-full rounded-full bg-cyan-400 transition-all duration-300"
+                    style={{ width: `${Math.max(2, Math.min(100, uploadProgress))}%` }}
+                  />
+                </div>
+                <div className="mt-2 text-xs text-cyan-200/80">{Math.round(uploadProgress)}%</div>
+              </div>
+            </motion.div>,
+            document.body,
+          )
+        : null}
     </motion.div>
   );
 }

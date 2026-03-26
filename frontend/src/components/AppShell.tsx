@@ -6,7 +6,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAppStore } from "@/store/useAppStore";
-import { Link, useLocation, useNavigate } from "@tanstack/react-router";
+import { Link, useLocation } from "@tanstack/react-router";
 import {
   BrainIcon,
   CalendarClockIcon,
@@ -64,7 +64,6 @@ export default function AppShell({ children, pinnedItems = [] }: AppShellProps) 
   const minutes = Math.floor((timeLeft % 3600) / 60);
   const seconds = timeLeft % 60;
   const location = useLocation();
-  const navigate = useNavigate();
   const {
     currentLanguage,
     languages,
@@ -75,7 +74,7 @@ export default function AppShell({ children, pinnedItems = [] }: AppShellProps) 
 
   function handleLogout() {
     logout();
-    void navigate({ to: "/auth" });
+    window.location.assign("/auth");
   }
 
   return (

@@ -72,3 +72,29 @@ AZURE_TRANSLATOR_REGION = os.getenv("AZURE_TRANSLATOR_REGION", "")
 
 AZURE_FORM_RECOGNIZER_ENDPOINT = os.getenv("AZURE_FORM_RECOGNIZER_ENDPOINT", "")
 AZURE_FORM_RECOGNIZER_KEY = os.getenv("AZURE_FORM_RECOGNIZER_KEY", "")
+
+# ─── Auth & Verification ───────────────────────────────────────
+AUTH_FRONTEND_URL = os.getenv("AUTH_FRONTEND_URL", "http://localhost:5173")
+AUTH_REQUIRE_EMAIL_VERIFICATION = os.getenv("AUTH_REQUIRE_EMAIL_VERIFICATION", "true").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
+AUTH_EMAIL_OTP_EXPIRES_MINUTES = int(os.getenv("AUTH_EMAIL_OTP_EXPIRES_MINUTES", "10"))
+
+SMTP_HOST = os.getenv("SMTP_HOST", "")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+SMTP_USERNAME = os.getenv("SMTP_USERNAME", "")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
+SMTP_FROM_EMAIL = os.getenv("SMTP_FROM_EMAIL", SMTP_USERNAME or "no-reply@arcadia.local")
+SMTP_USE_TLS = os.getenv("SMTP_USE_TLS", "true").strip().lower() in {"1", "true", "yes", "on"}
+
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
+GOOGLE_OAUTH_SCOPES = os.getenv("GOOGLE_OAUTH_SCOPES", "openid email profile")
+
+MICROSOFT_CLIENT_ID = os.getenv("MICROSOFT_CLIENT_ID", "")
+MICROSOFT_CLIENT_SECRET = os.getenv("MICROSOFT_CLIENT_SECRET", "")
+MICROSOFT_TENANT_ID = os.getenv("MICROSOFT_TENANT_ID", "common")
+MICROSOFT_OAUTH_SCOPES = os.getenv("MICROSOFT_OAUTH_SCOPES", "openid profile email User.Read")

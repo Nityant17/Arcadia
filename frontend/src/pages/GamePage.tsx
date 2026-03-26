@@ -95,6 +95,8 @@ export default function GamePage() {
   const [selectedNoteId, setSelectedNoteId] = useState("");
   const [status, setStatus] = useState<GameStatus>("setup");
   const [loadingTopics, setLoadingTopics] = useState(false);
+  const [topicOptions, setTopicOptions] = useState<string[]>([]);
+  const [selectedTopic, setSelectedTopic] = useState("");
   const [questions, setQuestions] = useState<QuestQuestion[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [hearts, setHearts] = useState(3);
@@ -142,6 +144,30 @@ export default function GamePage() {
     void loadDocuments();
   }, []);
 
+  useEffect(() => {
+    const loadTopicOptions = async () => {
+      if (!selectedNoteId) {
+        setTopicOptions([]);
+        setSelectedTopic("");
+        return;
+      }
+      try {
+        const response = await apiClient.extractTopics(selectedNoteId);
+        const titles = (response.data.topics || [])
+          .map((topic) => (topic.title || "").trim())
+          .filter((title) => Boolean(title));
+        const unique = Array.from(new Set(titles));
+        setTopicOptions(unique);
+        setSelectedTopic((previous) => (previous && unique.includes(previous) ? previous : ""));
+      } catch {
+        setTopicOptions([]);
+        setSelectedTopic("");
+      }
+    };
+
+    void loadTopicOptions();
+  }, [selectedNoteId]);
+
   const startQuest = async () => {
     if (!selectedNoteId) {
       toast.error("Upload and select a note first");
@@ -151,7 +177,14 @@ export default function GamePage() {
     setLoadingTopics(true);
     try {
       const response = await apiClient.extractTopics(selectedNoteId);
-      const generated = buildQuestQuestions(response.data.topics || []);
+      const scopedTopics = selectedTopic
+        ? (response.data.topics || []).filter(
+            (topic) =>
+              (topic.title || "").trim() === selectedTopic ||
+              (topic.summary || "").toLowerCase().includes(selectedTopic.toLowerCase()),
+          )
+        : (response.data.topics || []);
+      const generated = buildQuestQuestions(scopedTopics.length ? scopedTopics : (response.data.topics || []));
       setQuestions(generated);
       setCurrentIndex(0);
       setHearts(3);
@@ -256,8 +289,8 @@ export default function GamePage() {
       {status === "setup" && (
         <section className="rounded-3xl border border-white/10 bg-slate-950/45 p-6 backdrop-blur-xl">
           <h2 className="text-lg font-semibold text-foreground">Start A Quest</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Choose a merged note and launch a fun challenge round.</p>
-          <div className="mt-4 flex flex-col gap-3 md:flex-row">
+          <p className="mt-1 text-sm text-muted-foreground">Choose a note and launch a fun challenge round.</p>
+          <div className="mt-4 grid gap-3 md:grid-cols-[1.5fr_1fr_auto]">
             <select
               value={selectedNoteId}
               onChange={(event) => setSelectedNoteId(event.target.value)}
@@ -270,6 +303,18 @@ export default function GamePage() {
                   <option key={note.id} value={note.id}>{note.label} · {note.count} file{note.count > 1 ? "s" : ""}</option>
                 ))
               )}
+            </select>
+            <select
+              value={selectedTopic}
+              onChange={(event) => setSelectedTopic(event.target.value)}
+              className="arc-select w-full rounded-xl border border-white/10 bg-slate-900/70 px-3 py-2 text-sm text-foreground outline-none"
+            >
+              <option value="">All topics</option>
+              {topicOptions.map((topic) => (
+                <option key={topic} value={topic}>
+                  {topic}
+                </option>
+              ))}
             </select>
             <Button
               onClick={() => void startQuest()}

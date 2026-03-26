@@ -12,6 +12,8 @@ export interface CurrentUser {
   id: string;
   name: string;
   email: string;
+  authProvider?: string;
+  emailVerified?: boolean;
 }
 
 export interface PinnedItem {

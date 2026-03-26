@@ -560,22 +560,14 @@ export default function NotesPage() {
                   return (
                   <div
                     key={card.noteId}
-                    className={`group relative w-full flex items-start justify-between gap-2 rounded-xl px-3 py-2.5 text-left transition-all duration-300 cursor-pointer ${
+                    className={`group w-full flex items-start justify-between gap-2 rounded-xl px-3 py-2.5 text-left transition-all duration-300 cursor-pointer ${
                       card.noteId === selectedId
-                        ? "bg-cyan-500/18 border border-cyan-300/55 shadow-[0_0_0_1px_rgba(34,211,238,0.30),0_0_20px_rgba(6,182,212,0.22)]"
+                        ? "bg-cyan-500/14 border border-cyan-300/45 shadow-[0_0_0_1px_rgba(34,211,238,0.25),0_0_22px_rgba(6,182,212,0.28)]"
                         : "bg-slate-950/45 backdrop-blur-xl border border-white/10 hover:scale-[1.01] hover:bg-slate-900/60 hover:border-cyan-400/35 hover:shadow-[inset_0px_0px_20px_rgba(6,182,212,0.15)]"
                     }`}
                     onClick={() => setSelectedId(card.noteId)}
                     data-ocid={`notes.item.${card.noteId}`}
                   >
-                    {card.noteId === selectedId ? (
-                      <>
-                        <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-cyan-300" />
-                        <span className="absolute right-2 -top-2 rounded-full border border-cyan-300/50 bg-cyan-400/20 px-2 py-0.5 text-[10px] font-semibold text-cyan-100">
-                          Selected
-                        </span>
-                      </>
-                    ) : null}
                     <div className="min-w-0 flex-1 text-left pr-2">
                       <p className="text-sm text-foreground truncate">{note.noteTitle || note.filename}</p>
                       <p className="mt-1 text-xs text-muted-foreground truncate">

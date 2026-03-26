@@ -95,6 +95,9 @@ class User(Base):
     name = Column(String, nullable=False)
     email = Column(String, nullable=False, unique=True)
     password_hash = Column(String, nullable=False)
+    email_verified = Column(Boolean, default=True)
+    auth_provider = Column(String, default="local")
+    provider_subject = Column(String, default="")
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
 
@@ -106,6 +109,18 @@ class UserSession(Base):
     token = Column(String, nullable=False, unique=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     expires_at = Column(DateTime, nullable=True)
+
+
+class EmailVerificationCode(Base):
+    __tablename__ = "email_verification_codes"
+
+    id = Column(String, primary_key=True)
+    user_id = Column(String, nullable=False)
+    email = Column(String, nullable=False)
+    code_hash = Column(String, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    used_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
 
 class WeakTopic(Base):
@@ -210,6 +225,18 @@ def init_db():
             WHERE n.id IS NULL
         """))
         connection.commit()
+
+        user_info = connection.execute(text("PRAGMA table_info(users)")).fetchall()
+        user_columns = {row[1] for row in user_info}
+        if "email_verified" not in user_columns:
+            connection.execute(text("ALTER TABLE users ADD COLUMN email_verified BOOLEAN DEFAULT 1"))
+            connection.commit()
+        if "auth_provider" not in user_columns:
+            connection.execute(text("ALTER TABLE users ADD COLUMN auth_provider TEXT DEFAULT 'local'"))
+            connection.commit()
+        if "provider_subject" not in user_columns:
+            connection.execute(text("ALTER TABLE users ADD COLUMN provider_subject TEXT DEFAULT ''"))
+            connection.commit()
     print("📦 SQLite database initialized")
 
 

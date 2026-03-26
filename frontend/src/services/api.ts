@@ -77,6 +77,18 @@ export interface AuthResponse {
   name: string;
   email: string;
   token: string;
+  verification_required?: boolean;
+  message?: string;
+  auth_provider?: string;
+  dev_otp?: string | null;
+}
+
+export interface MeResponse {
+  user_id: string;
+  name: string;
+  email: string;
+  auth_provider?: string;
+  email_verified?: boolean;
 }
 
 export interface DocumentItem {
@@ -223,7 +235,13 @@ export const apiClient = {
   register: (name: string, email: string, password: string) =>
     api.post<AuthResponse>("/auth/register", { name, email, password }),
 
-  me: () => api.get<{ user_id: string; name: string; email: string }>("/auth/me"),
+  verifyEmailOtp: (email: string, otp: string) =>
+    api.post<AuthResponse>("/auth/verify-email", { email, otp }),
+
+  resendEmailOtp: (email: string) =>
+    api.post<{ status: string; email?: string; dev_otp?: string | null }>("/auth/resend-otp", { email }),
+
+  me: () => api.get<MeResponse>("/auth/me"),
 
   getLanguages: () => api.get<Record<string, string>>("/languages"),
 
