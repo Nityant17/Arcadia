@@ -28,7 +28,7 @@ export default function Galaxy() {
   const x = useMotionValue(0);
   const y = useMotionValue(0);
   const controls = useAnimation();
-  const DEBUG_STREAK: number | null = 1000;
+  const DEBUG_STREAK: number | null = null;
 
   useEffect(() => {
     let mounted = true;
