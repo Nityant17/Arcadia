@@ -161,7 +161,7 @@ function HamsterLoader() {
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const { currentLanguage } = useAppStore();
+  const { currentLanguage, currentUser } = useAppStore();
   const setUiOverlayActive = useAppStore((s) => s.setUiOverlayActive);
   const [loading, setLoading] = useState(true);
   const [dragActive, setDragActive] = useState(false);
@@ -301,13 +301,13 @@ export default function HomePage() {
         setSelectedAskNoteId("");
         setStats({ totalQuizzes: 0, topicsMastered: 0, averageScore: 0, streak: 0 });
       } finally {
-        setPinnedFlashcards(getPinnedFlashcards());
+        setPinnedFlashcards(getPinnedFlashcards(currentUser?.id));
         setLoading(false);
       }
     };
 
     void loadData();
-  }, []);
+  }, [currentUser?.id]);
 
   useEffect(() => {
     if (uploading || uploadOverlayState !== "idle") return;
@@ -460,8 +460,8 @@ export default function HomePage() {
   };
 
   const handleTogglePinnedFlashcard = (card: PinnedFlashcardItem) => {
-    togglePinnedFlashcard(card);
-    setPinnedFlashcards(getPinnedFlashcards());
+    togglePinnedFlashcard(card, currentUser?.id);
+    setPinnedFlashcards(getPinnedFlashcards(currentUser?.id));
   };
 
   const suggestionPills = [

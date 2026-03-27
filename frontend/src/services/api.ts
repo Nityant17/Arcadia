@@ -216,6 +216,13 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (axios.isAxiosError(error)) {
+      if (error.response?.status === 401) {
+        const { logout } = useAppStore.getState();
+        logout();
+        if (typeof window !== "undefined" && window.location.pathname !== "/auth") {
+          window.location.assign("/auth");
+        }
+      }
       const detail = extractErrorDetail(error.response?.data);
       if (detail) {
         error.message = detail;

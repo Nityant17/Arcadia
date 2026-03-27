@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { motion } from "motion/react";
 import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 type Tier = 1 | 2 | 3;
@@ -114,6 +114,20 @@ export default function QuizPage() {
 
   const [results, setResults] = useState<QuizResult[]>([]);
   const [score, setScore] = useState(0);
+  const tabSwitchHandledRef = useRef(false);
+  const fileDialogActiveRef = useRef(false);
+  const fileDialogTimerRef = useRef<number | null>(null);
+
+  const markFileDialogActive = useCallback(() => {
+    fileDialogActiveRef.current = true;
+    if (fileDialogTimerRef.current) {
+      window.clearTimeout(fileDialogTimerRef.current);
+    }
+    fileDialogTimerRef.current = window.setTimeout(() => {
+      fileDialogActiveRef.current = false;
+      fileDialogTimerRef.current = null;
+    }, 1500);
+  }, []);
 
   async function readFileAsDataUrl(file: File) {
     return new Promise<string>((resolve, reject) => {
@@ -318,21 +332,19 @@ export default function QuizPage() {
     void generate();
   }
 
-  async function submitQuiz(nextAnswers: (number | null)[]) {
+  const submitQuiz = useCallback(async (
+    nextAnswers: (number | null)[],
+    options: { allowIncomplete?: boolean } = {},
+  ) => {
     if (!quizId || !documentId) return;
 
-    const payloadAnswers = nextAnswers
-      .map((answer, index) => ({
-        question_id: questions[index]?.id,
-        selected_option: answer,
-      }))
-      .filter(
-        (item): item is { question_id: number; selected_option: number } =>
-          typeof item.question_id === "number" &&
-          typeof item.selected_option === "number",
-      );
+    const payloadAnswers = questions.map((question, index) => ({
+      question_id: question.id,
+      selected_option:
+        typeof nextAnswers[index] === "number" ? (nextAnswers[index] as number) : -1,
+    }));
 
-    if (payloadAnswers.length !== questions.length) {
+    if (!options.allowIncomplete && payloadAnswers.some((item) => item.selected_option < 0)) {
       toast.error("Please answer all questions before submitting");
       return;
     }
@@ -355,7 +367,7 @@ export default function QuizPage() {
     } finally {
       setLoadingSubmit(false);
     }
-  }
+  }, [documentId, quizId, questions, selectedDocument?.id, selectedNoteId]);
 
   function pick(optionIndex: number) {
     if (answers[currentQ] !== null || loadingSubmit) return;
@@ -373,6 +385,38 @@ export default function QuizPage() {
 
     submitQuiz(nextAnswers);
   }
+
+  useEffect(() => {
+    if (step !== "quiz") {
+      tabSwitchHandledRef.current = false;
+      return;
+    }
+
+    const handleTabExit = () => {
+      if (tabSwitchHandledRef.current || loadingSubmit) return;
+      if (fileDialogActiveRef.current) {
+        fileDialogActiveRef.current = false;
+        return;
+      }
+      tabSwitchHandledRef.current = true;
+      toast.error("Tab switching detected. Submitting your quiz.");
+      const forcedAnswers = answers.map((answer) => (answer === null ? -1 : answer));
+      submitQuiz(forcedAnswers, { allowIncomplete: true });
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        handleTabExit();
+      }
+    };
+
+    window.addEventListener("blur", handleTabExit);
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      window.removeEventListener("blur", handleTabExit);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [answers, loadingSubmit, step, submitQuiz]);
 
   if (step === "config") {
     return (
@@ -519,6 +563,9 @@ export default function QuizPage() {
           value={(currentQ / questions.length) * 100}
           className="h-1 bg-white/10 [&>div]:bg-arcadia-teal"
         />
+        <p className="text-xs text-muted-foreground">
+          Focus mode: switching tabs auto-submits your quiz.
+        </p>
 
         <div className="rounded-3xl bg-slate-950/40 backdrop-blur-xl border border-white/10 p-8">
           <p className="text-lg font-semibold text-foreground mb-6">{question.question}</p>
@@ -569,6 +616,8 @@ export default function QuizPage() {
               type="file"
               accept="image/*"
               className="w-full text-xs text-muted-foreground file:mr-2 file:rounded-md file:border-0 file:bg-white/10 file:px-2 file:py-1 file:text-foreground"
+              onClick={markFileDialogActive}
+              onPointerDown={markFileDialogActive}
               onChange={async (event) => {
                 const file = event.target.files?.[0];
                 if (!file) return;
@@ -578,6 +627,7 @@ export default function QuizPage() {
                   setHintImageBase64(base64);
                   setHintImagePreview(dataUrl);
                   setHintText("");
+                  fileDialogActiveRef.current = false;
                 } catch (error) {
                   toast.error(getApiErrorMessage(error, "Failed to read image"));
                 }
@@ -671,7 +721,7 @@ export default function QuizPage() {
             </div>
             <div className="space-y-1 pl-8">
               <div className="text-xs text-muted-foreground">
-                Selected: {result.selected_option + 1}
+                Selected: {result.selected_option < 0 ? "Not answered" : result.selected_option + 1}
               </div>
               <div className="text-xs text-arcadia-teal">
                 Correct: {result.correct_option + 1}

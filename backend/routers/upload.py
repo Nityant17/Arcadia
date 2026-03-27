@@ -54,10 +54,15 @@ def clean_unicode(text: str) -> str:
     return text.encode("utf-8", "ignore").decode("utf-8", "ignore")
 
 
-def _note_title(db: Session, note_id: str) -> str:
+def _note_title(db: Session, note_id: str, user_id: str) -> str:
     if not note_id:
         return ""
-    note_row = db.query(Note).filter(Note.id == note_id).first()
+    note_row = (
+        db.query(Note)
+        .filter(Note.id == note_id)
+        .filter(Note.user_id == user_id)
+        .first()
+    )
     return note_row.title if note_row else ""
 
 @router.post("/upload", response_model=DocumentResponse)
@@ -83,7 +88,12 @@ async def upload_document(
     selected_note_id = (note_id or "").strip()
 
     if selected_note_id:
-        note = db.query(Note).filter(Note.id == selected_note_id).first()
+        note = (
+            db.query(Note)
+            .filter(Note.id == selected_note_id)
+            .filter(Note.user_id == current_user.id)
+            .first()
+        )
         if not note:
             raise HTTPException(404, "Target note not found")
         note.updated_at = datetime.datetime.utcnow()
@@ -96,6 +106,7 @@ async def upload_document(
         )
         note = Note(
             id=selected_note_id,
+            user_id=current_user.id,
             title=note_title,
             subject=(subject or "General").strip() or "General",
         )
@@ -143,6 +154,7 @@ async def upload_document(
     # Save to database
     doc = Document(
         id=doc_id,
+        user_id=current_user.id,
         note_id=selected_note_id,
         filename=saved_filename,
         original_name=file.filename,
@@ -173,10 +185,18 @@ async def upload_document(
 @router.get("/documents", response_model=DocumentListResponse)
 async def list_documents(current_user = Depends(get_current_user), db: Session = Depends(get_db)):
     """List all uploaded documents."""
-    docs = db.query(Document).order_by(Document.created_at.desc()).all()
+    docs = (
+        db.query(Document)
+        .filter(Document.user_id == current_user.id)
+        .order_by(Document.created_at.desc())
+        .all()
+    )
     note_titles = {
         n.id: n.title
-        for n in db.query(Note).filter(Note.id.in_([d.note_id for d in docs if d.note_id])).all()
+        for n in db.query(Note)
+        .filter(Note.id.in_([d.note_id for d in docs if d.note_id]))
+        .filter(Note.user_id == current_user.id)
+        .all()
     }
     return DocumentListResponse(
         documents=[
@@ -211,6 +231,8 @@ async def list_notes(current_user = Depends(get_current_user), db: Session = Dep
             func.count(Document.id).label("document_count"),
         )
         .outerjoin(Document, Document.note_id == Note.id)
+        .filter(Note.user_id == current_user.id)
+        .filter(or_(Document.user_id == current_user.id, Document.id.is_(None)))
         .group_by(Note.id)
         .order_by(Note.updated_at.desc())
         .all()
@@ -233,6 +255,7 @@ async def list_pinned_documents(current_user = Depends(get_current_user), db: Se
     docs = (
         db.query(Document)
         .filter(Document.is_starred.is_(True))
+        .filter(Document.user_id == current_user.id)
         .order_by(Document.created_at.desc())
         .all()
     )
@@ -242,7 +265,10 @@ async def list_pinned_documents(current_user = Depends(get_current_user), db: Se
     note_ids = [d.note_id or d.id for d in docs]
     note_titles = {
         n.id: n.title
-        for n in db.query(Note).filter(Note.id.in_(note_ids)).all()
+        for n in db.query(Note)
+        .filter(Note.id.in_(note_ids))
+        .filter(Note.user_id == current_user.id)
+        .all()
     }
 
     grouped: dict[str, PinnedDocumentItem] = {}
@@ -266,7 +292,12 @@ async def set_document_star(
     current_user = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    doc = db.query(Document).filter(Document.id == doc_id).first()
+    doc = (
+        db.query(Document)
+        .filter(Document.id == doc_id)
+        .filter(Document.user_id == current_user.id)
+        .first()
+    )
     if not doc:
         raise HTTPException(404, "Document not found")
 
@@ -283,9 +314,12 @@ async def set_note_star(
     current_user = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    docs = db.query(Document).filter(
-        or_(Document.note_id == note_id, Document.id == note_id)
-    ).all()
+    docs = (
+        db.query(Document)
+        .filter(or_(Document.note_id == note_id, Document.id == note_id))
+        .filter(Document.user_id == current_user.id)
+        .all()
+    )
     if not docs:
         raise HTTPException(404, "Note not found")
 
@@ -313,7 +347,12 @@ async def update_document(
     db: Session = Depends(get_db),
 ):
     """Update a document's display name, subject, or topic."""
-    doc = db.query(Document).filter(Document.id == doc_id).first()
+    doc = (
+        db.query(Document)
+        .filter(Document.id == doc_id)
+        .filter(Document.user_id == current_user.id)
+        .first()
+    )
     if not doc:
         raise HTTPException(404, "Document not found")
 
@@ -330,7 +369,7 @@ async def update_document(
     return DocumentResponse(
         id=doc.id,
         note_id=doc.note_id or "",
-        note_title=_note_title(db, doc.note_id or ""),
+        note_title=_note_title(db, doc.note_id or "", current_user.id),
         filename=doc.filename,
         original_name=doc.original_name,
         subject=doc.subject,
@@ -349,14 +388,22 @@ async def update_note(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    docs = db.query(Document).filter(
-        or_(Document.note_id == note_id, Document.id == note_id)
-    ).all()
+    docs = (
+        db.query(Document)
+        .filter(or_(Document.note_id == note_id, Document.id == note_id))
+        .filter(Document.user_id == current_user.id)
+        .all()
+    )
     if not docs:
         raise HTTPException(404, "No documents found in this note")
 
     resolved_note_id = (docs[0].note_id or docs[0].id or note_id).strip()
-    note = db.query(Note).filter(Note.id == resolved_note_id).first()
+    note = (
+        db.query(Note)
+        .filter(Note.id == resolved_note_id)
+        .filter(Note.user_id == current_user.id)
+        .first()
+    )
     if not note:
         initial_title = (
             (payload.title or "").strip()
@@ -371,6 +418,7 @@ async def update_note(
         )
         note = Note(
             id=resolved_note_id,
+            user_id=current_user.id,
             title=initial_title,
             subject=initial_subject,
         )
@@ -399,7 +447,13 @@ async def update_note(
     db.commit()
     db.refresh(note)
 
-    updated_docs = db.query(Document).filter(Document.note_id == note.id).order_by(Document.created_at.desc()).all()
+    updated_docs = (
+        db.query(Document)
+        .filter(Document.note_id == note.id)
+        .filter(Document.user_id == current_user.id)
+        .order_by(Document.created_at.desc())
+        .all()
+    )
     response_docs = [
         DocumentResponse(
             id=d.id,
@@ -432,13 +486,18 @@ async def update_note(
 @router.get("/documents/{doc_id}", response_model=DocumentResponse)
 async def get_document(doc_id: str, current_user = Depends(get_current_user), db: Session = Depends(get_db)):
     """Get a single document's details."""
-    doc = db.query(Document).filter(Document.id == doc_id).first()
+    doc = (
+        db.query(Document)
+        .filter(Document.id == doc_id)
+        .filter(Document.user_id == current_user.id)
+        .first()
+    )
     if not doc:
         raise HTTPException(404, "Document not found")
     return DocumentResponse(
         id=doc.id,
         note_id=doc.note_id or "",
-        note_title=_note_title(db, doc.note_id or ""),
+        note_title=_note_title(db, doc.note_id or "", current_user.id),
         filename=doc.filename,
         original_name=doc.original_name,
         subject=doc.subject,
@@ -453,7 +512,12 @@ async def get_document(doc_id: str, current_user = Depends(get_current_user), db
 @router.delete("/documents/{doc_id}")
 async def delete_document(doc_id: str, current_user = Depends(get_current_user), db: Session = Depends(get_db)):
     """Delete a document and all related data (embeddings, generated materials, quiz/chat traces)."""
-    doc = db.query(Document).filter(Document.id == doc_id).first()
+    doc = (
+        db.query(Document)
+        .filter(Document.id == doc_id)
+        .filter(Document.user_id == current_user.id)
+        .first()
+    )
     if not doc:
         raise HTTPException(404, "Document not found")
 
@@ -467,7 +531,10 @@ async def delete_document(doc_id: str, current_user = Depends(get_current_user),
     # Remove all related rows from DB for this exact document.
     challenge_room_ids = [
         room.id
-        for room in db.query(ChallengeRoom.id).filter(ChallengeRoom.document_id == doc_id).all()
+        for room in db.query(ChallengeRoom.id)
+        .filter(ChallengeRoom.document_id == doc_id)
+        .filter(ChallengeRoom.host_user_id == current_user.id)
+        .all()
     ]
     if challenge_room_ids:
         db.query(ChallengeParticipant).filter(ChallengeParticipant.room_id.in_(challenge_room_ids)).delete(
@@ -475,26 +542,31 @@ async def delete_document(doc_id: str, current_user = Depends(get_current_user),
         )
 
     db.query(ChallengeRoom).filter(ChallengeRoom.document_id == doc_id).delete(synchronize_session=False)
-    db.query(StudyMaterial).filter(StudyMaterial.document_id == doc_id).delete(synchronize_session=False)
-    db.query(DocumentInsight).filter(DocumentInsight.document_id == doc_id).delete(synchronize_session=False)
-    db.query(ChatHistory).filter(ChatHistory.document_id == doc_id).delete(synchronize_session=False)
-    db.query(QuizAttempt).filter(QuizAttempt.document_id == doc_id).delete(synchronize_session=False)
-    db.query(MasteryScore).filter(MasteryScore.document_id == doc_id).delete(synchronize_session=False)
-    db.query(WeakTopic).filter(WeakTopic.document_id == doc_id).delete(synchronize_session=False)
+    db.query(StudyMaterial).filter(StudyMaterial.document_id == doc_id).filter(StudyMaterial.user_id == current_user.id).delete(synchronize_session=False)
+    db.query(DocumentInsight).filter(DocumentInsight.document_id == doc_id).filter(DocumentInsight.user_id == current_user.id).delete(synchronize_session=False)
+    db.query(ChatHistory).filter(ChatHistory.document_id == doc_id).filter(ChatHistory.user_id == current_user.id).delete(synchronize_session=False)
+    db.query(QuizAttempt).filter(QuizAttempt.document_id == doc_id).filter(QuizAttempt.user_id == current_user.id).delete(synchronize_session=False)
+    db.query(MasteryScore).filter(MasteryScore.document_id == doc_id).filter(MasteryScore.user_id == current_user.id).delete(synchronize_session=False)
+    db.query(WeakTopic).filter(WeakTopic.document_id == doc_id).filter(WeakTopic.user_id == current_user.id).delete(synchronize_session=False)
 
     note_id = doc.note_id
     db.delete(doc)
     db.flush()
 
     if note_id:
-        remaining = db.query(Document.id).filter(Document.note_id == note_id).count()
+        remaining = (
+            db.query(Document.id)
+            .filter(Document.note_id == note_id)
+            .filter(Document.user_id == current_user.id)
+            .count()
+        )
         if remaining == 0:
-            db.query(Note).filter(Note.id == note_id).delete(synchronize_session=False)
-            db.query(ChatHistory).filter(ChatHistory.document_id == note_id).delete(synchronize_session=False)
-            db.query(QuizAttempt).filter(QuizAttempt.document_id == note_id).delete(synchronize_session=False)
-            db.query(MasteryScore).filter(MasteryScore.document_id == note_id).delete(synchronize_session=False)
-            db.query(WeakTopic).filter(WeakTopic.document_id == note_id).delete(synchronize_session=False)
-            db.query(StudyMaterial).filter(StudyMaterial.document_id == note_id).delete(synchronize_session=False)
+            db.query(Note).filter(Note.id == note_id).filter(Note.user_id == current_user.id).delete(synchronize_session=False)
+            db.query(ChatHistory).filter(ChatHistory.document_id == note_id).filter(ChatHistory.user_id == current_user.id).delete(synchronize_session=False)
+            db.query(QuizAttempt).filter(QuizAttempt.document_id == note_id).filter(QuizAttempt.user_id == current_user.id).delete(synchronize_session=False)
+            db.query(MasteryScore).filter(MasteryScore.document_id == note_id).filter(MasteryScore.user_id == current_user.id).delete(synchronize_session=False)
+            db.query(WeakTopic).filter(WeakTopic.document_id == note_id).filter(WeakTopic.user_id == current_user.id).delete(synchronize_session=False)
+            db.query(StudyMaterial).filter(StudyMaterial.document_id == note_id).filter(StudyMaterial.user_id == current_user.id).delete(synchronize_session=False)
 
     db.commit()
 
@@ -509,15 +581,34 @@ async def extract_topics(
     db: Session = Depends(get_db),
 ):
     """Extract chapters/topics from a document using the LLM."""
-    doc = db.query(Document).filter(Document.id == doc_id).first()
+    doc = (
+        db.query(Document)
+        .filter(Document.id == doc_id)
+        .filter(Document.user_id == current_user.id)
+        .first()
+    )
     if not doc:
-        fallback_docs = db.query(Document).filter(Document.note_id == doc_id).all()
+        fallback_docs = (
+            db.query(Document)
+            .filter(Document.note_id == doc_id)
+            .filter(Document.user_id == current_user.id)
+            .all()
+        )
         if not fallback_docs:
             raise HTTPException(404, "Document not found")
         doc = fallback_docs[0]
 
-    note_doc_ids, context_id = note_service.resolve_context(db, document_id=doc_id)
-    context_docs = db.query(Document).filter(Document.id.in_(note_doc_ids)).all() if note_doc_ids else [doc]
+    note_doc_ids, context_id = note_service.resolve_context(
+        db,
+        user_id=current_user.id,
+        document_id=doc_id,
+    )
+    context_docs = (
+        db.query(Document)
+        .filter(Document.id.in_(note_doc_ids))
+        .filter(Document.user_id == current_user.id)
+        .all()
+    ) if note_doc_ids else [doc]
     context = "\n\n".join((d.extracted_text or "") for d in context_docs if d.extracted_text).strip()
     if not context:
         raise HTTPException(422, "No text content available for this document")
@@ -533,6 +624,7 @@ async def extract_topics(
     insight_rows = (
         db.query(DocumentInsight)
         .filter(DocumentInsight.document_id.in_(list(cache_aliases)))
+        .filter(DocumentInsight.user_id == current_user.id)
         .order_by(DocumentInsight.updated_at.desc())
         .all()
     )
@@ -586,6 +678,7 @@ async def extract_topics(
     else:
         db.add(DocumentInsight(
             id=str(uuid.uuid4()),
+            user_id=current_user.id,
             document_id=cache_key,
             topics_json=serialized_topics,
             summary_text=composed_summary,

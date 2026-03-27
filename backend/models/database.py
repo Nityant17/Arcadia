@@ -18,6 +18,7 @@ class Document(Base):
     __tablename__ = "documents"
 
     id = Column(String, primary_key=True)               # UUID
+    user_id = Column(String, nullable=False, default="guest")
     note_id = Column(String, nullable=False, default="")
     filename = Column(String, nullable=False)
     original_name = Column(String, nullable=False)
@@ -33,6 +34,7 @@ class DocumentInsight(Base):
     __tablename__ = "document_insights"
 
     id = Column(String, primary_key=True)
+    user_id = Column(String, nullable=False, default="guest")
     document_id = Column(String, nullable=False, unique=True)
     topics_json = Column(JSON, default=[])
     summary_text = Column(Text, default="")
@@ -44,6 +46,7 @@ class Note(Base):
     __tablename__ = "notes"
 
     id = Column(String, primary_key=True)
+    user_id = Column(String, nullable=False, default="guest")
     title = Column(String, nullable=False, default="Untitled note")
     subject = Column(String, default="General")
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
@@ -55,6 +58,7 @@ class QuizAttempt(Base):
     __tablename__ = "quiz_attempts"
 
     id = Column(String, primary_key=True)
+    user_id = Column(String, nullable=False, default="guest")
     document_id = Column(String, nullable=False)
     tier = Column(Integer, default=1)                    # 1, 2, 3
     total_questions = Column(Integer, default=0)
@@ -68,6 +72,7 @@ class MasteryScore(Base):
     __tablename__ = "mastery_scores"
 
     id = Column(String, primary_key=True)
+    user_id = Column(String, nullable=False, default="guest")
     document_id = Column(String, nullable=False)
     topic = Column(String, default="")
     mastery_score = Column(Float, default=0.0)           # 0.0 — 1.0
@@ -82,6 +87,7 @@ class ChatHistory(Base):
     __tablename__ = "chat_history"
 
     id = Column(String, primary_key=True)
+    user_id = Column(String, nullable=False, default="guest")
     document_id = Column(String, nullable=False)
     role = Column(String, nullable=False)                # "user" | "assistant"
     content = Column(Text, nullable=False)
@@ -252,8 +258,12 @@ def init_db():
         if "note_id" not in column_names:
             connection.execute(text("ALTER TABLE documents ADD COLUMN note_id TEXT DEFAULT ''"))
             connection.commit()
+        if "user_id" not in column_names:
+            connection.execute(text("ALTER TABLE documents ADD COLUMN user_id TEXT DEFAULT 'guest'"))
+            connection.commit()
 
         connection.execute(text("UPDATE documents SET note_id = id WHERE note_id IS NULL OR note_id = ''"))
+        connection.execute(text("UPDATE documents SET user_id = 'guest' WHERE user_id IS NULL OR user_id = ''"))
         connection.execute(text("""
             INSERT INTO notes (id, title, subject, created_at, updated_at)
             SELECT d.note_id, COALESCE(NULLIF(d.topic, ''), d.original_name), COALESCE(NULLIF(d.subject, ''), 'General'), d.created_at, d.created_at
@@ -262,6 +272,36 @@ def init_db():
             WHERE n.id IS NULL
         """))
         connection.commit()
+
+        note_columns = {row[1] for row in connection.execute(text("PRAGMA table_info(notes)")).fetchall()}
+        if "user_id" not in note_columns:
+            connection.execute(text("ALTER TABLE notes ADD COLUMN user_id TEXT DEFAULT 'guest'"))
+            connection.commit()
+        connection.execute(text("UPDATE notes SET user_id = 'guest' WHERE user_id IS NULL OR user_id = ''"))
+
+        insight_columns = {row[1] for row in connection.execute(text("PRAGMA table_info(document_insights)")).fetchall()}
+        if "user_id" not in insight_columns:
+            connection.execute(text("ALTER TABLE document_insights ADD COLUMN user_id TEXT DEFAULT 'guest'"))
+            connection.commit()
+        connection.execute(text("UPDATE document_insights SET user_id = 'guest' WHERE user_id IS NULL OR user_id = ''"))
+
+        quiz_columns = {row[1] for row in connection.execute(text("PRAGMA table_info(quiz_attempts)")).fetchall()}
+        if "user_id" not in quiz_columns:
+            connection.execute(text("ALTER TABLE quiz_attempts ADD COLUMN user_id TEXT DEFAULT 'guest'"))
+            connection.commit()
+        connection.execute(text("UPDATE quiz_attempts SET user_id = 'guest' WHERE user_id IS NULL OR user_id = ''"))
+
+        mastery_columns = {row[1] for row in connection.execute(text("PRAGMA table_info(mastery_scores)")).fetchall()}
+        if "user_id" not in mastery_columns:
+            connection.execute(text("ALTER TABLE mastery_scores ADD COLUMN user_id TEXT DEFAULT 'guest'"))
+            connection.commit()
+        connection.execute(text("UPDATE mastery_scores SET user_id = 'guest' WHERE user_id IS NULL OR user_id = ''"))
+
+        chat_columns = {row[1] for row in connection.execute(text("PRAGMA table_info(chat_history)")).fetchall()}
+        if "user_id" not in chat_columns:
+            connection.execute(text("ALTER TABLE chat_history ADD COLUMN user_id TEXT DEFAULT 'guest'"))
+            connection.commit()
+        connection.execute(text("UPDATE chat_history SET user_id = 'guest' WHERE user_id IS NULL OR user_id = ''"))
 
         user_info = connection.execute(text("PRAGMA table_info(users)")).fetchall()
         user_columns = {row[1] for row in user_info}

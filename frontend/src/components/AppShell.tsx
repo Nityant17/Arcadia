@@ -29,7 +29,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTimer } from "@/context/TimerContext";
 
 const CORE_NAV_LINKS = [
@@ -76,6 +76,14 @@ export default function AppShell({ children, pinnedItems = [] }: AppShellProps) 
     logout,
     uiOverlayActive,
   } = useAppStore();
+
+  useEffect(() => {
+    if (currentLanguage || languages.length === 0) return;
+    const fallback = languages.find((lang) => lang.id === "en") ?? languages[0];
+    if (fallback) {
+      setCurrentLanguage(fallback);
+    }
+  }, [currentLanguage, languages, setCurrentLanguage]);
 
   const handleQuickToolClick = (toolId: QuickToolId) => {
     if (toolId === "upload") {

@@ -100,6 +100,7 @@ async def create_room(
 ):
     document_ids, context_id = note_service.resolve_context(
         db,
+        user_id=current_user.id,
         document_id=request.document_id,
         note_id=request.note_id,
     )

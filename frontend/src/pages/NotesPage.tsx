@@ -9,6 +9,7 @@ import { Link } from "@tanstack/react-router";
 import {
   BrainIcon,
   CalendarClockIcon,
+  CheckCircle,
   FileText,
   Loader2,
   MessageSquare,
@@ -22,6 +23,7 @@ import {
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import styled from "styled-components";
 import { toast } from "sonner";
 
@@ -53,6 +55,35 @@ function mapDocumentToNote(document: DocumentItem): Note {
 
 function compactText(value: string) {
   return value.replace(/\s+/g, " ").trim();
+}
+
+function HamsterLoader() {
+  return (
+    <div className="uiverse-wheel-and-hamster-wrap">
+      <div
+        aria-label="Upload in progress"
+        role="img"
+        className="uiverse-wheel-and-hamster"
+      >
+        <div className="uiverse-wheel" />
+        <div className="uiverse-hamster">
+          <div className="uiverse-hamster__body">
+            <div className="uiverse-hamster__head">
+              <div className="uiverse-hamster__ear" />
+              <div className="uiverse-hamster__eye" />
+              <div className="uiverse-hamster__nose" />
+            </div>
+            <div className="uiverse-hamster__limb uiverse-hamster__limb--fr" />
+            <div className="uiverse-hamster__limb uiverse-hamster__limb--fl" />
+            <div className="uiverse-hamster__limb uiverse-hamster__limb--br" />
+            <div className="uiverse-hamster__limb uiverse-hamster__limb--bl" />
+            <div className="uiverse-hamster__tail" />
+          </div>
+        </div>
+        <div className="uiverse-spoke" />
+      </div>
+    </div>
+  );
 }
 
 const StyledNextStepButton = styled.div`
@@ -148,6 +179,7 @@ const StyledNextStepButton = styled.div`
 
 export default function NotesPage() {
   const refreshPinnedItems = useAppStore((s) => s.refreshPinnedItems);
+  const setUiOverlayActive = useAppStore((s) => s.setUiOverlayActive);
   const [notes, setNotes] = useState<Note[]>([]);
   const [selectedId, setSelectedId] = useState<string>("");
   const [loadingNotes, setLoadingNotes] = useState(false);
@@ -160,6 +192,8 @@ export default function NotesPage() {
   const [uploading, setUploading] = useState(false);
   const [appendToSelectedNote, setAppendToSelectedNote] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadTargetProgress, setUploadTargetProgress] = useState(0);
+  const [uploadOverlayState, setUploadOverlayState] = useState<"idle" | "uploading" | "uploaded">("idle");
   const [extractedTopics, setExtractedTopics] = useState<Array<{ title: string; summary: string }>>([]);
   const [extractingTopics, setExtractingTopics] = useState(false);
   const [regeneratingSummary, setRegeneratingSummary] = useState(false);
@@ -199,6 +233,7 @@ export default function NotesPage() {
   const selectedNote = selectedCard?.primary ?? null;
   const selectedNoteDocs = selectedCard?.documents ?? [];
   const selectedCacheKey = selectedNote?.noteId || selectedNote?.id || "";
+  const shouldLockUi = uploadOverlayState !== "idle";
 
   const loadNotes = async () => {
     setLoadingNotes(true);
@@ -274,6 +309,30 @@ export default function NotesPage() {
     void loadSummary();
   }, [selectedNote, selectedCacheKey, noteSummaries, noteTopics]);
 
+  useEffect(() => {
+    if (uploadOverlayState === "idle") return;
+
+    const timer = window.setInterval(() => {
+      setUploadProgress((previous) => {
+        const networkCap = Math.min(93, Math.max(6, uploadTargetProgress));
+        const fillerCap = uploadOverlayState === "uploading" ? Math.min(88, previous + 1.8) : previous;
+        const cap = uploadOverlayState === "uploaded" ? 100 : Math.max(networkCap, fillerCap);
+        if (previous >= cap) return previous;
+        const delta = cap - previous;
+        const step = Math.max(1, Math.ceil(delta * 0.22));
+        return Math.min(cap, previous + step);
+      });
+    }, 120);
+
+    return () => window.clearInterval(timer);
+  }, [uploadOverlayState, uploadTargetProgress]);
+
+  useEffect(() => {
+    const shouldLockUi = uploadOverlayState !== "idle";
+    setUiOverlayActive(shouldLockUi);
+    return () => setUiOverlayActive(false);
+  }, [setUiOverlayActive, uploadOverlayState]);
+
   async function handleUpload(fileOverride?: File) {
     const fileToUpload = fileOverride ?? uploadFile;
     if (!fileToUpload || uploading) return;
@@ -288,22 +347,34 @@ export default function NotesPage() {
 
     setUploading(true);
     setUploadProgress(0);
+    setUploadTargetProgress(0);
+    setUploadOverlayState("uploading");
 
     try {
-      const response = await apiClient.uploadDocument(formData, setUploadProgress);
+      const response = await apiClient.uploadDocument(formData, (progress) => {
+        setUploadTargetProgress(progress);
+      });
       const created = mapDocumentToNote(response.data);
 
       setNotes((prev) => [created, ...prev]);
       setSelectedId(created.noteId);
       setUploadFile(null);
       setUploadTopic("");
-      setUploadProgress(0);
+      setUploadTargetProgress(100);
+      setUploadProgress(100);
+      setUploadOverlayState("uploaded");
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
       toast.success("Note uploaded successfully");
+      window.setTimeout(() => {
+        setUploadOverlayState("idle");
+        setUploadProgress(0);
+        setUploadTargetProgress(0);
+      }, 1200);
     } catch (error) {
       toast.error(getApiErrorMessage(error, "Failed to upload note"));
+      setUploadOverlayState("idle");
     } finally {
       setUploading(false);
     }
@@ -869,6 +940,47 @@ export default function NotesPage() {
           </LampContainer>
         </motion.div>
       )}
+
+      {shouldLockUi && typeof document !== "undefined"
+        ? createPortal(
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 backdrop-blur-sm px-4"
+              data-ocid="notes.upload.overlay"
+            >
+              <div className="w-full max-w-md rounded-2xl border border-cyan-500/30 bg-slate-950/95 p-6 text-center shadow-[0_0_40px_rgba(6,182,212,0.22)]">
+                <div className="mx-auto mb-3 flex justify-center">
+                  {uploadOverlayState === "uploading" ? (
+                    <HamsterLoader />
+                  ) : (
+                    <div className="flex h-16 w-16 items-center justify-center rounded-full border border-emerald-300/40 bg-emerald-400/15">
+                      <CheckCircle className="h-10 w-10 text-emerald-300" />
+                    </div>
+                  )}
+                </div>
+                <h3 className="text-xl font-semibold text-cyan-100">
+                  {uploadOverlayState === "uploaded" ? "Uploaded" : "Uploading..."}
+                </h3>
+                <p className="mt-1 text-sm text-cyan-100/80">
+                  {uploadOverlayState === "uploaded"
+                    ? "Upload complete. Updating your notes..."
+                    : "Please wait while Arcadia processes your file."}
+                </p>
+                <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-white/10">
+                  <div
+                    className="h-full rounded-full bg-cyan-400 transition-all duration-300"
+                    style={{ width: `${Math.max(2, Math.min(100, uploadProgress))}%` }}
+                  />
+                </div>
+                <div className="mt-2 text-xs text-cyan-200/80">{Math.round(uploadProgress)}%</div>
+              </div>
+            </motion.div>,
+            document.body,
+          )
+        : null}
     </motion.div>
   );
 }

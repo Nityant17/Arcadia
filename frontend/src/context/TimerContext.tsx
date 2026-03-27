@@ -1,4 +1,6 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { useAppStore } from "@/store/useAppStore";
+import { timerStorageKey } from "@/lib/userStorage";
 
 type TimerContextType = {
   timeLeft: number;
@@ -12,8 +14,10 @@ type TimerContextType = {
 const TimerContext = createContext<TimerContextType | null>(null);
 
 export function TimerProvider({ children }: { children: React.ReactNode }) {
+  const currentUserId = useAppStore((s) => s.currentUser?.id);
   const [timeLeft, setTimeLeft] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
+  const storageKey = useMemo(() => timerStorageKey(currentUserId), [currentUserId]);
 
     useEffect(() => {
         if (!isRunning) return;
@@ -32,13 +36,14 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
     }, [isRunning]);
 
     useEffect(() => {
-        const saved = localStorage.getItem("timer");
-        if (saved) setTimeLeft(Number(saved));
-    }, []);
+        const saved = localStorage.getItem(storageKey);
+        setTimeLeft(saved ? Number(saved) : 0);
+        setIsRunning(false);
+    }, [storageKey]);
 
     useEffect(() => {
-        localStorage.setItem("timer", String(timeLeft));
-    }, [timeLeft]);
+        localStorage.setItem(storageKey, String(timeLeft));
+    }, [storageKey, timeLeft]);
 
   return (
     <TimerContext.Provider

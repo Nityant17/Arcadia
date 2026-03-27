@@ -15,7 +15,12 @@ from pdf2image import convert_from_path
 import PyPDF2
 
 from config import (
-    MODE, AZURE_FORM_RECOGNIZER_ENDPOINT, AZURE_FORM_RECOGNIZER_KEY
+    MODE,
+    AZURE_FORM_RECOGNIZER_ENDPOINT,
+    AZURE_FORM_RECOGNIZER_KEY,
+    AZURE_OPENAI_ENDPOINT,
+    AZURE_OPENAI_KEY,
+    AZURE_OPENAI_DEPLOYMENT,
 )
 
 
@@ -47,7 +52,8 @@ class OCRService:
         img = Image.open(file_path)
         # Use English + Hindi for bilingual notes
         text = pytesseract.image_to_string(img, lang="eng+hin")
-        return self._clean_text(text)
+        cleaned = self._clean_text(text)
+        return self._llm_cleanup(cleaned)
 
     # ─── PDF Extraction ───────────────────────────────────────
 
@@ -63,7 +69,8 @@ class OCRService:
             print(f"[OCR] Using AZURE Form Recognizer for scanned PDF: {file_path}")
             return self._azure_vision_ocr(file_path)
         print(f"[OCR] Using LOCAL Tesseract for PDF OCR: {file_path}")
-        return self._ocr_pdf_pages(file_path)
+        cleaned = self._ocr_pdf_pages(file_path)
+        return self._llm_cleanup(cleaned)
 
     def _extract_pdf_text(self, file_path: str) -> str:
         """Extract embedded text from a PDF."""
@@ -136,12 +143,63 @@ class OCRService:
                 if status == "succeeded":
                     # Extract text from result
                     content = poll_data.get("analyzeResult", {}).get("content", "")
-                    return self._clean_text(content)
+                    if len(content.strip()) < 30:
+                        print("[OCR] Low confidence Azure result, retrying with Tesseract")
+                        ext = Path(file_path).suffix.lower()
+                        if ext == ".pdf":
+                            fallback = self._ocr_pdf_pages(file_path)
+                        else:
+                            fallback = pytesseract.image_to_string(Image.open(file_path), lang="eng+hin")
+                        return self._llm_cleanup(self._clean_text(fallback))
+                    cleaned = self._clean_text(content)
+                    return self._llm_cleanup(cleaned)
                 elif status == "failed":
                     raise RuntimeError(f"Azure Form Recognizer analysis failed: {poll_data}")
                 # else "running" — keep polling
 
         raise RuntimeError("Azure Form Recognizer timed out")
+
+    def _llm_cleanup(self, text: str) -> str:
+        """Fix OCR errors using LLM (Azure OpenAI)."""
+        if not text or len(text.strip()) < 20:
+            return text
+        if not AZURE_OPENAI_ENDPOINT or not AZURE_OPENAI_KEY or not AZURE_OPENAI_DEPLOYMENT:
+            return text
+
+        prompt = (
+            "You are an OCR correction system.\n\n"
+            "Fix errors in the following OCR text, especially from handwritten notes.\n\n"
+            "Rules:\n"
+            "- DO NOT hallucinate new content\n"
+            "- Preserve original meaning\n"
+            "- Fix spelling, spacing, broken words\n"
+            "- Keep structure (lists, equations if any)\n\n"
+            "OCR TEXT:\n"
+            f"{text}"
+        )
+
+        try:
+            url = (
+                f"{AZURE_OPENAI_ENDPOINT.rstrip('/')}/openai/deployments/"
+                f"{AZURE_OPENAI_DEPLOYMENT}/chat/completions?api-version=2024-06-01"
+            )
+            headers = {"Content-Type": "application/json", "api-key": AZURE_OPENAI_KEY}
+            payload = {
+                "messages": [
+                    {"role": "system", "content": "You only correct OCR text. Never add new facts."},
+                    {"role": "user", "content": prompt},
+                ],
+                "temperature": 0.1,
+                "max_tokens": 2048,
+            }
+            with httpx.Client(timeout=120.0) as client:
+                resp = client.post(url, headers=headers, json=payload)
+                resp.raise_for_status()
+                data = resp.json()
+                return data["choices"][0]["message"]["content"].strip()
+        except Exception as e:
+            print(f"[OCR] LLM cleanup failed: {e}")
+            return text
 
     # ─── Cleaning ─────────────────────────────────────────────
 

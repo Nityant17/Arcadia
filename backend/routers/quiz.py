@@ -32,6 +32,7 @@ async def generate_quiz(
     """
     document_ids, context_id = note_service.resolve_context(
         db,
+        user_id=current_user.id,
         document_id=request.document_id,
         note_id=request.note_id,
     )
@@ -130,4 +131,4 @@ async def submit_quiz(
 @router.get("/quiz/history")
 async def quiz_history(document_id: str = None, current_user = Depends(get_current_user)):
     """Get quiz attempt history, optionally filtered by document."""
-    return quiz_service.get_quiz_history(document_id)
+    return quiz_service.get_quiz_history(document_id, user_id=current_user.id)

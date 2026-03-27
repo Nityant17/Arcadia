@@ -226,8 +226,10 @@ class LLMService:
 
         return system_prompt, user_prompt
 
-    def build_quiz_prompt(self, context: str, tier: int, 
-                          num_questions: int, language: str = "en") -> tuple:
+    def build_quiz_prompt(self, context: str, tier: int,
+                          num_questions: int, language: str = "en",
+                          strict: bool = False,
+                          avoid_questions: list[str] | None = None) -> tuple:
         """Build a prompt to generate quiz questions."""
         tier_descriptions = {
             1: "Tier 1 — RECALL: Test basic definitions, facts, and key terms. "
@@ -242,10 +244,29 @@ class LLMService:
         if language != "en":
             lang_instruction = f"\nGenerate all questions and options in the language with code: {language}."
 
+        strict_note = (
+            "Double-check every question for correctness, uniqueness, and exactly 4 options. "
+            "If any question violates the rules, replace it with a better one."
+        ) if strict else ""
+
+        avoid_block = ""
+        if avoid_questions:
+            trimmed = [q.strip() for q in avoid_questions if q and q.strip()]
+            if trimmed:
+                avoid_list = "\n".join(f"- {q}" for q in trimmed[:12])
+                avoid_block = (
+                    "\nAvoid repeating these questions:\n"
+                    f"{avoid_list}\n"
+                )
+
         system_prompt = (
             "You are an expert quiz generator for educational assessments. "
             "Generate high-quality multiple-choice questions based on the given study material. "
-            "Each question must have exactly 4 options with only one correct answer."
+            "Each question must have exactly 4 options with only one correct answer. "
+            "Avoid trivial or meta questions (author, publisher, edition, ISBN, acknowledgements, "
+            "table of contents, foreword, index, or credits) unless the study material is explicitly about them. "
+            "Avoid 'All of the above' or 'None of the above'. "
+            f"{strict_note}"
         )
 
         user_prompt = (
@@ -255,6 +276,12 @@ class LLMService:
             f"Difficulty Level: {tier_descriptions[tier]}\n"
             f"Number of questions: {num_questions}\n"
             f"{lang_instruction}\n\n"
+            f"Quality Rules:\n"
+            f"- Use only core learning content, ignore front-matter and metadata.\n"
+            f"- Make options plausible and mutually exclusive.\n"
+            f"- Keep wording concise and unambiguous.\n"
+            f"- Ensure Tier 1 = recall, Tier 2 = apply, Tier 3 = analyze/compare/evaluate.\n\n"
+            f"{avoid_block}\n"
             f"## Output Format\n\n"
             f"Respond ONLY with valid JSON in this exact format:\n"
             f'{{"questions": [\n'
@@ -278,7 +305,8 @@ class LLMService:
 
         system_prompt = (
             "You are an expert at creating concise, well-organized study cheatsheets. "
-            "Create a one-page cheatsheet from the study material."
+            "Create a one-page cheatsheet from the study material. "
+            "Ignore front-matter and metadata (title pages, author lists, ISBN, publisher info)."
         )
 
         user_prompt = (
@@ -296,7 +324,13 @@ class LLMService:
 
         return system_prompt, user_prompt
 
-    def build_flashcards_prompt(self, context: str, language: str = "en") -> tuple:
+    def build_flashcards_prompt(
+        self,
+        context: str,
+        language: str = "en",
+        num_cards: int = 10,
+        avoid_fronts: list[str] | None = None,
+    ) -> tuple:
         """Build prompt for flashcard generation."""
         lang_instruction = ""
         if language != "en":
@@ -304,14 +338,26 @@ class LLMService:
 
         system_prompt = (
             "You are an expert at creating educational flashcards for spaced "
-            "repetition study. Generate flashcards from the given study material."
+            "repetition study. Generate flashcards from the given study material. "
+            "Avoid trivial or metadata-based cards (author, publisher, ISBN, acknowledgements)."
         )
+
+        avoid_block = ""
+        if avoid_fronts:
+            trimmed = [q.strip() for q in avoid_fronts if q and q.strip()]
+            if trimmed:
+                avoid_list = "\n".join(f"- {q}" for q in trimmed[:12])
+                avoid_block = (
+                    "\nAvoid repeating these fronts:\n"
+                    f"{avoid_list}\n"
+                )
 
         user_prompt = (
             f"## Study Material\n\n{context}\n\n---\n\n"
-            f"Generate 8-12 flashcards. Each card has a FRONT (question/term) "
+            f"Generate {max(6, num_cards)} flashcards. Each card has a FRONT (question/term) "
             f"and BACK (answer/definition).\n"
             f"{lang_instruction}\n\n"
+            f"{avoid_block}\n"
             f"Respond ONLY with valid JSON:\n"
             f'{{"cards": [\n'
             f'  {{"front": "What is ...?", "back": "It is ..."}}\n'
@@ -363,6 +409,7 @@ class LLMService:
             f"- Use clear, concise titles\n"
             f"- If the document has a table of contents or index, use those headings\n"
             f"- If no clear structure, identify the main themes/concepts\n"
+            f"- Ignore front-matter and metadata (author lists, ISBN, publisher info)\n"
             f"- NO explanation, ONLY the JSON object"
         )
 
@@ -388,6 +435,7 @@ class LLMService:
             f"- If the material has a table of contents or index, use those headings\n"
             f"- If it's a single topic document, break it into logical subtopics\n"
             f"- Keep summaries concise (1 short sentence)\n"
+            f"- Ignore front-matter and metadata (author lists, ISBN, publisher info)\n"
             f"- NO explanation, NO markdown fences, ONLY the JSON object"
         )
 

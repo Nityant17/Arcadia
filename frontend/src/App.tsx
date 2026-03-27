@@ -12,6 +12,7 @@ import NotesPage from "@/pages/NotesPage";
 import PlannerPage from "@/pages/PlannerPage";
 import QuizPage from "@/pages/QuizPage";
 import StudyPage from "@/pages/StudyPage";
+import { apiClient } from "@/services/api";
 import { useAppStore } from "@/store/useAppStore";
 import {
   Outlet,
@@ -179,11 +180,33 @@ declare module "@tanstack/react-router" {
 export default function App() {
   const initLanguages = useAppStore((s) => s.initLanguages);
   const refreshPinnedItems = useAppStore((s) => s.refreshPinnedItems);
+  const authToken = useAppStore((s) => s.authToken);
+  const setCurrentUser = useAppStore((s) => s.setCurrentUser);
+  const logout = useAppStore((s) => s.logout);
 
   useEffect(() => {
     initLanguages();
     refreshPinnedItems();
   }, [initLanguages, refreshPinnedItems]);
+
+  useEffect(() => {
+    if (!authToken) return;
+    apiClient
+      .me()
+      .then((response) => {
+        const payload = response.data;
+        setCurrentUser({
+          id: payload.user_id,
+          name: payload.name,
+          email: payload.email,
+          authProvider: payload.auth_provider,
+          emailVerified: payload.email_verified,
+        });
+      })
+      .catch(() => {
+        logout();
+      });
+  }, [authToken, logout, setCurrentUser]);
 
   return (
     <>

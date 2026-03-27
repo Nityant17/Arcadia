@@ -81,6 +81,7 @@ def get_stored_materials(
     normalized_focus_topic = _normalize_focus_topic(focus_topic)
     _, context_id = note_service.resolve_context(
         db,
+        user_id=current_user.id,
         document_id=document_id,
         note_id=note_id,
     )
@@ -118,6 +119,7 @@ async def generate_cheatsheet(
     request.focus_topic = _normalize_focus_topic(request.focus_topic)
     document_ids, context_id = note_service.resolve_context(
         db,
+        user_id=current_user.id,
         document_id=request.document_id,
         note_id=request.note_id,
     )
@@ -174,6 +176,7 @@ async def generate_flashcards(
     request.focus_topic = _normalize_focus_topic(request.focus_topic)
     document_ids, context_id = note_service.resolve_context(
         db,
+        user_id=current_user.id,
         document_id=request.document_id,
         note_id=request.note_id,
     )
@@ -239,6 +242,7 @@ async def generate_diagram(
     request.focus_topic = _normalize_focus_topic(request.focus_topic)
     document_ids, context_id = note_service.resolve_context(
         db,
+        user_id=current_user.id,
         document_id=request.document_id,
         note_id=request.note_id,
     )

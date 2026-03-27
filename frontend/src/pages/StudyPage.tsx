@@ -8,7 +8,7 @@ import { apiClient, getApiErrorMessage, type DocumentItem } from "@/services/api
 import { useAppStore } from "@/store/useAppStore";
 import { ChevronLeft, ChevronRight, Loader2, Sparkles, StopCircle, Volume2 } from "lucide-react";
 import { motion } from "motion/react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 function escapeHtml(value: string) {
@@ -93,7 +93,7 @@ function markdownToHtml(markdown: string) {
 }
 
 export default function StudyPage() {
-  const { currentLanguage } = useAppStore();
+  const { currentLanguage, currentUser } = useAppStore();
   const { play, stop, loadingId, playingId, isPlaying } = useAudioPlayer();
 
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
@@ -132,6 +132,9 @@ export default function StudyPage() {
     null,
   );
   const [diagramSvg, setDiagramSvg] = useState("");
+  const [diagramScale, setDiagramScale] = useState(1);
+  const [diagramOffset, setDiagramOffset] = useState({ x: 0, y: 0 });
+  const diagramPanRef = useRef({ x: 0, y: 0, startX: 0, startY: 0, panning: false });
   const [restoringMaterials, setRestoringMaterials] = useState(false);
 
   useEffect(() => {
@@ -167,6 +170,8 @@ export default function StudyPage() {
         const id = `mermaid-${Date.now()}`;
         const { svg } = await mermaid.render(id, diagram.mermaid_code);
         setDiagramSvg(svg);
+        setDiagramScale(1);
+        setDiagramOffset({ x: 0, y: 0 });
       } catch (error) {
         toast.error(getApiErrorMessage(error, "Failed to render diagram"));
       }
@@ -179,20 +184,53 @@ export default function StudyPage() {
     setFlashcardIndex(0);
   }, [flashcards]);
 
+  function handleDiagramWheel(event: React.WheelEvent<HTMLDivElement>) {
+    event.preventDefault();
+    const direction = event.deltaY > 0 ? -1 : 1;
+    const factor = direction > 0 ? 1.1 : 0.9;
+    setDiagramScale((prev) => Math.min(3, Math.max(0.5, prev * factor)));
+  }
+
+  function handleDiagramPointerDown(event: React.PointerEvent<HTMLDivElement>) {
+    diagramPanRef.current = {
+      panning: true,
+      startX: event.clientX,
+      startY: event.clientY,
+      x: diagramOffset.x,
+      y: diagramOffset.y,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function handleDiagramPointerMove(event: React.PointerEvent<HTMLDivElement>) {
+    if (!diagramPanRef.current.panning) return;
+    const dx = event.clientX - diagramPanRef.current.startX;
+    const dy = event.clientY - diagramPanRef.current.startY;
+    setDiagramOffset({
+      x: diagramPanRef.current.x + dx,
+      y: diagramPanRef.current.y + dy,
+    });
+  }
+
+  function handleDiagramPointerUp(event: React.PointerEvent<HTMLDivElement>) {
+    diagramPanRef.current.panning = false;
+    event.currentTarget.releasePointerCapture(event.pointerId);
+  }
+
   useEffect(() => {
     if (!selectedNoteId || flashcards.length === 0) {
       setPinnedFlashcards(new Set());
       return;
     }
 
-    const saved = getPinnedFlashcards();
+    const saved = getPinnedFlashcards(currentUser?.id);
     const ids = new Set(
       saved
         .filter((item) => item.documentId === selectedNoteId)
         .map((item) => item.id),
     );
     setPinnedFlashcards(ids);
-  }, [selectedNoteId, flashcards]);
+  }, [selectedNoteId, flashcards, currentUser?.id]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -508,7 +546,7 @@ export default function StudyPage() {
                       answer: activeCard.back,
                       language: currentLanguage?.id ?? "en",
                       createdAt: Date.now(),
-                    });
+                    }, currentUser?.id);
 
                     setPinnedFlashcards((previous) => {
                       const updated = new Set(previous);
@@ -595,11 +633,58 @@ export default function StudyPage() {
             <div className="rounded-2xl bg-slate-950/40 backdrop-blur-xl border border-white/10 p-5 space-y-3">
               <h3 className="font-semibold text-foreground">{diagram.title}</h3>
               {diagramSvg ? (
-                <div
-                  className="w-full overflow-x-auto [&>svg]:max-w-full [&>svg]:mx-auto [&>svg]:block"
-                  // biome-ignore lint/security/noDangerouslySetInnerHtml: trusted mermaid rendering output
-                  dangerouslySetInnerHTML={{ __html: diagramSvg }}
-                />
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>Scroll to zoom · Drag to pan</span>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="border-white/10 h-7 px-2 text-xs"
+                        onClick={() => setDiagramScale((prev) => Math.min(3, prev * 1.1))}
+                      >
+                        Zoom In
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="border-white/10 h-7 px-2 text-xs"
+                        onClick={() => setDiagramScale((prev) => Math.max(0.5, prev * 0.9))}
+                      >
+                        Zoom Out
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="border-white/10 h-7 px-2 text-xs"
+                        onClick={() => {
+                          setDiagramScale(1);
+                          setDiagramOffset({ x: 0, y: 0 });
+                        }}
+                      >
+                        Reset
+                      </Button>
+                    </div>
+                  </div>
+                  <div
+                    className="relative h-[320px] w-full overflow-hidden rounded-xl border border-white/10 bg-slate-950/30 cursor-grab"
+                    onWheel={handleDiagramWheel}
+                    onPointerDown={handleDiagramPointerDown}
+                    onPointerMove={handleDiagramPointerMove}
+                    onPointerUp={handleDiagramPointerUp}
+                    onPointerLeave={handleDiagramPointerUp}
+                  >
+                    <div
+                      className="[&>svg]:block [&>svg]:max-w-none"
+                      style={{
+                        transform: `translate(${diagramOffset.x}px, ${diagramOffset.y}px) scale(${diagramScale})`,
+                        transformOrigin: "0 0",
+                      }}
+                      // biome-ignore lint/security/noDangerouslySetInnerHtml: trusted mermaid rendering output
+                      dangerouslySetInnerHTML={{ __html: diagramSvg }}
+                    />
+                  </div>
+                </div>
               ) : (
                 <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-mono">
                   {diagram.mermaid_code}

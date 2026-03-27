@@ -8,7 +8,7 @@ import uuid
 import datetime
 from typing import List, Dict, Optional
 
-from models.database import SessionLocal, QuizAttempt, MasteryScore, Document, WeakTopic
+from models.database import SessionLocal, QuizAttempt, MasteryScore, Document, Note, WeakTopic
 from services.llm_service import llm_service
 from services.rag_service import rag_service
 from services.translate_service import translate_service
@@ -17,6 +17,104 @@ from config import MASTERY_THRESHOLD_TIER2, MASTERY_THRESHOLD_TIER3, QUIZ_QUESTI
 
 
 class QuizService:
+    @staticmethod
+    def _strip_front_matter(text: str) -> str:
+        if not text:
+            return ""
+        patterns = [
+            r"\bisbn\b",
+            r"all rights reserved",
+            r"\bcopyright\b",
+            r"\bpublished\b",
+            r"\bpublisher\b",
+            r"\bedition\b",
+            r"\bforeword\b",
+            r"\bpreface\b",
+            r"\backnowledg",
+            r"\btable of contents\b",
+            r"\bcontents\b",
+            r"\bindex\b",
+            r"\btitle page\b",
+            r"\bconsulting editor\b",
+        ]
+        import re
+        cleaned_lines = []
+        for line in text.splitlines():
+            lower = line.lower()
+            if any(re.search(p, lower) for p in patterns):
+                continue
+            cleaned_lines.append(line)
+        return "\n".join(cleaned_lines).strip()
+
+    @staticmethod
+    def _is_low_value_question(text: str) -> bool:
+        lowered = (text or "").lower()
+        blocked = [
+            "author",
+            "publisher",
+            "published",
+            "publication",
+            "isbn",
+            "edition",
+            "copyright",
+            "preface",
+            "acknowledg",
+            "foreword",
+            "table of contents",
+            "contents",
+            "index",
+            "title of the book",
+            "book title",
+            "title page",
+            "consulting editor",
+            "editor",
+        ]
+        return any(token in lowered for token in blocked)
+
+    @staticmethod
+    def _normalize_options(options: list) -> list[str] | None:
+        if not isinstance(options, list):
+            return None
+        cleaned: list[str] = []
+        seen: set[str] = set()
+        for opt in options:
+            if not isinstance(opt, str):
+                continue
+            value = opt.strip()
+            if not value:
+                continue
+            key = value.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            cleaned.append(value)
+        if len(cleaned) < 4:
+            return None
+        return cleaned[:4]
+
+    def _sanitize_questions(self, questions: list, num_questions: int) -> list[dict]:
+        cleaned: list[dict] = []
+        for q in questions or []:
+            question_text = (q.get("question") or "").strip()
+            if not question_text or len(question_text) < 8:
+                continue
+            if self._is_low_value_question(question_text):
+                continue
+            options = self._normalize_options(q.get("options", []))
+            if not options:
+                continue
+            correct_option = q.get("correct_option", 0)
+            if not isinstance(correct_option, int) or not 0 <= correct_option <= 3:
+                continue
+            cleaned.append({
+                "question": question_text,
+                "options": options,
+                "correct_option": correct_option,
+                "explanation": (q.get("explanation") or "").strip(),
+            })
+            if len(cleaned) >= num_questions:
+                break
+        return cleaned
 
     async def generate_quiz(self, context_id: str, document_ids: List[str], tier: int = 1,
                             num_questions: int = QUIZ_QUESTIONS_PER_TIER,
@@ -47,6 +145,7 @@ class QuizService:
                 rag_service.get_document_text(doc_id) or ""
                 for doc_id in document_ids
             ).strip()
+        context = self._strip_front_matter(context)
         if not context:
             raise ValueError(f"No content found for context '{context_id}'")
 
@@ -60,19 +159,49 @@ class QuizService:
             raise PermissionError(context_safety.reason)
 
         # 2. Generate questions via LLM (always in English for reliability)
-        system_prompt, user_prompt = llm_service.build_quiz_prompt(
-            context, tier, num_questions, "en"
-        )
-        result = await llm_service.generate_json(user_prompt, system_prompt, temperature=0.4)
+        best_questions: list[dict] = []
+        for attempt in range(2):
+            system_prompt, user_prompt = llm_service.build_quiz_prompt(
+                context, tier, num_questions, "en", strict=attempt > 0
+            )
+            try:
+                result = await llm_service.generate_json(user_prompt, system_prompt, temperature=0.4)
+            except Exception:
+                continue
+            questions = result.get("questions", [])
+            cleaned = self._sanitize_questions(questions, num_questions)
+            if len(cleaned) > len(best_questions):
+                best_questions = cleaned
+            if len(cleaned) >= max(1, num_questions):
+                break
 
-        # 3. Parse and validate questions
-        questions = result.get("questions", [])
-        if not questions:
-            raise ValueError("LLM returned no questions")
+        if not best_questions:
+            raise ValueError("LLM returned no usable questions")
+
+        if len(best_questions) < num_questions:
+            missing = num_questions - len(best_questions)
+            avoid_questions = [q.get("question", "") for q in best_questions]
+            system_prompt, user_prompt = llm_service.build_quiz_prompt(
+                context, tier, missing, "en", strict=True, avoid_questions=avoid_questions
+            )
+            try:
+                result = await llm_service.generate_json(user_prompt, system_prompt, temperature=0.4)
+                cleaned = self._sanitize_questions(result.get("questions", []), missing)
+                seen = {q.get("question", "").strip().lower() for q in best_questions}
+                for q in cleaned:
+                    key = q.get("question", "").strip().lower()
+                    if key in seen or not key:
+                        continue
+                    best_questions.append(q)
+                    seen.add(key)
+                    if len(best_questions) >= num_questions:
+                        break
+            except Exception:
+                pass
 
         generated_bundle = "\n".join(
             f"{q.get('question', '')}\n{' '.join(q.get('options', []))}\n{q.get('explanation', '')}"
-            for q in questions
+            for q in best_questions
         )
         generated_safety = safety_service.check_text(generated_bundle[:9000])
         if not generated_safety.allowed:
@@ -81,7 +210,7 @@ class QuizService:
         quiz_id = str(uuid.uuid4())
 
         formatted_questions = []
-        for i, q in enumerate(questions[:num_questions]):
+        for i, q in enumerate(best_questions[:num_questions]):
             question_text = q.get("question", "")
             options = q.get("options", [])
             explanation = q.get("explanation", "")
@@ -155,6 +284,7 @@ class QuizService:
         try:
             attempt = QuizAttempt(
                 id=quiz_id,
+                user_id=user_id,
                 document_id=context_id,
                 tier=tier,
                 total_questions=total,
@@ -165,16 +295,34 @@ class QuizService:
             db.add(attempt)
 
             # Update mastery score
-            mastery = db.query(MasteryScore).filter(
-                MasteryScore.document_id == context_id
-            ).first()
+            mastery = (
+                db.query(MasteryScore)
+                .filter(MasteryScore.document_id == context_id)
+                .filter(MasteryScore.user_id == user_id)
+                .first()
+            )
 
             if not mastery:
-                # Look up document name for a human-readable topic label
-                doc = db.query(Document).filter(Document.id == context_id).first()
-                doc_topic = doc.original_name.rsplit('.', 1)[0] if doc else context_id[:8]
+                # Look up document or note name for a human-readable topic label
+                doc = (
+                    db.query(Document)
+                    .filter(Document.id == context_id)
+                    .filter(Document.user_id == user_id)
+                    .first()
+                )
+                if doc:
+                    doc_topic = doc.original_name.rsplit('.', 1)[0]
+                else:
+                    note = (
+                        db.query(Note)
+                        .filter(Note.id == context_id)
+                        .filter(Note.user_id == user_id)
+                        .first()
+                    )
+                    doc_topic = note.title if note else context_id[:8]
                 mastery = MasteryScore(
                     id=str(uuid.uuid4()),
+                    user_id=user_id,
                     document_id=context_id,
                     topic=doc_topic,
                     mastery_score=0.0,
@@ -238,11 +386,11 @@ class QuizService:
         finally:
             db.close()
 
-    def get_quiz_history(self, document_id: Optional[str] = None) -> List[Dict]:
+    def get_quiz_history(self, document_id: Optional[str] = None, user_id: str = "guest") -> List[Dict]:
         """Get quiz attempt history."""
         db = SessionLocal()
         try:
-            query = db.query(QuizAttempt)
+            query = db.query(QuizAttempt).filter(QuizAttempt.user_id == user_id)
             if document_id:
                 query = query.filter(QuizAttempt.document_id == document_id)
             attempts = query.order_by(QuizAttempt.created_at.desc()).limit(50).all()
@@ -262,11 +410,11 @@ class QuizService:
         finally:
             db.close()
 
-    def get_mastery(self, document_id: Optional[str] = None) -> List[Dict]:
+    def get_mastery(self, document_id: Optional[str] = None, user_id: str = "guest") -> List[Dict]:
         """Get mastery scores."""
         db = SessionLocal()
         try:
-            query = db.query(MasteryScore)
+            query = db.query(MasteryScore).filter(MasteryScore.user_id == user_id)
             if document_id:
                 query = query.filter(MasteryScore.document_id == document_id)
             scores = query.all()

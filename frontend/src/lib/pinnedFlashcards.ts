@@ -1,3 +1,5 @@
+import { pinnedFlashcardsStorageKey } from "./userStorage";
+
 export interface PinnedFlashcardItem {
   id: string;
   documentId: string;
@@ -6,8 +8,6 @@ export interface PinnedFlashcardItem {
   language: string;
   createdAt: number;
 }
-
-const STORAGE_KEY = "arcadia:pinned-flashcards:v1";
 
 function hashString(value: string) {
   let hash = 0;
@@ -22,11 +22,12 @@ export function buildPinnedFlashcardId(documentId: string, question: string, ans
   return `fc_${hashString(`${documentId}::${question}::${answer}`)}`;
 }
 
-export function getPinnedFlashcards() {
+export function getPinnedFlashcards(userId?: string | null) {
   if (typeof window === "undefined") return [] as PinnedFlashcardItem[];
 
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const storageKey = pinnedFlashcardsStorageKey(userId);
+    const raw = window.localStorage.getItem(storageKey);
     if (!raw) return [];
 
     const parsed = JSON.parse(raw);
@@ -48,22 +49,23 @@ export function getPinnedFlashcards() {
   }
 }
 
-function savePinnedFlashcards(items: PinnedFlashcardItem[]) {
+function savePinnedFlashcards(items: PinnedFlashcardItem[], userId?: string | null) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+  const storageKey = pinnedFlashcardsStorageKey(userId);
+  window.localStorage.setItem(storageKey, JSON.stringify(items));
 }
 
-export function togglePinnedFlashcard(item: PinnedFlashcardItem) {
-  const current = getPinnedFlashcards();
+export function togglePinnedFlashcard(item: PinnedFlashcardItem, userId?: string | null) {
+  const current = getPinnedFlashcards(userId);
   const existingIndex = current.findIndex((entry) => entry.id === item.id);
 
   if (existingIndex >= 0) {
     const next = current.filter((entry) => entry.id !== item.id);
-    savePinnedFlashcards(next);
+    savePinnedFlashcards(next, userId);
     return false;
   }
 
   const next = [item, ...current];
-  savePinnedFlashcards(next);
+  savePinnedFlashcards(next, userId);
   return true;
 }

@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from models.database import get_db, Document, QuizAttempt, MasteryScore, ChatHistory, WeakTopic
+from models.database import get_db, Document, Note, QuizAttempt, MasteryScore, ChatHistory, WeakTopic
 from routers.auth import get_current_user
 from models.schemas import DashboardStats, DashboardResponse, TopicMastery
 from services.quiz_service import quiz_service
@@ -20,12 +20,17 @@ router = APIRouter()
 async def get_dashboard(current_user = Depends(get_current_user), db: Session = Depends(get_db)):
     """Get full dashboard: stats + per-topic mastery."""
     # Counts
-    total_docs = db.query(func.count(Document.id)).scalar() or 0
-    total_quizzes = db.query(func.count(QuizAttempt.id)).scalar() or 0
-    avg_score = db.query(func.avg(QuizAttempt.score)).scalar() or 0.0
+    total_docs = db.query(func.count(Document.id)).filter(Document.user_id == current_user.id).scalar() or 0
+    total_quizzes = db.query(func.count(QuizAttempt.id)).filter(QuizAttempt.user_id == current_user.id).scalar() or 0
+    avg_score = (
+        db.query(func.avg(QuizAttempt.score))
+        .filter(QuizAttempt.user_id == current_user.id)
+        .scalar() or 0.0
+    )
     topics_mastered = (
         db.query(func.count(MasteryScore.id))
         .filter(MasteryScore.mastery_score >= 0.8)
+        .filter(MasteryScore.user_id == current_user.id)
         .scalar() or 0
     )
 
@@ -38,22 +43,38 @@ async def get_dashboard(current_user = Depends(get_current_user), db: Session = 
     )
 
     # Per-topic mastery — resolve UUIDs to document names if needed
-    mastery_data = quiz_service.get_mastery()
+    mastery_data = quiz_service.get_mastery(user_id=current_user.id)
     mastery_list = []
     for m in mastery_data:
         topic = m["topic"]
-        # If topic looks like a UUID, resolve it from Document table
+        # If topic looks like a UUID, resolve it from Document or Note table
         if len(topic) == 36 and topic.count('-') == 4:
-            doc = db.query(Document).filter(Document.id == topic).first()
+            doc = (
+                db.query(Document)
+                .filter(Document.id == topic)
+                .filter(Document.user_id == current_user.id)
+                .first()
+            )
             if doc:
                 topic = doc.original_name.rsplit('.', 1)[0]
-                # Also fix it in the DB for future queries
-                ms = db.query(MasteryScore).filter(
-                    MasteryScore.document_id == m["document_id"]
-                ).first()
-                if ms:
-                    ms.topic = topic
-                    db.commit()
+            else:
+                note = (
+                    db.query(Note)
+                    .filter(Note.id == topic)
+                    .filter(Note.user_id == current_user.id)
+                    .first()
+                )
+                if note:
+                    topic = note.title
+            # Also fix it in the DB for future queries
+            ms = db.query(MasteryScore).filter(
+                MasteryScore.document_id == m["document_id"]
+            ).filter(
+                MasteryScore.user_id == current_user.id
+            ).first()
+            if ms and topic:
+                ms.topic = topic
+                db.commit()
         mastery_list.append(
             TopicMastery(
                 document_id=m["document_id"],
@@ -71,7 +92,7 @@ async def get_dashboard(current_user = Depends(get_current_user), db: Session = 
 @router.get("/dashboard/mastery")
 async def get_mastery(document_id: str = None, current_user = Depends(get_current_user)):
     """Get mastery scores, optionally filtered by document."""
-    return quiz_service.get_mastery(document_id)
+    return quiz_service.get_mastery(document_id, user_id=current_user.id)
 
 
 @router.get("/dashboard/recent-quizzes")
@@ -79,6 +100,7 @@ async def recent_quizzes(current_user = Depends(get_current_user), db: Session =
     """Get 10 most recent quiz attempts."""
     attempts = (
         db.query(QuizAttempt)
+        .filter(QuizAttempt.user_id == current_user.id)
         .order_by(QuizAttempt.created_at.desc())
         .limit(10)
         .all()
@@ -100,10 +122,10 @@ async def recent_quizzes(current_user = Depends(get_current_user), db: Session =
 @router.delete("/dashboard/reset")
 async def reset_progress(current_user = Depends(get_current_user), db: Session = Depends(get_db)):
     """Clear ALL quiz attempts, mastery scores, chat history, and cached TTS audio."""
-    deleted_quizzes = db.query(QuizAttempt).delete()
-    deleted_mastery = db.query(MasteryScore).delete()
+    deleted_quizzes = db.query(QuizAttempt).filter(QuizAttempt.user_id == current_user.id).delete()
+    deleted_mastery = db.query(MasteryScore).filter(MasteryScore.user_id == current_user.id).delete()
     deleted_weak_topics = db.query(WeakTopic).filter(WeakTopic.user_id == current_user.id).delete()
-    deleted_chats = db.query(ChatHistory).delete()
+    deleted_chats = db.query(ChatHistory).filter(ChatHistory.user_id == current_user.id).delete()
     db.commit()
 
     # Clear cached TTS audio files

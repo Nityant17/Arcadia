@@ -127,6 +127,7 @@ def create_plan(
     docs = (
         db.query(Document)
         .filter(Document.subject.in_(unique_subjects))
+        .filter(Document.user_id == current_user.id)
         .all()
     )
     docs_by_subject = {subject: [] for subject in unique_subjects}
@@ -138,6 +139,7 @@ def create_plan(
         .join(Document, Document.id == WeakTopic.document_id)
         .filter(WeakTopic.user_id == request.user_id)
         .filter(Document.subject.in_(unique_subjects))
+        .filter(Document.user_id == current_user.id)
         .all()
     )
     weakness_by_subject = {subject: 0.0 for subject in unique_subjects}
@@ -380,7 +382,7 @@ def get_tasks(user_id: str = "", current_user: User = Depends(get_current_user),
         .all()
     )
 
-    docs = db.query(Document).all()
+    docs = db.query(Document).filter(Document.user_id == user_id).all()
     subject_stats = {}
     for d in docs:
         s = subject_stats.setdefault(d.subject or "General", {"subject": d.subject or "General", "documents": 0, "chunks": 0, "topics": set()})
@@ -403,16 +405,19 @@ def get_tasks(user_id: str = "", current_user: User = Depends(get_current_user),
     )
     upload_rows = (
         db.query(func.date(Document.created_at), func.count(Document.id))
+        .filter(Document.user_id == user_id)
         .group_by(func.date(Document.created_at))
         .all()
     )
     quiz_rows = (
         db.query(func.date(QuizAttempt.created_at), func.count(QuizAttempt.id))
+        .filter(QuizAttempt.user_id == user_id)
         .group_by(func.date(QuizAttempt.created_at))
         .all()
     )
     chat_rows = (
         db.query(func.date(ChatHistory.created_at), func.count(ChatHistory.id))
+        .filter(ChatHistory.user_id == user_id)
         .group_by(func.date(ChatHistory.created_at))
         .all()
     )

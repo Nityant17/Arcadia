@@ -33,6 +33,7 @@ async def chat(
     """
     selected_doc_ids, context_id = note_service.resolve_context(
         db,
+        user_id=current_user.id,
         document_id=request.document_id,
         document_ids=request.document_ids,
         note_id=request.note_id,
@@ -42,7 +43,12 @@ async def chat(
     if not selected_doc_ids:
         raise HTTPException(404, "No documents found for this request.")
 
-    existing_count = db.query(Document).filter(Document.id.in_(selected_doc_ids)).count()
+    existing_count = (
+        db.query(Document)
+        .filter(Document.id.in_(selected_doc_ids))
+        .filter(Document.user_id == current_user.id)
+        .count()
+    )
     if existing_count == 0:
         raise HTTPException(404, "Document not found. Upload a document first.")
 
@@ -105,12 +111,14 @@ async def chat(
     try:
         db.add(ChatHistory(
             id=str(uuid.uuid4()),
+            user_id=current_user.id,
             document_id=context_id or selected_doc_ids[0],
             role="user",
             content=request.message,
         ))
         db.add(ChatHistory(
             id=str(uuid.uuid4()),
+            user_id=current_user.id,
             document_id=context_id or selected_doc_ids[0],
             role="assistant",
             content=answer,
@@ -142,6 +150,7 @@ async def chat_stream(
     """
     selected_doc_ids, _ = note_service.resolve_context(
         db,
+        user_id=current_user.id,
         document_id=request.document_id,
         document_ids=request.document_ids,
         note_id=request.note_id,
@@ -196,10 +205,11 @@ async def get_chat_history(
     db: Session = Depends(get_db),
 ):
     """Get chat history for a document."""
-    context_id = note_service.resolve_context_id_from_any_id(db, document_id)
+    context_id = note_service.resolve_context_id_from_any_id(db, document_id, current_user.id)
     messages = (
         db.query(ChatHistory)
         .filter(ChatHistory.document_id == context_id)
+        .filter(ChatHistory.user_id == current_user.id)
         .order_by(ChatHistory.created_at.asc())
         .limit(100)
         .all()
@@ -217,10 +227,11 @@ async def clear_chat_history(
     db: Session = Depends(get_db),
 ):
     """Clear chat history for a document."""
-    context_id = note_service.resolve_context_id_from_any_id(db, document_id)
+    context_id = note_service.resolve_context_id_from_any_id(db, document_id, current_user.id)
     deleted = (
         db.query(ChatHistory)
         .filter(ChatHistory.document_id == context_id)
+        .filter(ChatHistory.user_id == current_user.id)
         .delete(synchronize_session=False)
     )
     db.commit()

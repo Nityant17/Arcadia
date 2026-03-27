@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { apiClient } from "@/services/api";
+import { clearUserLocalState } from "@/lib/userStorage";
 
 export interface Language {
   id: string;
@@ -91,13 +92,16 @@ export const useAppStore = create<AppState>()(
         }
       },
 
-      logout: () =>
+      logout: () => {
+        const currentUser = get().currentUser;
+        clearUserLocalState(currentUser?.id);
         set({
           authToken: null,
           currentUser: null,
           currentLanguage: null,
           uiOverlayActive: false,
-        }),
+        });
+      },
 
       initLanguages: async () => {
         try {
@@ -113,6 +117,7 @@ export const useAppStore = create<AppState>()(
           const current = get().currentLanguage;
           const selected =
             backendLanguages.find((lang) => lang.id === current?.id) ??
+            backendLanguages.find((lang) => lang.id === "en") ??
             backendLanguages[0] ??
             FALLBACK_LANGUAGES[0];
 
