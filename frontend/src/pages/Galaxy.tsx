@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { motion, useAnimation } from "motion/react";
+import { motion, useAnimation, useMotionValue } from "motion/react";
 import { CONSTELLATIONS } from "@/data/constellations";
 import { apiClient, getApiErrorMessage } from "@/services/api";
 import { toast } from "sonner";
@@ -8,7 +8,7 @@ const VIEWBOX_WIDTH = 1920;
 const VIEWBOX_HEIGHT = 1280;
 
 // Increased scale and distance for the larger footprint
-const STAR_SCALE = 2.2; 
+const STAR_SCALE = 2.0; 
 const MIN_LAYOUT_DISTANCE = 420; 
 
 const mulberry32 = (seed: number) => {
@@ -25,6 +25,8 @@ export default function Galaxy() {
   const [loading, setLoading] = useState(true);
   const [scale, setScale] = useState(1);
   
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
   const controls = useAnimation();
   const DEBUG_STREAK: number | null = 1000;
 
@@ -53,7 +55,7 @@ export default function Galaxy() {
   const effectiveStreak = DEBUG_STREAK ?? userStreak;
 
   const { constellationProgress, layout } = useMemo(() => {
-    const rng = mulberry32(0x9a8b4c6d); 
+    const rng = mulberry32(0x1a7a2c1d);
 
     const shuffledConstellations = [...CONSTELLATIONS];
     for (let i = shuffledConstellations.length - 1; i > 0; i--) {
@@ -108,12 +110,27 @@ export default function Galaxy() {
 
   const completedCount = constellationProgress.filter((item) => item.isFinished).length;
 
-  const handleWheel = (e: React.WheelEvent) => {
+  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     e.preventDefault();
+    
+    const rect = e.currentTarget.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+
     setScale((prevScale) => {
       const zoomSensitivity = 0.0012;
-      const newScale = prevScale - e.deltaY * zoomSensitivity;
-      return Math.min(Math.max(0.3, newScale), 6); 
+      const newScale = Math.min(Math.max(0.3, prevScale - e.deltaY * zoomSensitivity), 6); 
+      
+      const ratio = newScale / prevScale;
+      const currentX = x.get();
+      const currentY = y.get();
+      
+      x.set(currentX - ((mouseX - centerX) - currentX) * (ratio - 1));
+      y.set(currentY - ((mouseY - centerY) - currentY) * (ratio - 1));
+      
+      return newScale;
     });
   };
 
@@ -186,7 +203,7 @@ export default function Galaxy() {
           dragElastic={0.03}
           dragMomentum={false}
           animate={controls}
-          style={{ scale }}
+          style={{ x, y, scale }}
           className="w-[220%] h-[220%] shrink-0 relative z-10 flex items-center justify-center origin-center"
         >
           <svg
@@ -194,6 +211,14 @@ export default function Galaxy() {
             viewBox={`0 0 ${VIEWBOX_WIDTH} ${VIEWBOX_HEIGHT}`}
             preserveAspectRatio="xMidYMid meet"
           >
+            <rect 
+              x="-15000" 
+              y="-15000" 
+              width="30000" 
+              height="30000" 
+              fill="transparent" 
+              pointerEvents="all"
+            />
             {constellationProgress.map(({ constellation, isFinished, isActive, visibleCount }, index) => {
               if (!isFinished && !isActive) return null;
 
