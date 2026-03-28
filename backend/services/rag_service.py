@@ -8,14 +8,18 @@ import math
 import uuid
 from typing import Dict, List, Optional
 
-from sentence_transformers import SentenceTransformer
+import httpx
 from sqlalchemy.exc import SQLAlchemyError
 
 from config import (
+    MODE,
     CHUNK_MAX_TOKENS,
     CHUNK_OVERLAP_TOKENS,
     EMBEDDING_MODEL_NAME,
     RAG_TOP_K,
+    AZURE_OPENAI_EMBEDDING_DEPLOYMENT,
+    AZURE_OPENAI_ENDPOINT,
+    AZURE_OPENAI_KEY,
 )
 from models.database import (
     Document,
@@ -29,26 +33,71 @@ class RAGService:
     """Manages chunking, embedding, indexing, and retrieval for RAG."""
 
     def __init__(self):
-        self._embedder: Optional[SentenceTransformer] = None
+        self._embedder = None
 
     def initialize(self):
         """Initialize embedding model. Called at startup."""
-        if self._embedder is None:
-            print(f"🔍 Loading embedding model: {EMBEDDING_MODEL_NAME}")
-            self._embedder = SentenceTransformer(EMBEDDING_MODEL_NAME)
+        if MODE == "local":
+            self._ensure_local_embedder()
+        else:
+            print("🔍 Azure mode detected — skipping local embedding model load")
         count = self.get_total_chunks()
         store_name = "pgvector" if PGVECTOR_ENABLED else "database-fallback"
         print(f"🗂️  Vector store initialized ({store_name}) — {count} chunks indexed")
 
     # ─── Embeddings ───────────────────────────────────────────
 
-    def _ensure_embedder(self) -> SentenceTransformer:
+    def _ensure_local_embedder(self):
+        if MODE != "local":
+            raise RuntimeError("Local embedder requested while ARCADIA_MODE is not 'local'")
         if self._embedder is None:
+            # Import lazily so Azure mode never imports PyTorch stack.
+            from sentence_transformers import SentenceTransformer
+
+            print(f"🔍 Loading embedding model: {EMBEDDING_MODEL_NAME}")
             self._embedder = SentenceTransformer(EMBEDDING_MODEL_NAME)
         return self._embedder
 
+    @staticmethod
+    def _azure_embeddings_url() -> str:
+        return (
+            f"{AZURE_OPENAI_ENDPOINT.rstrip('/')}/openai/deployments/"
+            f"{AZURE_OPENAI_EMBEDDING_DEPLOYMENT}/embeddings?api-version=2024-06-01"
+        )
+
+    def _embed_texts_azure(self, texts: list[str]) -> list[list[float]]:
+        endpoint = AZURE_OPENAI_ENDPOINT.strip()
+        key = AZURE_OPENAI_KEY.strip()
+        deployment = AZURE_OPENAI_EMBEDDING_DEPLOYMENT.strip()
+        if not endpoint or not key or not deployment:
+            raise RuntimeError(
+                "Azure embeddings require AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_KEY, "
+                "and AZURE_OPENAI_EMBEDDING_DEPLOYMENT."
+            )
+
+        embeddings: list[list[float]] = []
+        headers = {"Content-Type": "application/json", "api-key": key}
+        url = self._azure_embeddings_url()
+
+        # Keep batches small for predictable memory and request sizes.
+        batch_size = 16
+        with httpx.Client(timeout=90.0) as client:
+            for start in range(0, len(texts), batch_size):
+                batch = texts[start:start + batch_size]
+                response = client.post(url, headers=headers, json={"input": batch})
+                response.raise_for_status()
+                payload = response.json()
+                data = sorted(payload.get("data", []), key=lambda item: int(item.get("index", 0)))
+                if len(data) != len(batch):
+                    raise RuntimeError("Azure embeddings response size mismatch")
+                embeddings.extend([item.get("embedding", []) for item in data])
+        return embeddings
+
     def _embed_texts(self, texts: list[str]) -> list[list[float]]:
-        embedder = self._ensure_embedder()
+        if MODE == "azure":
+            return self._embed_texts_azure(texts)
+
+        embedder = self._ensure_local_embedder()
         vectors = embedder.encode(texts, convert_to_numpy=True, show_progress_bar=False)
         return vectors.tolist()
 
