@@ -29,7 +29,6 @@ export default function AuthPage() {
   const [verifying, setVerifying] = useState(false);
   const [resending, setResending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const apiBase = import.meta.env.VITE_API_BASE_URL || "/api";
 
   const oauthRedirectData = useMemo(() => {
     const params = new URLSearchParams(window.location.search);
@@ -66,10 +65,6 @@ export default function AuthPage() {
     window.history.replaceState({}, "", "/auth");
     void navigate({ to: "/home" });
   }, [oauthRedirectData, navigate, setAuthToken, setCurrentUser]);
-
-  function startOAuth(provider: "google" | "microsoft") {
-    window.location.assign(`${apiBase}/auth/oauth/${provider}/start`);
-  }
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -391,19 +386,6 @@ export default function AuthPage() {
                   Sign In
                 </Button>
               </form>
-              <div className="my-4 flex items-center gap-2 text-xs text-muted-foreground">
-                <div className="h-px flex-1 bg-white/10" />
-                or continue with
-                <div className="h-px flex-1 bg-white/10" />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <Button type="button" variant="outline" className="border-white/10" onClick={() => startOAuth("google")}>
-                  Google
-                </Button>
-                <Button type="button" variant="outline" className="border-white/10" onClick={() => startOAuth("microsoft")}>
-                  Microsoft
-                </Button>
-              </div>
             </TabsContent>
 
             {/* Register */}
@@ -458,18 +440,8 @@ export default function AuthPage() {
                   Create Account
                 </Button>
               </form>
-              <div className="my-4 flex items-center gap-2 text-xs text-muted-foreground">
-                <div className="h-px flex-1 bg-white/10" />
-                or continue with
-                <div className="h-px flex-1 bg-white/10" />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <Button type="button" variant="outline" className="border-white/10" onClick={() => startOAuth("google")}>
-                  Google
-                </Button>
-                <Button type="button" variant="outline" className="border-white/10" onClick={() => startOAuth("microsoft")}>
-                  Microsoft
-                </Button>
+              <div className="mt-4 rounded-lg border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-xs text-cyan-100">
+                OAuth backend is ready. Provider environment variables are currently not set.
               </div>
             </TabsContent>
           </Tabs>

@@ -4,6 +4,14 @@ Toggle MODE to switch between local and Azure AI services.
 """
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+
+# Load env vars from backend/.env first, then fall back to repo-root .env.
+# This keeps local `uvicorn main:app` behavior aligned with docs/setup.
+BASE_DIR = Path(__file__).resolve().parent
+load_dotenv(BASE_DIR / ".env")
+load_dotenv(BASE_DIR.parent / ".env")
 
 
 def _env_bool(name: str, default: bool = False) -> bool:
@@ -23,11 +31,10 @@ def _env_list(name: str, default: list[str]) -> list[str]:
 
 # ─── Deployment Mode ───────────────────────────────────────────
 # "local"  → Ollama + Tesseract + local DB vector store + gTTS + deep-translator
-# "azure"  → Azure OpenAI + Form Recognizer + AI Search + AI Speech + Translator
+# "azure"  → Azure OpenAI (chat + vision OCR) + AI Search + AI Speech + Translator
 MODE = os.getenv("ARCADIA_MODE", "local")
 
 # ─── Paths ─────────────────────────────────────────────────────
-BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
 UPLOAD_DIR = DATA_DIR / "uploads"
 AUDIO_DIR = BASE_DIR / "static" / "audio"
@@ -92,9 +99,14 @@ SUPPORTED_LANGUAGES = {
 AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT", "")
 AZURE_OPENAI_KEY = os.getenv("AZURE_OPENAI_KEY", "")
 AZURE_OPENAI_DEPLOYMENT = os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-5.4-mini")
+AZURE_OPENAI_VISION_DEPLOYMENT = os.getenv("AZURE_OPENAI_VISION_DEPLOYMENT", "gpt-4o")
 AZURE_OPENAI_EMBEDDING_DEPLOYMENT = os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT", "text-embedding-3-small")
 AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION", "2024-10-21")
 AZURE_OPENAI_REASONING_EFFORT = os.getenv("AZURE_OPENAI_REASONING_EFFORT", "medium")
+AZURE_FORM_RECOGNIZER_ENDPOINT = os.getenv("AZURE_FORM_RECOGNIZER_ENDPOINT", "")
+AZURE_FORM_RECOGNIZER_KEY = os.getenv("AZURE_FORM_RECOGNIZER_KEY", "")
+AZURE_FORM_RECOGNIZER_MODEL = os.getenv("AZURE_FORM_RECOGNIZER_MODEL", "prebuilt-read")
+AZURE_FORM_RECOGNIZER_API_VERSION = os.getenv("AZURE_FORM_RECOGNIZER_API_VERSION", "2023-07-31")
 
 AZURE_SEARCH_ENDPOINT = os.getenv("AZURE_SEARCH_ENDPOINT", "")
 AZURE_SEARCH_KEY = os.getenv("AZURE_SEARCH_KEY", "")
@@ -104,9 +116,6 @@ AZURE_SPEECH_REGION = os.getenv("AZURE_SPEECH_REGION", "")
 
 AZURE_TRANSLATOR_KEY = os.getenv("AZURE_TRANSLATOR_KEY", "")
 AZURE_TRANSLATOR_REGION = os.getenv("AZURE_TRANSLATOR_REGION", "")
-
-AZURE_FORM_RECOGNIZER_ENDPOINT = os.getenv("AZURE_FORM_RECOGNIZER_ENDPOINT", "")
-AZURE_FORM_RECOGNIZER_KEY = os.getenv("AZURE_FORM_RECOGNIZER_KEY", "")
 
 # ─── Auth & Verification ───────────────────────────────────────
 AUTH_FRONTEND_URL = os.getenv("AUTH_FRONTEND_URL", "http://localhost:5173")

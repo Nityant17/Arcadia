@@ -39,6 +39,8 @@ interface Note {
   preview: string;
 }
 
+type UploadOcrMode = "handwritten" | "printed";
+
 function mapDocumentToNote(document: DocumentItem): Note {
   return {
     id: document.id,
@@ -194,6 +196,9 @@ export default function NotesPage() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadTargetProgress, setUploadTargetProgress] = useState(0);
   const [uploadOverlayState, setUploadOverlayState] = useState<"idle" | "uploading" | "uploaded">("idle");
+  const [pendingUploadFile, setPendingUploadFile] = useState<File | null>(null);
+  const [showUploadTypePicker, setShowUploadTypePicker] = useState(false);
+  const [selectedUploadOcrMode, setSelectedUploadOcrMode] = useState<UploadOcrMode>("printed");
   const [extractedTopics, setExtractedTopics] = useState<Array<{ title: string; summary: string }>>([]);
   const [extractingTopics, setExtractingTopics] = useState(false);
   const [regeneratingSummary, setRegeneratingSummary] = useState(false);
@@ -329,11 +334,19 @@ export default function NotesPage() {
 
   useEffect(() => {
     const shouldLockUi = uploadOverlayState !== "idle";
-    setUiOverlayActive(shouldLockUi);
+    setUiOverlayActive(shouldLockUi || showUploadTypePicker);
     return () => setUiOverlayActive(false);
-  }, [setUiOverlayActive, uploadOverlayState]);
+  }, [setUiOverlayActive, uploadOverlayState, showUploadTypePicker]);
 
-  async function handleUpload(fileOverride?: File) {
+  const openUploadTypePicker = (file: File) => {
+    if (uploading || uploadOverlayState !== "idle") return;
+    setUploadFile(file);
+    setPendingUploadFile(file);
+    setSelectedUploadOcrMode("printed");
+    setShowUploadTypePicker(true);
+  };
+
+  async function handleUpload(fileOverride?: File, ocrMode: UploadOcrMode = "printed") {
     const fileToUpload = fileOverride ?? uploadFile;
     if (!fileToUpload || uploading) return;
 
@@ -341,6 +354,7 @@ export default function NotesPage() {
     formData.append("file", fileToUpload);
     formData.append("subject", uploadSubject || "General");
     formData.append("topic", uploadTopic);
+    formData.append("ocr_mode", ocrMode);
     if (appendToSelectedNote && selectedNote?.noteId) {
       formData.append("note_id", selectedNote.noteId);
     }
@@ -359,6 +373,7 @@ export default function NotesPage() {
       setNotes((prev) => [created, ...prev]);
       setSelectedId(created.noteId);
       setUploadFile(null);
+      setPendingUploadFile(null);
       setUploadTopic("");
       setUploadTargetProgress(100);
       setUploadProgress(100);
@@ -377,6 +392,7 @@ export default function NotesPage() {
       setUploadOverlayState("idle");
     } finally {
       setUploading(false);
+      setPendingUploadFile(null);
     }
   }
 
@@ -562,9 +578,8 @@ export default function NotesPage() {
                 className="hidden"
                 onChange={(event) => {
                   const selected = event.target.files?.[0] ?? null;
-                  setUploadFile(selected);
                   if (selected) {
-                    void handleUpload(selected);
+                    openUploadTypePicker(selected);
                   }
                 }}
               />
@@ -594,7 +609,7 @@ export default function NotesPage() {
               <Button
                 size="sm"
                 onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
+                disabled={uploading || showUploadTypePicker}
                 className="w-full bg-arcadia-teal text-[#0B1020] hover:bg-arcadia-cyan"
               >
                 {uploading ? (
@@ -831,6 +846,79 @@ export default function NotesPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {showUploadTypePicker && pendingUploadFile && (
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 8 }}
+          transition={{ duration: 0.2 }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 px-4"
+          data-ocid="notes.upload.type.picker"
+        >
+          <div className="w-full max-w-md rounded-2xl border border-cyan-500/30 bg-slate-950/95 p-5 shadow-[0_0_36px_rgba(6,182,212,0.26)]">
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-cyan-100">Choose OCR Type</h3>
+              <p className="mt-1 text-sm text-cyan-100/75">{pendingUploadFile.name}</p>
+            </div>
+            <div className="grid grid-cols-1 gap-2">
+              <button
+                type="button"
+                onClick={() => setSelectedUploadOcrMode("handwritten")}
+                className={`rounded-xl border px-3 py-2 text-left text-sm transition ${
+                  selectedUploadOcrMode === "handwritten"
+                    ? "border-cyan-400/70 bg-cyan-500/20 text-cyan-100"
+                    : "border-white/10 bg-white/5 text-slate-200 hover:border-cyan-400/35"
+                }`}
+              >
+                Handwritten (GPT-4o OCR)
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedUploadOcrMode("printed")}
+                className={`rounded-xl border px-3 py-2 text-left text-sm transition ${
+                  selectedUploadOcrMode === "printed"
+                    ? "border-cyan-400/70 bg-cyan-500/20 text-cyan-100"
+                    : "border-white/10 bg-white/5 text-slate-200 hover:border-cyan-400/35"
+                }`}
+              >
+                Printed (Azure Form Recognizer)
+              </button>
+            </div>
+            <div className="mt-4 flex gap-2">
+              <Button
+                type="button"
+                className="flex-1 bg-arcadia-teal text-[#0B1020] hover:bg-arcadia-cyan"
+                onClick={() => {
+                  const selectedFile = pendingUploadFile;
+                  const selectedMode = selectedUploadOcrMode;
+                  setShowUploadTypePicker(false);
+                  if (selectedFile) {
+                    void handleUpload(selectedFile, selectedMode);
+                  }
+                }}
+              >
+                Continue Upload
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1 border-white/10 text-muted-foreground hover:text-foreground"
+                onClick={() => {
+                  setShowUploadTypePicker(false);
+                  setPendingUploadFile(null);
+                  setUploadFile(null);
+                  if (fileInputRef.current) {
+                    fileInputRef.current.value = "";
+                  }
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </motion.div>
       )}
 
       {/* --- NEXT STEPS MODAL --- */}

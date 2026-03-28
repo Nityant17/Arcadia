@@ -1,74 +1,324 @@
 # Arcadia
 
-Arcadia is an AI-first study platform with a FastAPI backend and a React + TypeScript frontend.
-It supports note ingestion, RAG chat, quiz generation, study-material generation, planning, dashboard analytics, multilingual translation, and browser-playable TTS.
+![Arcadia App Overview](./assets/screenshots/00_hero.png)
 
-## Architecture (Current)
+<p align="center">
+  <strong>AI-first study workspace for turning raw notes into real understanding.</strong>
+</p>
+
+<p align="center">
+  Upload your material once. Chat with it, generate study assets, practice adaptively,<br>
+  battle friends, execute code, plan sessions, and track progress — all in one place.
+</p>
+
+<p align="center">
+  <img alt="React" src="https://img.shields.io/badge/React-19-20232A?logo=react&logoColor=61DAFB">
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white">
+  <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white">
+  <img alt="Python" src="https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white">
+  <img alt="AI" src="https://img.shields.io/badge/AI-Ollama%20%7C%20Azure_OpenAI-111827">
+  <img alt="Microsoft" src="https://img.shields.io/badge/Microsoft-UNLOCKED_Hackathon-00A4EF?logo=microsoft&logoColor=white">
+</p>
+
+---
+
+## For Judges — Quick Start
+
+| Resource | Link |
+|----------|------|
+| 🎬 Video Demo | `[Coming Soon]` |
+| 🌐 Live Application | https://arcadia-two-iota.vercel.app/ |
+| 🔑 Demo Login | Email + password auth — no OAuth required for demo |
+
+> **OAuth note:** Google Sign-In and OTP confirmation are implemented in the backend. Provider API keys are the only thing not activated (billing required). The buttons can be re-enabled by adding `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` to the environment.
+
+---
+
+## What Is Arcadia?
+
+Most student tools solve one slice of the learning workflow. Arcadia solves the entire loop.
+
+The core idea: **upload your study material once, and every feature draws from the same context**. Chat asks questions from it. Quizzes test you on it. Cheatsheets compress it. Flashcards drill it. The planner schedules around it. The dashboard tracks your mastery of it.
+
+No context switching. No re-uploading. No tool fragmentation.
+
+---
+
+## Table of Contents
+
+- [Judging Alignment](#judging-alignment)
+- [Feature Tour](#feature-tour)
+- [App Screenshots](#app-screenshots)
+- [Architecture](#architecture)
+- [Tech Stack](#tech-stack)
+- [Responsible AI & Security](#responsible-ai--security)
+- [Gamification](#gamification)
+- [Future Roadmap](#future-roadmap)
+- [Getting Started](#getting-started)
+- [Configuration](#configuration)
+- [Deployment](#deployment)
+
+---
+
+## Judging Alignment
+
+| Evaluation Criterion | How Arcadia Addresses It |
+|---|---|
+| **Problem Depth & Product Clarity (25 pts)** | Targets the specific pain of fragmented student workflows, passive revision, and multilingual barriers — not generic "AI for education" |
+| **MVP Readiness & Scalability (20 pts)** | Full-stack product with working core loop, modular backend, split deployment, and env-based AI provider switching |
+| **Communication, Presentation & UX (20 pts)** | Workspace-driven navigation, markdown chat rendering, TTS, gamified engagement, multi-language support |
+| **System Architecture & Engineering (15 pts)** | Modular FastAPI router/service pattern, typed frontend API layer, logical note model as shared context boundary |
+| **AI Integration & Intelligence Design (10 pts)** | AI used for OCR routing, RAG chat, quiz generation, study generation, translation, TTS, and responsible content filtering |
+| **Market Understanding & Product Fit (10 pts)** | Sits at the intersection of note-grounded AI + active recall + accessibility — distinct from ChatGPT, Quizlet, and Notion AI |
+
+---
+
+## Feature Tour
+
+### Core Study Loop
+
+| Workspace | What It Does |
+|-----------|-------------|
+| **Notes & Ingestion** | Upload PDFs, images, or handwritten notes. Group multiple files under one logical note (`note_id`). OCR routing: handwritten → GPT-4o Vision; printed → Azure Form Recognizer. |
+| **RAG Chat** | Ask questions grounded in your uploaded material — not generic AI. Retrieval-Augmented Generation with markdown answers, source grounding, and optional TTS playback. |
+| **Study Workspace** | Generate cheatsheets, flashcards, and Mermaid concept diagrams from your note context. Study state is cached per note — resume exactly where you left off. |
+| **Adaptive Quiz** | Active recall quizzes generated from your note context. Includes an **in-quiz whiteboard canvas** where you sketch your thinking and get live AI hints based on what you drew. |
+| **Planner & Calendar** | Turn learning goals into scheduled study tasks. Google Calendar sync backend is ready — activation requires provider API keys. |
+| **Dashboard & Streaks** | Mastery tracking, activity logs, learning streaks, and study consistency metrics over time. |
+| **Multilingual + TTS** | Translate any study content to another language. Text-to-speech converts answers and study assets into browser-playable audio. |
+
+### Engagement & Power Features
+
+| Feature | Description |
+|---------|-------------|
+| **Challenge Room** | Real-time head-to-head quiz battles against friends. Live scoring and leaderboard. |
+| **Code Lab** | Upload code files directly into a live coding environment. Code is auto-pasted into the editor and ready to run immediately. |
+| **Galaxy Gamification** | Every login and completed study session adds to your personal constellation map. Watch your galaxy expand as you learn. Completing challenges unlocks new constellations. |
+| **Multi-Document Notes** | Upload three PDFs for the same subject and group them into one combined note. Arcadia treats them as a single study corpus across all features. |
+
+---
+
+## App Screenshots
+
+### Home Overview
+![Home Overview](./assets/screenshots/01_home_overview.png)
+---
+
+### Auth Page
+![Auth Page](./assets/screenshots/02_auth.png)
+---
+
+### Notes Workspace
+![Notes Workspace](./assets/screenshots/03_notes_workspace.png)
+---
+
+### RAG Chat
+![Chat Markdown Answer](./assets/screenshots/04_chat_markdown.png)
+
+![Chat TTS Active](./assets/screenshots/05_chat_tts.png)
+---
+
+### Study Workspace
+![Study Workspace](./assets/screenshots/06_study_workspace.png)
+---
+
+### Quiz + Whiteboard
+![Quiz with Whiteboard](./assets/screenshots/07_quiz_whiteboard.png)
+---
+
+### Challenge Room
+![Challenge Room](./assets/screenshots/08_challenge_room.png)
+---
+
+### Code Lab
+![Code Lab](./assets/screenshots/09_code_lab.png)
+---
+
+### Dashboard
+![Dashboard](./assets/screenshots/10_dashboard.png)
+---
+
+### Galaxy
+![Galaxy](./assets/screenshots/11_galaxy.png)
+---
+
+### Planner
+![Planner](./assets/screenshots/12_planner.png)
+---
+
+## Architecture
+
+### System Architecture
+
+![Arcadia System Architecture](./assets/flowcharts/01_system_architecture.png)
+
+The system is a React 19 frontend communicating with a modular FastAPI backend through a typed Axios client. The backend is organized into separate router modules, each backed by a corresponding service layer. AI providers are swapped at the environment level — Ollama locally, Azure in production.
+
+---
+
+### The Logical Note Model
+
+![Arcadia Logical Note Model](./assets/flowcharts/02_logical_note_model.png)
+
+This is the core architectural idea. Uploaded documents stay as separate `Document` records in the database but share a `note_id`. Every feature resolves context through that key. A student studying thermodynamics can upload a lecture PDF, a handwritten diagram, and a summary slide deck — all three become one unified study corpus.
+
+---
+
+### OCR Routing Decision Tree
+
+![Arcadia OCR Routing](./assets/flowcharts/03_ocr_routing.png)
+
+Every file upload passes through the safety service first. If cleared, the user's chosen OCR mode determines the path: handwritten input goes to GPT-4o Vision; printed input goes to Azure Form Recognizer. Both fall back to Tesseract when running in local mode.
+
+---
+
+### End-to-End User Flow
+
+![Arcadia User Flow](./assets/flowcharts/04_user_flow.png)
+
+The full journey from login through ingestion, the study loop, the engagement layer, and progress tracking. Dashed lines indicate features that are backend-ready but require external credentials to activate.
+
+---
+
+### RAG & Study Generation Pipeline
+
+![Arcadia RAG Pipeline](./assets/flowcharts/05_rag_pipeline.png)
+
+Phase 1 handles ingestion: safety check, OCR, chunking, and vector storage. Phase 2 is RAG chat: similarity search retrieves the most relevant chunks, which are passed to the LLM as grounded context. Phase 3 is study generation: cached assets are served instantly on return visits; otherwise cheatsheet, flashcards, and diagram are generated and cached together.
+
+---
+
+### Responsible AI & Safety Flow
+
+![Arcadia Responsible AI](./assets/flowcharts/06_responsible_ai.png)
+
+The `safety_service` sits at the ingestion boundary. All uploaded images and text pass through it before reaching OCR or the database. Explicit imagery and harmful text are blocked at this layer and never stored. Legitimate academic content passes through cleanly.
+
+---
+
+### Scalability & Future Roadmap
+
+![Arcadia Roadmap](./assets/flowcharts/07_scalability_roadmap.png)
+
+The architecture scales from local development (Ollama, SQLite) to production (Azure OpenAI, PostgreSQL, Vercel + Render) with only environment variable changes. The roadmap moves through auth activation, a PYQ engine, gamified learning paths, and an adaptive AI tutoring engine that builds a personalised teaching profile per learner.
+
+---
+
+## Tech Stack
 
 ### Frontend
-- Stack: React 19, TypeScript, Vite, TanStack Router, TanStack Query, Zustand, Tailwind.
-- Main app routes are defined in `frontend/src/App.tsx`.
-- Core pages: `/auth`, `/home`, `/notes`, `/chat`, `/study`, `/quiz`, `/planner`, `/dashboard`, `/challenge`, `/code`, `/game`, `/galaxy`.
-- Chat assistant responses now render Markdown using `react-markdown` + `remark-gfm`.
+
+| Layer | Technology |
+|-------|-----------|
+| Framework | React 19 + TypeScript |
+| Routing | TanStack Router |
+| Server state | TanStack Query |
+| Client state | Zustand |
+| Styling | Tailwind CSS |
+| Diagrams | Mermaid (rendered in-browser) |
+| Markdown | React Markdown + remark-gfm |
+| HTTP | Axios (typed API client layer) |
+| Build | Vite |
 
 ### Backend
-- Stack: FastAPI, SQLAlchemy, SQLite/PostgreSQL, pgvector-ready architecture.
-- Router modules in `backend/routers/`:
-  - `auth.py`, `upload.py`, `chat.py`, `quiz.py`, `generate.py`, `tts.py`, `translate` (inside `tts.py`), `dashboard.py`, `planner.py`, `calendar.py`, `challenge.py`, `code_runner.py`, `whiteboard.py`, `user.py`.
-- Service modules in `backend/services/`:
-  - `llm_service.py` (Ollama/Azure OpenAI abstraction)
-  - `rag_service.py` (chunking/retrieval/embeddings pipeline)
-  - `quiz_service.py`, `generate_service.py`, `note_service.py`, `tts_service.py`, `translate_service.py`, `ocr_service.py`, `safety_service.py`, `streak_service.py`.
 
-### Data Model Pattern
-Arcadia uses a **logical note model**:
-- Each uploaded file is a `Document`.
-- Related files share one `note_id`.
-- A `Note` represents the grouped logical study unit.
+| Layer | Technology |
+|-------|-----------|
+| Framework | FastAPI |
+| ORM | SQLAlchemy |
+| Database | SQLite (default) → PostgreSQL-ready |
+| Embeddings | sentence-transformers |
+| OCR (local) | pytesseract + pdf2image + PyPDF2 |
+| Audio (local) | gTTS |
+| Translation (local) | deep-translator |
+| HTTP client | httpx |
+| Auth | JWT — email/password active; OAuth backend ready |
 
-This enables multi-file context in chat, quiz, and generation without physically merging files.
+### AI Runtime
 
-### TTS + Markdown Handling (Current Behavior)
-- TTS endpoint (`POST /api/tts`) streams audio bytes directly with media type (`audio/mpeg`) for browser playback.
-- Markdown is sanitized to plain text before synthesis in `backend/services/tts_service.py`.
-- Chat UI renders Markdown instead of raw symbols in `frontend/src/pages/ChatPage.tsx`.
+| Mode | Services |
+|------|---------|
+| **Local (default)** | Ollama + Tesseract OCR + gTTS + deep-translator + Chroma vectors |
+| **Azure (production)** | Azure OpenAI (chat + embeddings) + GPT-4o Vision (handwritten OCR) + Azure Form Recognizer (printed OCR) + Azure Speech (TTS) + Azure Translator |
 
-## Repository Layout
+---
 
-```text
-Arcadia/
-  backend/
-    main.py
-    config.py
-    models/
-    routers/
-    services/
-  frontend/
-    src/
-      pages/
-      components/
-      hooks/
-      services/
-      store/
-  assets/
-    screenshots/
-    diagrams/
-  README.md
-```
+## Responsible AI & Security
 
-## Local Setup
+Arcadia treats safety as a first-class service, not an afterthought.
 
-### 1) Backend
+- **Content filtering at ingestion:** The `safety_service` checks every uploaded file and text input before it enters the system. Explicit images and harmful text instructions are blocked immediately and never reach the database or vector store.
+- **Per-user data isolation:** All notes, documents, study materials, and quiz results are scoped to the authenticated user. The API enforces this at the router level.
+- **Auth architecture:** JWT tokens with proper expiry and refresh. Email/password login is fully functional. OAuth (Google Sign-In + OTP) is fully wired in the backend — activation requires provider credentials.
+- **Input validation:** All API endpoints validate inputs at the FastAPI layer before processing.
+
+---
+
+## Gamification
+
+Arcadia uses a galaxy / constellation reward system to encourage consistent learning:
+
+- **Login rewards:** Each daily login adds a star to the user's personal galaxy map.
+- **Completion rewards:** Finishing a quiz, generating study materials, or completing a challenge unlocks new constellation patterns.
+- **Challenge Room:** Head-to-head quiz battles with friends, live scoring, and a leaderboard.
+- **Visual progress:** Users watch their personal universe expand over time — a more meaningful signal than a number on a streak counter.
+
+---
+
+## Future Roadmap
+
+### Near-term (credentials pending)
+
+- **Google Sign-In + OTP** — backend fully implemented; needs `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET`
+- **Google Calendar sync** — backend router live; needs Calendar API credentials
+- **Microsoft Login + Outlook Calendar** — planned next after Google
+
+### v2 Features
+
+- **PYQ Engine:** Enter your institute or school name. Arcadia fetches their previous year question papers and generates practice questions with full topic analysis, difficulty distribution, and high-frequency pattern breakdown.
+- **Gamified learning paths:** Structured missions and quests that guide learners progressively through a topic.
+- **Mobile app:** React Native port of the core study loop.
+- **Spaced repetition:** Topic-level mastery curves and personalised revision reminders.
+
+### v3 — Adaptive AI Tutoring Engine
+
+The flagship long-term vision:
+
+1. Arcadia quizzes the learner across a topic to gauge current understanding.
+2. It analyses answer patterns to identify weak subtopics and misconceptions.
+3. It tries multiple teaching approaches — analogies, worked examples, visual diagrams, Socratic questioning.
+4. It measures which style produces the fastest improvement for that specific learner.
+5. It builds a persistent, personalised teaching profile and adapts every future session accordingly.
+
+This is not "AI that answers questions." It is AI that learns how *you* learn.
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js 18+
+- Python 3.11+
+- `pip` and `npm`
+- Ollama (for local AI mode)
+- Tesseract and Poppler (for local OCR)
+
+### 1. Start the backend
+
 ```bash
 cd backend
 python -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate      # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 cp .env.example .env
 uvicorn main:app --reload --port 8000
 ```
 
-### 2) Frontend
+Backend at `http://localhost:8000` · API docs at `http://localhost:8000/docs`
+
+### 2. Start the frontend
+
 ```bash
 cd frontend
 npm install
@@ -76,221 +326,91 @@ cp .env.example .env
 npx vite --port 5173
 ```
 
-Frontend: `http://localhost:5173`  
-Backend: `http://localhost:8000`
+Frontend at `http://localhost:5173`
 
-## Frontend Dependencies for Markdown Chat
+---
 
-Install these in `frontend/`:
-```bash
-npm install react-markdown remark-gfm
-```
+## Configuration
 
-## Env Configuration
+### Core backend environment
 
-### Backend (`backend/.env`)
 ```bash
 ARCADIA_MODE=local
 DATABASE_URL=sqlite:///./arcadia.db
 CORS_ALLOWED_ORIGINS=http://localhost:5173
 AUTH_FRONTEND_URL=http://localhost:5173
+SECRET_KEY=<your-jwt-secret>
 ```
 
-### Azure Mode (optional)
+### Azure mode
+
 ```bash
 ARCADIA_MODE=azure
 AZURE_OPENAI_ENDPOINT=https://<resource>.openai.azure.com
 AZURE_OPENAI_KEY=<key>
-AZURE_OPENAI_DEPLOYMENT=gpt-5.4-mini
+AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
+AZURE_OPENAI_VISION_DEPLOYMENT=gpt-4o
 AZURE_OPENAI_EMBEDDING_DEPLOYMENT=text-embedding-3-small
 AZURE_OPENAI_API_VERSION=2024-10-21
-AZURE_OPENAI_REASONING_EFFORT=medium
-
 AZURE_FORM_RECOGNIZER_ENDPOINT=https://<resource>.cognitiveservices.azure.com
 AZURE_FORM_RECOGNIZER_KEY=<key>
-
 AZURE_SPEECH_KEY=<key>
 AZURE_SPEECH_REGION=<region>
-
 AZURE_TRANSLATOR_KEY=<key>
 AZURE_TRANSLATOR_REGION=<region>
 ```
 
-### Frontend (`frontend/.env`)
+### OAuth (backend ready)
+
+```bash
+GOOGLE_CLIENT_ID=<id>
+GOOGLE_CLIENT_SECRET=<secret>
+```
+
+### Frontend
+
 ```bash
 VITE_API_BASE_URL=http://localhost:8000/api
 ```
 
-## Screenshot Plan (Exact Shots to Take)
+---
 
-Create folders first:
-```bash
-mkdir -p assets/screenshots assets/diagrams
+## Deployment
+
+| Service | Platform | Config |
+|---------|----------|--------|
+| Frontend | Vercel | `frontend/vercel.json` |
+| Backend | Render (Docker) | `render.yaml` |
+
+---
+
+## Repository Structure
+
 ```
-
-Then capture these exact pages and save with these exact names:
-
-1. `assets/screenshots/01_auth_page.png`
-- Open `/auth`
-- Show login + register panel in one frame.
-
-2. `assets/screenshots/02_home_overview.png`
-- Open `/home`
-- Include quick actions + recent notes area.
-
-3. `assets/screenshots/03_notes_workspace.png`
-- Open `/notes`
-- Show note list and one selected note metadata.
-
-4. `assets/screenshots/04_chat_markdown_tts.png`
-- Open `/chat`
-- Ask for a response with headings + bullet points + bold text.
-- Keep one assistant message expanded, sources visible, and TTS button visible.
-
-5. `assets/screenshots/05_study_generation.png`
-- Open `/study`
-- Show cheatsheet/flashcards/diagram result cards.
-
-6. `assets/screenshots/06_quiz_attempt.png`
-- Open `/quiz`
-- Show active question and options.
-
-7. `assets/screenshots/07_planner_calendar.png`
-- Open `/planner`
-- Show generated tasks and calendar integration state.
-
-8. `assets/screenshots/08_dashboard_metrics.png`
-- Open `/dashboard`
-- Show mastery stats and recent activity.
-
-9. `assets/screenshots/09_challenge_or_code.png`
-- Open `/challenge` or `/code`
-- Show one live room or code execution result.
-
-After saving screenshots, verify:
-```bash
-ls -1 assets/screenshots
+Arcadia/
+├── backend/
+│   ├── main.py
+│   ├── config.py
+│   ├── models/
+│   ├── routers/          # auth, upload, chat, generate, quiz,
+│   │                     # tts, translate, planner, calendar,
+│   │                     # dashboard, challenge, code_runner,
+│   │                     # whiteboard, user
+│   ├── services/         # rag, llm, note, generate, quiz,
+│   │                     # ocr, tts, translate, safety, streak
+│   └── data/
+├── frontend/
+│   ├── src/
+│   │   ├── pages/
+│   │   ├── components/
+│   │   ├── services/
+│   │   ├── store/
+│   │   └── hooks/
+│   └── vercel.json
+├── assets/
+│   ├── screenshots/      # ← add your 10 app screenshots here
+│   └── flowcharts/       # ← place the 7 generated diagram PNGs here
+├── docs/submission/
+├── render.yaml
+└── README.md
 ```
-
-## AI Diagram Prompts (Use These)
-
-Use these prompts in your diagram-generation tool and export PNG/SVG into `assets/diagrams/`.
-
-### 1) System Architecture
-Save as: `assets/diagrams/01_system_architecture.png`
-
-Prompt:
-```text
-Create a clean production architecture diagram for an app called Arcadia.
-Show two major layers: React Frontend and FastAPI Backend.
-Frontend includes: TanStack Router, TanStack Query, Zustand Store, Pages (Auth, Home, Notes, Chat, Study, Quiz, Planner, Dashboard).
-Backend includes routers: auth, upload, chat, quiz, generate, tts/translate, dashboard, planner, calendar, challenge, code_runner.
-Backend services: llm_service, rag_service, note_service, quiz_service, generate_service, tts_service, translate_service, ocr_service.
-Data layer: SQL database with Document, Note, ChatHistory, QuizAttempt, PlannerTask.
-External integrations: Ollama OR Azure OpenAI, Azure Speech, Azure Translator, OCR providers.
-Add arrows for request flow and retrieval flow. Style should be modern, minimal, dark-on-light, labeled clearly.
-```
-
-### 2) Chat + RAG + TTS Sequence
-Save as: `assets/diagrams/02_chat_rag_tts_sequence.png`
-
-Prompt:
-```text
-Create a sequence diagram for Arcadia chat lifecycle.
-Actors: User, React ChatPage, FastAPI /api/chat, note_service, rag_service, llm_service, DB, FastAPI /api/tts, tts_service, Browser Audio.
-Flow:
-1) User sends query.
-2) ChatPage calls /api/chat.
-3) Backend resolves note/document context.
-4) RAG retrieves chunks.
-5) LLM generates markdown answer.
-6) UI renders markdown.
-7) User clicks TTS.
-8) ChatPage calls /api/tts.
-9) tts_service strips markdown to plain text.
-10) TTS synthesizes audio and /api/tts streams audio/mpeg.
-11) Browser plays audio.
-Use clear lifelines and numbered steps.
-```
-
-### 3) Data Model ERD
-Save as: `assets/diagrams/03_data_model_erd.png`
-
-Prompt:
-```text
-Create an ERD for Arcadia with entities:
-User, Note, Document, ChatHistory, QuizAttempt, PlannerTask, GeneratedContent.
-Show that one Note has many Documents (logical note grouping).
-Include key fields like ids, user_id, note_id, created_at, content blobs, scores/status.
-Show one-to-many and many-to-one relations.
-Style with readable tables and relationship connectors.
-```
-
-### 4) Quiz Engine Flow
-Save as: `assets/diagrams/04_quiz_engine_flow.png`
-
-Prompt:
-```text
-Create a flowchart for Arcadia adaptive quiz engine.
-Steps: Select note context -> choose tier/topic/language -> generate questions -> user answers -> evaluate correctness -> compute score/mastery -> persist quiz attempt -> update dashboard metrics -> unlock next tier when threshold met.
-Include error paths for invalid context and regeneration.
-Use concise labels and production-style flowchart blocks.
-```
-
-### 5) Deployment View
-Save as: `assets/diagrams/05_deployment_view.png`
-
-Prompt:
-```text
-Create a deployment diagram for Arcadia.
-Show: Browser client, Frontend hosting (Vite static build), Backend FastAPI service, SQL database, optional Redis/cache, Object/static storage for assets/audio cache, external AI services (Ollama local or Azure OpenAI, Azure Speech, Azure Translator).
-Include environment separation: Local mode and Azure mode.
-Show secure API boundary and auth token flow.
-```
-
-## README Image Embeds
-
-After generating images, keep this section in README and just ensure files exist:
-
-```md
-## Product Screens
-![Auth](assets/screenshots/01_auth_page.png)
-![Home](assets/screenshots/02_home_overview.png)
-![Notes](assets/screenshots/03_notes_workspace.png)
-![Chat Markdown + TTS](assets/screenshots/04_chat_markdown_tts.png)
-![Study Generation](assets/screenshots/05_study_generation.png)
-![Quiz](assets/screenshots/06_quiz_attempt.png)
-![Planner](assets/screenshots/07_planner_calendar.png)
-![Dashboard](assets/screenshots/08_dashboard_metrics.png)
-![Challenge/Code](assets/screenshots/09_challenge_or_code.png)
-
-## Architecture Diagrams
-![System Architecture](assets/diagrams/01_system_architecture.png)
-![Chat RAG TTS Sequence](assets/diagrams/02_chat_rag_tts_sequence.png)
-![Data Model ERD](assets/diagrams/03_data_model_erd.png)
-![Quiz Engine Flow](assets/diagrams/04_quiz_engine_flow.png)
-![Deployment View](assets/diagrams/05_deployment_view.png)
-```
-
-## API Surface (High-Level)
-
-Base path: `/api`
-
-- Auth: `/auth/*`
-- Upload & Notes: `/upload`, `/documents`, `/notes`, `/documents/{id}/topics`
-- Chat: `/chat`, `/chat/stream`, `/chat/history/{document_id}`
-- Study generation: `/generate/cheatsheet`, `/generate/flashcards`, `/generate/diagram`
-- Quiz: `/quiz/generate`, `/quiz/submit`, `/quiz/history`
-- TTS/Translation: `/tts`, `/translate`, `/languages`
-- Dashboard: `/dashboard/stats`, `/dashboard/mastery`, `/dashboard/recent-quizzes`, `/dashboard/reset`
-- Planner/Calendar: `/planner/*`, `/calendar/google/*`
-- Challenge: `/challenge/*`
-- Code runner: `/code/run`
-
-## Validation Checklist Before Production
-
-1. Chat renders Markdown headings/bullets/bold correctly.
-2. Clicking TTS plays audio for assistant response.
-3. No `<audio> no supported source` browser error.
-4. `/api/tts` returns `200` with `Content-Type: audio/mpeg`.
-5. Images and diagrams in README are present and load on GitHub preview.

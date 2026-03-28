@@ -71,6 +71,7 @@ async def upload_document(
     subject: str = Form(default="General"),
     topic: str = Form(default=""),
     note_id: str = Form(default=""),
+    ocr_mode: str = Form(default="printed"),
     current_user = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -83,6 +84,10 @@ async def upload_document(
     ext = "." + file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else ""
     if ext not in allowed_extensions:
         raise HTTPException(400, f"Unsupported file type: {ext}. Allowed: {allowed_extensions}")
+
+    normalized_ocr_mode = (ocr_mode or "printed").strip().lower()
+    if normalized_ocr_mode not in {"printed", "handwritten"}:
+        raise HTTPException(400, "Invalid ocr_mode. Use 'printed' or 'handwritten'.")
 
     doc_id = str(uuid.uuid4())
     selected_note_id = (note_id or "").strip()
@@ -129,7 +134,7 @@ async def upload_document(
 
     # OCR / text extraction
     try:
-        extracted_text = ocr_service.extract_text(str(save_path))
+        extracted_text = ocr_service.extract_text(str(save_path), ocr_mode=normalized_ocr_mode)
         extracted_text = clean_unicode(extracted_text)  # 🔥 FIX
     except Exception as e:
         save_path.unlink(missing_ok=True)

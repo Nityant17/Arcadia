@@ -28,7 +28,7 @@ export default function Galaxy() {
   const x = useMotionValue(0);
   const y = useMotionValue(0);
   const controls = useAnimation();
-  const DEBUG_STREAK: number | null = null;
+  const DEBUG_STREAK: number | null = 1000;
 
   useEffect(() => {
     let mounted = true;
@@ -169,7 +169,7 @@ export default function Galaxy() {
           The Infinite Library
         </h1>
         <p className="text-slate-500 font-mono text-xs mt-2">
-          {loading ? "Syncing your stars..." : `Streak: ${effectiveStreak} Days · ${completedCount} Constellations Discovered`}
+          {loading ? "Syncing your stars..." : `Streak (1000 for demo): ${effectiveStreak} Days · ${completedCount} Constellations Discovered`}
         </p>
         <p className="text-slate-400 text-xs mt-1">
           Log in each day to reveal a new star.
