@@ -24,6 +24,7 @@ backend/static/audio/*
 .idea/
 *.swp
 *.swo
+.codex
 
 # OS
 .DS_Store

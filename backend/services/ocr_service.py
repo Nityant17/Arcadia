@@ -166,8 +166,47 @@ class OCRService:
 
         return ""
 
-    def _poll_form_recognizer_result(self, client: httpx.Client, operation_url: str) -> dict:
-        headers = {"Ocp-Apim-Subscription-Key": AZURE_FORM_RECOGNIZER_KEY}
+    @staticmethod
+    def _is_form_recognizer_size_error(error_text: str) -> bool:
+        normalized = (error_text or "").lower()
+        return (
+            "invalidcontentlength" in normalized
+            or "input image is too large" in normalized
+            or ("invalid" in normalized and "content length" in normalized)
+        )
+
+    @staticmethod
+    def _encode_form_recognizer_image(image: Image.Image) -> bytes:
+        rgb = image.convert("RGB")
+        max_edge = 3600
+        min_edge = 1400
+        quality = 88
+        max_bytes = 8 * 1024 * 1024
+
+        if max(rgb.size) > max_edge:
+            rgb.thumbnail((max_edge, max_edge), Image.Resampling.LANCZOS)
+
+        while True:
+            buf = io.BytesIO()
+            rgb.save(buf, format="JPEG", quality=quality, optimize=True)
+            payload = buf.getvalue()
+
+            if len(payload) <= max_bytes:
+                return payload
+
+            if quality > 52:
+                quality = max(52, quality - 8)
+                continue
+
+            if max(rgb.size) > min_edge:
+                next_edge = max(min_edge, int(max(rgb.size) * 0.82))
+                rgb.thumbnail((next_edge, next_edge), Image.Resampling.LANCZOS)
+                continue
+
+            return payload
+
+    def _poll_form_recognizer_result(self, client: httpx.Client, operation_url: str, key: str) -> dict:
+        headers = {"Ocp-Apim-Subscription-Key": key}
         for _ in range(40):
             poll_response = client.get(operation_url, headers=headers)
             poll_response.raise_for_status()
@@ -184,6 +223,80 @@ class OCRService:
 
         raise RuntimeError("Timed out while waiting for Form Recognizer OCR result")
 
+    def _submit_form_recognizer_request(
+        self,
+        client: httpx.Client,
+        *,
+        analyze_url: str,
+        key: str,
+        content_type: str,
+        payload: bytes,
+    ) -> dict:
+        headers = {
+            "Ocp-Apim-Subscription-Key": key,
+            "Content-Type": content_type,
+        }
+        response = client.post(analyze_url, headers=headers, content=payload)
+        if response.status_code == 200:
+            return response.json()
+        if response.status_code == 202:
+            operation_location = response.headers.get("operation-location") or response.headers.get("Operation-Location")
+            if not operation_location:
+                raise RuntimeError("Missing operation-location header from Form Recognizer response")
+            return self._poll_form_recognizer_result(client, operation_location, key)
+        raise RuntimeError(
+            f"Form Recognizer request failed ({response.status_code}): {response.text[:500]}"
+        )
+
+    def _azure_form_recognizer_pdf_page_fallback(
+        self,
+        *,
+        client: httpx.Client,
+        file_path: str,
+        analyze_url: str,
+        key: str,
+    ) -> str:
+        with open(file_path, "rb") as source:
+            reader = PyPDF2.PdfReader(source)
+            total_pages = len(reader.pages)
+
+        if total_pages <= 0:
+            raise RuntimeError("PDF has no pages for Form Recognizer fallback")
+
+        text_parts: list[str] = []
+        for page_number in range(1, total_pages + 1):
+            page_images: list[Image.Image] = []
+            try:
+                page_images = convert_from_path(
+                    file_path,
+                    dpi=200,
+                    first_page=page_number,
+                    last_page=page_number,
+                )
+                if not page_images:
+                    continue
+                encoded = self._encode_form_recognizer_image(page_images[0])
+                page_payload = self._submit_form_recognizer_request(
+                    client,
+                    analyze_url=analyze_url,
+                    key=key,
+                    content_type="image/jpeg",
+                    payload=encoded,
+                )
+                page_text = self._extract_form_recognizer_text(page_payload)
+                if page_text.strip():
+                    text_parts.append(f"--- Page {page_number} ---\n{page_text}")
+            except Exception as page_error:
+                print(f"[OCR] Form Recognizer page {page_number} failed in fallback mode: {page_error}")
+            finally:
+                for img in page_images:
+                    img.close()
+
+        merged = self._clean_text("\n\n".join(text_parts))
+        if len(merged.strip()) < 20:
+            raise RuntimeError("Form Recognizer fallback returned too little text")
+        return merged
+
     def _azure_form_recognizer_ocr(self, file_path: str) -> str:
         endpoint = (AZURE_FORM_RECOGNIZER_ENDPOINT or "").strip()
         key = (AZURE_FORM_RECOGNIZER_KEY or "").strip()
@@ -199,27 +312,47 @@ class OCRService:
             f"{endpoint.rstrip('/')}/formrecognizer/documentModels/"
             f"{model}:analyze?api-version={api_version}"
         )
-        headers = {
-            "Ocp-Apim-Subscription-Key": key,
-            "Content-Type": self._mime_for_file(file_path),
-        }
+        content_type = self._mime_for_file(file_path)
 
         with open(file_path, "rb") as source:
             file_bytes = source.read()
 
+        ext = Path(file_path).suffix.lower()
+        image_exts = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff", ".tif"}
+
         with httpx.Client(timeout=180.0) as client:
-            response = client.post(analyze_url, headers=headers, content=file_bytes)
-            if response.status_code == 200:
-                result_payload = response.json()
-            elif response.status_code == 202:
-                operation_location = response.headers.get("operation-location") or response.headers.get("Operation-Location")
-                if not operation_location:
-                    raise RuntimeError("Missing operation-location header from Form Recognizer response")
-                result_payload = self._poll_form_recognizer_result(client, operation_location)
-            else:
-                raise RuntimeError(
-                    f"Form Recognizer request failed ({response.status_code}): {response.text[:500]}"
+            try:
+                result_payload = self._submit_form_recognizer_request(
+                    client,
+                    analyze_url=analyze_url,
+                    key=key,
+                    content_type=content_type,
+                    payload=file_bytes,
                 )
+            except Exception as first_error:
+                if ext == ".pdf" and self._is_form_recognizer_size_error(str(first_error)):
+                    print("[OCR] Form Recognizer rejected full PDF size, retrying with page-by-page compressed images")
+                    extracted = self._azure_form_recognizer_pdf_page_fallback(
+                        client=client,
+                        file_path=file_path,
+                        analyze_url=analyze_url,
+                        key=key,
+                    )
+                    return self._llm_cleanup(extracted)
+
+                if ext in image_exts and self._is_form_recognizer_size_error(str(first_error)):
+                    print("[OCR] Form Recognizer rejected image size, retrying with compressed JPEG payload")
+                    with Image.open(file_path) as img:
+                        image_bytes = self._encode_form_recognizer_image(img)
+                    result_payload = self._submit_form_recognizer_request(
+                        client,
+                        analyze_url=analyze_url,
+                        key=key,
+                        content_type="image/jpeg",
+                        payload=image_bytes,
+                    )
+                else:
+                    raise
 
         extracted = self._extract_form_recognizer_text(result_payload)
         if len(extracted.strip()) < 20:
