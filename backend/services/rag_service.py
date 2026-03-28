@@ -20,6 +20,7 @@ from config import (
     AZURE_OPENAI_EMBEDDING_DEPLOYMENT,
     AZURE_OPENAI_ENDPOINT,
     AZURE_OPENAI_KEY,
+    AZURE_OPENAI_API_VERSION,
 )
 from models.database import (
     Document,
@@ -62,7 +63,7 @@ class RAGService:
     def _azure_embeddings_url() -> str:
         return (
             f"{AZURE_OPENAI_ENDPOINT.rstrip('/')}/openai/deployments/"
-            f"{AZURE_OPENAI_EMBEDDING_DEPLOYMENT}/embeddings?api-version=2024-06-01"
+            f"{AZURE_OPENAI_EMBEDDING_DEPLOYMENT}/embeddings?api-version={AZURE_OPENAI_API_VERSION}"
         )
 
     def _embed_texts_azure(self, texts: list[str]) -> list[list[float]]:

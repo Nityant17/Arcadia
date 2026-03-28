@@ -10,6 +10,8 @@ from config import (
     MODE, OLLAMA_BASE_URL, OLLAMA_MODEL,
     AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_KEY,
     AZURE_OPENAI_DEPLOYMENT,
+    AZURE_OPENAI_API_VERSION,
+    AZURE_OPENAI_REASONING_EFFORT,
 )
 
 
@@ -38,6 +40,55 @@ class LLMService:
         return self._parse_json(raw)
 
     # ─── Ollama Implementation ────────────────────────────────
+
+    @staticmethod
+    def _azure_chat_url() -> str:
+        return (
+            f"{AZURE_OPENAI_ENDPOINT.rstrip('/')}/openai/deployments/"
+            f"{AZURE_OPENAI_DEPLOYMENT}/chat/completions?api-version={AZURE_OPENAI_API_VERSION}"
+        )
+
+    @staticmethod
+    def _is_reasoning_model() -> bool:
+        deployment = (AZURE_OPENAI_DEPLOYMENT or "").strip().lower()
+        return deployment.startswith(("gpt-5", "o1", "o3", "o4"))
+
+    def _build_azure_chat_payload(
+        self,
+        messages: list[dict],
+        temperature: float,
+        max_tokens: int,
+        stream: bool = False,
+    ) -> dict:
+        payload: dict = {"messages": messages}
+
+        if stream:
+            payload["stream"] = True
+
+        if self._is_reasoning_model():
+            payload["max_completion_tokens"] = max_tokens
+            reasoning_effort = (AZURE_OPENAI_REASONING_EFFORT or "").strip().lower()
+            if reasoning_effort in {"low", "medium", "high"}:
+                payload["reasoning_effort"] = reasoning_effort
+        else:
+            payload["max_tokens"] = max_tokens
+            payload["temperature"] = temperature
+
+        return payload
+
+    @staticmethod
+    def _extract_message_content(message_content) -> str:
+        if isinstance(message_content, str):
+            return message_content.strip()
+        if isinstance(message_content, list):
+            parts: list[str] = []
+            for item in message_content:
+                if isinstance(item, dict) and item.get("type") == "text":
+                    text = item.get("text", "")
+                    if text:
+                        parts.append(str(text))
+            return "".join(parts).strip()
+        return ""
 
     async def _ollama_generate(self, prompt: str, system_prompt: str,
                                 temperature: float, max_tokens: int) -> str:
@@ -82,16 +133,18 @@ class LLMService:
 
         if MODE == "azure":
             # Azure OpenAI streaming
-            url = (
-                f"{AZURE_OPENAI_ENDPOINT.rstrip('/')}/openai/deployments/"
-                f"{AZURE_OPENAI_DEPLOYMENT}/chat/completions?api-version=2024-06-01"
-            )
+            url = self._azure_chat_url()
             headers = {"Content-Type": "application/json", "api-key": AZURE_OPENAI_KEY}
             messages = []
             if system_prompt:
                 messages.append({"role": "system", "content": system_prompt})
             messages.append({"role": "user", "content": prompt})
-            az_payload = {"messages": messages, "temperature": 0.7, "stream": True}
+            az_payload = self._build_azure_chat_payload(
+                messages=messages,
+                temperature=0.7,
+                max_tokens=2048,
+                stream=True,
+            )
             async with httpx.AsyncClient(timeout=120.0) as client:
                 async with client.stream("POST", url, headers=headers, json=az_payload) as resp:
                     async for line in resp.aiter_lines():
@@ -103,6 +156,12 @@ class LLMService:
                                 data = json.loads(data_str)
                                 delta = data["choices"][0].get("delta", {})
                                 token = delta.get("content", "")
+                                if isinstance(token, list):
+                                    token = "".join(
+                                        str(item.get("text", ""))
+                                        for item in token
+                                        if isinstance(item, dict)
+                                    )
                                 if token:
                                     yield token
                             except (json.JSONDecodeError, KeyError, IndexError):
@@ -129,10 +188,7 @@ class LLMService:
     async def _azure_generate(self, prompt: str, system_prompt: str,
                                temperature: float, max_tokens: int) -> str:
         """Azure OpenAI Chat Completions via REST API."""
-        url = (
-            f"{AZURE_OPENAI_ENDPOINT.rstrip('/')}/openai/deployments/"
-            f"{AZURE_OPENAI_DEPLOYMENT}/chat/completions?api-version=2024-06-01"
-        )
+        url = self._azure_chat_url()
         headers = {
             "Content-Type": "application/json",
             "api-key": AZURE_OPENAI_KEY,
@@ -142,18 +198,19 @@ class LLMService:
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
 
-        payload = {
-            "messages": messages,
-            "temperature": temperature,
-            "max_tokens": max_tokens,
-        }
+        payload = self._build_azure_chat_payload(
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
 
         async with httpx.AsyncClient(timeout=120.0) as client:
             try:
                 resp = await client.post(url, headers=headers, json=payload)
                 resp.raise_for_status()
                 data = resp.json()
-                return data["choices"][0]["message"]["content"].strip()
+                message = data["choices"][0]["message"]
+                return self._extract_message_content(message.get("content"))
             except httpx.HTTPStatusError as e:
                 raise RuntimeError(
                     f"Azure OpenAI error {e.response.status_code}: {e.response.text}"

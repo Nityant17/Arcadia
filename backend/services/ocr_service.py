@@ -1,7 +1,7 @@
 """
 OCR Service — Extract text from images (handwritten notes) and PDFs.
 Local: Tesseract OCR + pdf2image
-Azure: Azure Form Recognizer + GPT-4o Vision
+Azure: Azure Form Recognizer + Azure OpenAI cleanup
 """
 import os
 import re
@@ -21,6 +21,8 @@ from config import (
     AZURE_OPENAI_ENDPOINT,
     AZURE_OPENAI_KEY,
     AZURE_OPENAI_DEPLOYMENT,
+    AZURE_OPENAI_API_VERSION,
+    AZURE_OPENAI_REASONING_EFFORT,
 )
 
 
@@ -109,6 +111,11 @@ class OCRService:
 
     # ─── Azure (placeholder) ──────────────────────────────────
 
+    @staticmethod
+    def _is_reasoning_model() -> bool:
+        deployment = (AZURE_OPENAI_DEPLOYMENT or "").strip().lower()
+        return deployment.startswith(("gpt-5", "o1", "o3", "o4"))
+
     def _azure_vision_ocr(self, file_path: str) -> str:
         """Azure Form Recognizer (Document Intelligence) for OCR."""
         import time
@@ -181,22 +188,38 @@ class OCRService:
         try:
             url = (
                 f"{AZURE_OPENAI_ENDPOINT.rstrip('/')}/openai/deployments/"
-                f"{AZURE_OPENAI_DEPLOYMENT}/chat/completions?api-version=2024-06-01"
+                f"{AZURE_OPENAI_DEPLOYMENT}/chat/completions?api-version={AZURE_OPENAI_API_VERSION}"
             )
             headers = {"Content-Type": "application/json", "api-key": AZURE_OPENAI_KEY}
-            payload = {
+            payload: dict = {
                 "messages": [
                     {"role": "system", "content": "You only correct OCR text. Never add new facts."},
                     {"role": "user", "content": prompt},
                 ],
-                "temperature": 0.1,
-                "max_tokens": 2048,
             }
+            if self._is_reasoning_model():
+                payload["max_completion_tokens"] = 2048
+                reasoning_effort = (AZURE_OPENAI_REASONING_EFFORT or "").strip().lower()
+                if reasoning_effort in {"low", "medium", "high"}:
+                    payload["reasoning_effort"] = reasoning_effort
+            else:
+                payload["temperature"] = 0.1
+                payload["max_tokens"] = 2048
             with httpx.Client(timeout=120.0) as client:
                 resp = client.post(url, headers=headers, json=payload)
                 resp.raise_for_status()
                 data = resp.json()
-                return data["choices"][0]["message"]["content"].strip()
+                content = data["choices"][0]["message"]["content"]
+                if isinstance(content, str):
+                    return content.strip()
+                if isinstance(content, list):
+                    merged = "".join(
+                        str(item.get("text", ""))
+                        for item in content
+                        if isinstance(item, dict) and item.get("type") == "text"
+                    )
+                    return merged.strip()
+                return text
         except Exception as e:
             print(f"[OCR] LLM cleanup failed: {e}")
             return text
