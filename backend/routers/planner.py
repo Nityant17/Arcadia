@@ -167,7 +167,8 @@ def create_plan(
     )
     db.add(plan)
 
-    today = datetime.date.today()
+    now = datetime.datetime.now()
+    today = now.date()
 
     base_hours_total = sum(max(1.0, s.weekly_hours) for s in request.subjects)
     size_weights = {}
@@ -243,13 +244,15 @@ def create_plan(
                 for offset in range(len(preferred_hours)):
                     hour = preferred_hours[(session_idx + offset) % len(preferred_hours)]
                     due = datetime.datetime.combine(candidate_day, datetime.time(hour=hour))
+                    if candidate_day == today and due <= now:
+                        continue
                     key = due.isoformat()
                     if key not in used_slots:
                         used_slots.add(key)
                         subject_day_counts[candidate_day] = subject_day_counts.get(candidate_day, 0) + 1
                         return due
 
-            search_day = target_day
+            search_day = max(target_day, today)
             while search_day <= subject.exam_date:
                 if subject_day_counts.get(search_day, 0) >= max_subject_sessions_per_day:
                     search_day = search_day + datetime.timedelta(days=1)
@@ -257,6 +260,8 @@ def create_plan(
                 for offset in range(len(preferred_hours)):
                     hour = preferred_hours[(session_idx + offset) % len(preferred_hours)]
                     due = datetime.datetime.combine(search_day, datetime.time(hour=hour))
+                    if search_day == today and due <= now:
+                        continue
                     key = due.isoformat()
                     if key not in used_slots:
                         used_slots.add(key)

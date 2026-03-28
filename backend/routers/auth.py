@@ -11,6 +11,7 @@ from email.message import EmailMessage
 from urllib.parse import urlencode, quote_plus
 
 import httpx
+import bcrypt
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
@@ -77,7 +78,25 @@ class AuthResponse(BaseModel):
 
 
 def _hash_password(password: str) -> str:
-    return hashlib.sha256(password.encode("utf-8")).hexdigest()
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+
+def _verify_password(password: str, stored_hash: str) -> bool:
+    value = (stored_hash or "").strip()
+    if value.startswith("$2a$") or value.startswith("$2b$") or value.startswith("$2y$"):
+        try:
+            return bcrypt.checkpw(password.encode("utf-8"), value.encode("utf-8"))
+        except ValueError:
+            return False
+
+    # Legacy fallback: sha256 from previous versions.
+    legacy_hash = hashlib.sha256(password.encode("utf-8")).hexdigest()
+    return hmac.compare_digest(legacy_hash, value)
+
+
+def _is_legacy_password_hash(stored_hash: str) -> bool:
+    value = (stored_hash or "").strip()
+    return not (value.startswith("$2a$") or value.startswith("$2b$") or value.startswith("$2y$"))
 
 
 def _hash_otp(email: str, otp: str) -> str:
@@ -336,8 +355,11 @@ def resend_otp(req: ResendOtpRequest, db: Session = Depends(get_db)):
 @router.post("/auth/login", response_model=AuthResponse)
 def login(req: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == req.email.lower().strip()).first()
-    if not user or user.password_hash != _hash_password(req.password):
+    if not user or not _verify_password(req.password, user.password_hash):
         raise HTTPException(401, "No account found with those credentials. Check email/password or create an account.")
+
+    if _is_legacy_password_hash(user.password_hash):
+        user.password_hash = _hash_password(req.password)
 
     if (user.auth_provider or "local") != "local":
         raise HTTPException(401, f"This account uses {user.auth_provider} sign-in. Use OAuth login.")

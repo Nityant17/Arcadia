@@ -65,7 +65,8 @@ Because the note is logical:
 
 ## Backend
 - FastAPI routers
-- SQLAlchemy + SQLite
+- SQLAlchemy + PostgreSQL (production) / SQLite (local dev)
+- pgvector-backed chunk retrieval for RAG (with DB fallback path)
 - Service layer (`backend/services`) for OCR, RAG, LLM, generation, quiz, translation, TTS, safety
 
 ## Backend Service Map
@@ -198,6 +199,39 @@ cd frontend
 npm run build
 ```
 
+## Recommended Deployment Stack (Fastest Path)
+
+This repo is now set up for:
+- **Database:** Supabase or Neon PostgreSQL (`DATABASE_URL`)
+- **Backend:** Render (Docker deploy from `backend/Dockerfile`)
+- **Frontend:** Vercel (from `frontend/`)
+
+### 1) Provision Postgres + pgvector
+1. Create a PostgreSQL database in Supabase or Neon.
+2. Run:
+   ```sql
+   CREATE EXTENSION IF NOT EXISTS vector;
+   ```
+3. Copy the connection string and set `DATABASE_URL` in backend environment variables.
+
+### 2) Deploy Backend (Render)
+1. Connect repo to Render and use `render.yaml` (or configure manually).
+2. Backend builds from `backend/Dockerfile` and includes:
+   - `node`
+   - `gcc` / `g++`
+   - `javac` / `java`
+   - OCR dependencies (`tesseract-ocr`, `poppler-utils`)
+3. Set env vars (start from `backend/.env.example`).
+
+### 3) Deploy Frontend (Vercel)
+1. Deploy from `frontend/`.
+2. `frontend/vercel.json` is included for Vite + SPA routing.
+3. Set:
+   ```bash
+   VITE_API_BASE_URL=https://<your-backend-domain>/api
+   ```
+   (template in `frontend/.env.example`)
+
 ## Azure Backend Mode (Production-Ready Path)
 
 Arcadia supports Azure mode via `ARCADIA_MODE=azure`.
@@ -220,10 +254,9 @@ AZURE_SPEECH_REGION=<region>
 
 AZURE_TRANSLATOR_KEY=<key>
 AZURE_TRANSLATOR_REGION=<region>
-
-AZURE_SEARCH_ENDPOINT=<https://...search.windows.net>
-AZURE_SEARCH_KEY=<key>
 ```
+
+Azure Search is no longer required for the current RAG path.
 
 ## Google Calendar (One-Way Push)
 
@@ -259,13 +292,13 @@ If Azure credentials are missing/invalid, features fall back or fail per service
 Arcadia is functional but **not fully production-hardened** yet. Before public hosting, review:
 
 1. **Passwords & Auth Security**
-   - Current hashing uses SHA-256. Replace with `bcrypt` or `argon2`.
+   - Password hashing now uses `bcrypt` (legacy SHA-256 hashes auto-upgrade on login).
    - Consider moving auth tokens to HttpOnly cookies to reduce XSS risk.
    - Ensure session expiration/rotation is enforced.
 
 2. **CORS + Allowed Origins**
-   - Update CORS in `backend/main.py` to your deployed frontend domain.
-   - Remove `localhost` in production.
+   - CORS is env-driven via `CORS_ALLOWED_ORIGINS`.
+   - Set only deployed frontend origins in production.
 
 3. **TLS / HTTPS**
    - Ensure HTTPS everywhere (frontend + backend).
@@ -297,15 +330,17 @@ python3 -m compileall .
 ```
 
 5. **Rate Limiting + Abuse Protection**
-   - Add rate limits to `/auth`, `/chat`, `/quiz`, `/upload`, `/code/run`.
-   - Add upload size limits and throttling.
+   - Basic in-memory rate limits are enabled for `/auth`, `/chat`, `/quiz`, `/upload`, `/code/run`.
+   - Upload/code payload size guardrails are enabled via env vars.
 
 6. **Database & Persistence**
-   - SQLite is fine for dev; use Postgres or managed DB for production.
+   - PostgreSQL + pgvector is the recommended production path.
+   - SQLite is still fine for local dev.
    - Add backups and migrations.
 
 7. **Observability**
-   - Add request logging and centralized error tracking.
+   - Request logging middleware is enabled (env toggle available).
+   - Add centralized error tracking for production.
    - Enable Azure Application Insights if hosting on Azure.
 
 8. **OAuth Redirects**

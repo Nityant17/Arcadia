@@ -137,12 +137,12 @@ class QuizService:
             context = "\n\n".join(c["text"] for c in chunks) if chunks else ""
             if not context:
                 context = "\n\n".join(
-                    rag_service.get_document_text(doc_id) or ""
+                    rag_service.get_document_text_with_fallback(doc_id) or ""
                     for doc_id in document_ids
                 ).strip()
         else:
             context = "\n\n".join(
-                rag_service.get_document_text(doc_id) or ""
+                rag_service.get_document_text_with_fallback(doc_id) or ""
                 for doc_id in document_ids
             ).strip()
         context = self._strip_front_matter(context)

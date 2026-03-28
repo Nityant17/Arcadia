@@ -1,14 +1,32 @@
 """
 Arcadia Backend — FastAPI Application Entry Point
 """
+import logging
+import time
+from collections import deque
 from fastapi import FastAPI
+from fastapi import Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
+from threading import Lock
 
 from config import (
     AUDIO_DIR,
     MODE,
+    CORS_ALLOWED_ORIGINS,
+    MAX_CODE_PAYLOAD_BYTES,
+    MAX_CODE_PAYLOAD_MB,
+    MAX_UPLOAD_SIZE_BYTES,
+    MAX_UPLOAD_SIZE_MB,
+    RATE_LIMIT_AUTH_PER_WINDOW,
+    RATE_LIMIT_CHAT_PER_WINDOW,
+    RATE_LIMIT_CODE_RUN_PER_WINDOW,
+    RATE_LIMIT_QUIZ_PER_WINDOW,
+    RATE_LIMIT_UPLOAD_PER_WINDOW,
+    RATE_LIMIT_WINDOW_SECONDS,
+    REQUEST_LOGGING_ENABLED,
     AZURE_OPENAI_ENDPOINT,
     AZURE_OPENAI_KEY,
     AZURE_FORM_RECOGNIZER_ENDPOINT,
@@ -21,6 +39,44 @@ from config import (
 from models.database import init_db
 from services.rag_service import rag_service
 from routers import upload, chat, quiz, generate, tts, dashboard, auth, planner, whiteboard, challenge, code_runner, user, calendar
+
+logger = logging.getLogger("arcadia.api")
+if REQUEST_LOGGING_ENABLED and not logger.handlers:
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+
+_RATE_LIMIT_RULES = {
+    "/api/auth": RATE_LIMIT_AUTH_PER_WINDOW,
+    "/api/chat": RATE_LIMIT_CHAT_PER_WINDOW,
+    "/api/quiz": RATE_LIMIT_QUIZ_PER_WINDOW,
+    "/api/upload": RATE_LIMIT_UPLOAD_PER_WINDOW,
+    "/api/code/run": RATE_LIMIT_CODE_RUN_PER_WINDOW,
+}
+_rate_limit_state: dict[str, deque[float]] = {}
+_rate_limit_lock = Lock()
+
+
+def _matched_rate_limit(path: str) -> tuple[str, int] | tuple[None, None]:
+    for prefix, limit in _RATE_LIMIT_RULES.items():
+        if path.startswith(prefix):
+            return prefix, limit
+    return None, None
+
+
+def _is_rate_limited(client_key: str, route_prefix: str, limit: int) -> bool:
+    now = time.time()
+    key = f"{client_key}:{route_prefix}"
+
+    with _rate_limit_lock:
+        hits = _rate_limit_state.setdefault(key, deque())
+        cutoff = now - RATE_LIMIT_WINDOW_SECONDS
+        while hits and hits[0] < cutoff:
+            hits.popleft()
+
+        if len(hits) >= limit:
+            return True
+
+        hits.append(now)
+        return False
 
 
 def _azure_env_status() -> dict:
@@ -65,10 +121,60 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# ─── CORS (allow React/Vite frontend during dev) ─────────────
+# ─── Runtime protection + observability ───────────────────────
+@app.middleware("http")
+async def runtime_guardrails(request: Request, call_next):
+    path = request.url.path or "/"
+    method = (request.method or "").upper()
+    content_length = int(request.headers.get("content-length", "0") or 0)
+    client_host = request.client.host if request.client else "unknown"
+
+    if path == "/api/upload" and method == "POST" and content_length > MAX_UPLOAD_SIZE_BYTES:
+        return JSONResponse(
+            status_code=413,
+            content={
+                "detail": f"Upload too large. Max allowed size is {MAX_UPLOAD_SIZE_MB} MB.",
+            },
+        )
+    if path == "/api/code/run" and method == "POST" and content_length > MAX_CODE_PAYLOAD_BYTES:
+        return JSONResponse(
+            status_code=413,
+            content={
+                "detail": f"Payload too large for code execution. Max allowed size is {MAX_CODE_PAYLOAD_MB} MB.",
+            },
+        )
+
+    route_prefix, limit = _matched_rate_limit(path)
+    if route_prefix and limit and _is_rate_limited(client_host, route_prefix, limit):
+        return JSONResponse(
+            status_code=429,
+            content={
+                "detail": (
+                    f"Rate limit exceeded for {route_prefix}. "
+                    f"Try again in {RATE_LIMIT_WINDOW_SECONDS} seconds."
+                )
+            },
+        )
+
+    started = time.perf_counter()
+    try:
+        response = await call_next(request)
+    except Exception:
+        if REQUEST_LOGGING_ENABLED:
+            duration_ms = (time.perf_counter() - started) * 1000
+            logger.exception("%s %s -> exception (%.1fms)", method, path, duration_ms)
+        raise
+
+    if REQUEST_LOGGING_ENABLED:
+        duration_ms = (time.perf_counter() - started) * 1000
+        logger.info("%s %s -> %s (%.1fms)", method, path, response.status_code, duration_ms)
+    return response
+
+
+# ─── CORS ─────────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=CORS_ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

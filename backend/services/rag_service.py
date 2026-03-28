@@ -1,47 +1,68 @@
 """
-RAG Service — ChromaDB vector store + sentence-transformers embeddings.
-Handles document chunking, indexing, and retrieval.
+RAG Service — pgvector-backed chunk storage and retrieval.
+Falls back to in-Python similarity ranking when pgvector operators are unavailable.
 """
-from typing import List, Dict, Optional
-import chromadb
-from chromadb.utils import embedding_functions
+from __future__ import annotations
+
+import math
+import uuid
+from typing import Dict, List, Optional
+
+from sentence_transformers import SentenceTransformer
 from sqlalchemy.exc import SQLAlchemyError
 
 from config import (
-    CHROMA_DB_DIR, EMBEDDING_MODEL_NAME, 
-    CHUNK_MAX_TOKENS, CHUNK_OVERLAP_TOKENS, RAG_TOP_K
+    CHUNK_MAX_TOKENS,
+    CHUNK_OVERLAP_TOKENS,
+    EMBEDDING_MODEL_NAME,
+    RAG_TOP_K,
 )
-from models.database import SessionLocal, Document
+from models.database import (
+    Document,
+    DocumentChunk,
+    PGVECTOR_ENABLED,
+    SessionLocal,
+)
 
 
 class RAGService:
-    """Manages the vector store for RAG retrieval."""
+    """Manages chunking, embedding, indexing, and retrieval for RAG."""
 
     def __init__(self):
-        self._client: Optional[chromadb.PersistentClient] = None
-        self._collection = None
-        self._ef = None
+        self._embedder: Optional[SentenceTransformer] = None
 
     def initialize(self):
-        """Initialize ChromaDB + embedding function. Called at startup."""
-        print(f"🔍 Loading embedding model: {EMBEDDING_MODEL_NAME}")
-        self._ef = embedding_functions.SentenceTransformerEmbeddingFunction(
-            model_name=EMBEDDING_MODEL_NAME
-        )
-        self._client = chromadb.PersistentClient(path=CHROMA_DB_DIR)
-        self._collection = self._client.get_or_create_collection(
-            name="arcadia_docs",
-            embedding_function=self._ef,
-            metadata={"hnsw:space": "cosine"}
-        )
-        count = self._collection.count()
-        print(f"🗂️  ChromaDB initialized — {count} chunks indexed")
+        """Initialize embedding model. Called at startup."""
+        if self._embedder is None:
+            print(f"🔍 Loading embedding model: {EMBEDDING_MODEL_NAME}")
+            self._embedder = SentenceTransformer(EMBEDDING_MODEL_NAME)
+        count = self.get_total_chunks()
+        store_name = "pgvector" if PGVECTOR_ENABLED else "database-fallback"
+        print(f"🗂️  Vector store initialized ({store_name}) — {count} chunks indexed")
+
+    # ─── Embeddings ───────────────────────────────────────────
+
+    def _ensure_embedder(self) -> SentenceTransformer:
+        if self._embedder is None:
+            self._embedder = SentenceTransformer(EMBEDDING_MODEL_NAME)
+        return self._embedder
+
+    def _embed_texts(self, texts: list[str]) -> list[list[float]]:
+        embedder = self._ensure_embedder()
+        vectors = embedder.encode(texts, convert_to_numpy=True, show_progress_bar=False)
+        return vectors.tolist()
+
+    def _embed_text(self, text: str) -> list[float]:
+        return self._embed_texts([text])[0]
 
     # ─── Chunking ─────────────────────────────────────────────
 
     @staticmethod
-    def chunk_text(text: str, max_tokens: int = CHUNK_MAX_TOKENS,
-                   overlap: int = CHUNK_OVERLAP_TOKENS) -> List[str]:
+    def chunk_text(
+        text: str,
+        max_tokens: int = CHUNK_MAX_TOKENS,
+        overlap: int = CHUNK_OVERLAP_TOKENS,
+    ) -> List[str]:
         """Split text into overlapping chunks by whitespace tokens."""
         text = text.strip()
         if not text:
@@ -59,167 +80,252 @@ class RAGService:
             chunks.append(chunk)
             if end >= len(tokens):
                 break
-            start += (max_tokens - overlap)
+            start += max(1, (max_tokens - overlap))
         return chunks
 
     @staticmethod
     def _normalize_chunks(chunks: List[str]) -> List[str]:
-        """Ensure all chunks are non-empty strings accepted by tokenizer."""
         normalized: List[str] = []
         for chunk in chunks:
             if chunk is None:
                 continue
-
             if not isinstance(chunk, str):
                 chunk = str(chunk)
-
             chunk = chunk.strip()
             if chunk:
                 normalized.append(chunk)
-
         return normalized
+
+    @staticmethod
+    def _clean_chunks(chunks: list[str]) -> list[str]:
+        cleaned: list[str] = []
+        for chunk in chunks:
+            value = (chunk or "").strip()
+            value = value.encode("utf-8", "ignore").decode("utf-8")
+            if len(value) < 10:
+                continue
+            cleaned.append(value)
+        return cleaned
+
+    @staticmethod
+    def _cosine_distance(a: list[float], b: list[float]) -> float:
+        if not a or not b:
+            return 1.0
+        if len(a) != len(b):
+            return 1.0
+
+        dot = 0.0
+        norm_a = 0.0
+        norm_b = 0.0
+        for x, y in zip(a, b):
+            dot += float(x) * float(y)
+            norm_a += float(x) * float(x)
+            norm_b += float(y) * float(y)
+
+        if norm_a <= 0.0 or norm_b <= 0.0:
+            return 1.0
+
+        similarity = dot / (math.sqrt(norm_a) * math.sqrt(norm_b))
+        similarity = max(-1.0, min(1.0, similarity))
+        return 1.0 - similarity
+
+    def _query_extracted_text_fallback(
+        self,
+        db,
+        query_embedding: list[float],
+        document_id: str,
+        top_k: int,
+    ) -> list[dict]:
+        """
+        Fallback retrieval for legacy records that have extracted_text but no
+        indexed chunks yet (for smooth SQLite -> Postgres transitions).
+        """
+        document = db.query(Document).filter(Document.id == document_id).first()
+        if not document or not (document.extracted_text or "").strip():
+            return []
+
+        chunks = self._clean_chunks(self._normalize_chunks(self.chunk_text(document.extracted_text)))
+        if not chunks:
+            return []
+
+        embeddings = self._embed_texts(chunks)
+        scored = [
+            (index, chunk, self._cosine_distance(query_embedding, embedding))
+            for index, (chunk, embedding) in enumerate(zip(chunks, embeddings))
+        ]
+        scored.sort(key=lambda item: item[2])
+
+        return [
+            {
+                "text": chunk_text,
+                "metadata": {
+                    "document_id": document_id,
+                    "chunk_index": chunk_index,
+                    "subject": document.subject,
+                    "topic": document.topic,
+                },
+                "distance": float(distance),
+                "relevance": 1 - float(distance),
+            }
+            for chunk_index, chunk_text, distance in scored[:top_k]
+        ]
 
     # ─── Indexing ──────────────────────────────────────────────
 
-    def index_document(self, doc_id: str, text: str, 
-                   subject: str = "General", topic: str = "") -> int:
+    def index_document(
+        self,
+        doc_id: str,
+        text: str,
+        subject: str = "General",
+        topic: str = "",
+    ) -> int:
         """Chunk and index a document. Returns number of chunks created."""
-
         if text is None:
             raise ValueError("Input text is None")
-
         if not isinstance(text, str):
             text = str(text)
 
-        # ─── STEP 1: Chunk + normalize ─────────────────────────────
         raw_chunks = self.chunk_text(text)
-        chunks = self._normalize_chunks(raw_chunks)
-
-        # ─── STEP 2: HARD CLEANING (critical fix) ──────────────────
-        clean_chunks = []
-        for c in chunks:
-            if not isinstance(c, str):
-                continue
-
-            c = c.strip()
-
-            # Remove encoding junk (OCR artifacts)
-            c = c.encode("utf-8", "ignore").decode("utf-8")
-
-            # Skip garbage / tiny chunks
-            if len(c) < 10:
-                continue
-
-            clean_chunks.append(c)
-
-        chunks = clean_chunks
-
-        # ─── STEP 3: Validate final chunks ─────────────────────────
+        chunks = self._clean_chunks(self._normalize_chunks(raw_chunks))
         if not chunks:
             raise ValueError("No valid chunks after cleaning (bad OCR or empty file)")
 
-        # ─── STEP 4: Prepare data ──────────────────────────────────
-        ids = []
-        documents = []
-        metadatas = []
-
-        for i, chunk in enumerate(chunks):
-            clean_chunk = str(chunk).strip()
-
-            ids.append(f"{doc_id}_chunk_{i}")
-            documents.append(clean_chunk)
-            metadatas.append({
-                "document_id": doc_id,
-                "chunk_index": i,
-                "subject": subject,
-                "topic": topic,
-            })
-
-        # ─── STEP 5: Batch insert with strict validation ───────────
-        batch_size = 100
-
-        for start in range(0, len(ids), batch_size):
-            end = start + batch_size
-
-            batch_ids = ids[start:end]
-            batch_docs = documents[start:end]
-            batch_meta = metadatas[start:end]
-
-            # 🚨 FINAL SAFETY CHECK (prevents your exact error)
-            for d in batch_docs:
-                if not isinstance(d, str):
-                    raise ValueError(f"Invalid chunk type: {type(d)}")
-                if not d.strip():
-                    raise ValueError("Empty chunk detected in batch")
-
-            # DEBUG (optional, remove later)
-            print("DEBUG → Sample docs:", batch_docs[:2])
-
-            self._collection.add(
-                ids=batch_ids,
-                documents=batch_docs,
-                metadatas=batch_meta,
+        embeddings = self._embed_texts(chunks)
+        db = SessionLocal()
+        try:
+            db.query(DocumentChunk).filter(DocumentChunk.document_id == doc_id).delete(
+                synchronize_session=False
             )
 
-        return len(chunks)
+            rows = [
+                DocumentChunk(
+                    id=str(uuid.uuid4()),
+                    document_id=doc_id,
+                    chunk_index=index,
+                    subject=subject,
+                    topic=topic,
+                    content=chunk,
+                    embedding=embedding,
+                )
+                for index, (chunk, embedding) in enumerate(zip(chunks, embeddings))
+            ]
+            db.add_all(rows)
+
+            document = db.query(Document).filter(Document.id == doc_id).first()
+            if document:
+                document.chunk_count = len(chunks)
+
+            db.commit()
+            return len(chunks)
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()
 
     # ─── Retrieval ────────────────────────────────────────────
 
-    def query(self, query_text: str, document_id: Optional[str] = None,
-              top_k: int = RAG_TOP_K) -> List[Dict]:
+    def query(
+        self,
+        query_text: str,
+        document_id: Optional[str] = None,
+        top_k: int = RAG_TOP_K,
+    ) -> List[Dict]:
         """
         Retrieve the most relevant chunks for a query.
         Optionally filter by document_id.
         """
-        where_filter = None
-        if document_id:
-            where_filter = {"document_id": document_id}
+        if not query_text or not query_text.strip():
+            return []
 
-        results = self._collection.query(
-            query_texts=[query_text],
-            n_results=top_k,
-            where=where_filter,
-            include=["documents", "metadatas", "distances"],
-        )
+        query_embedding = self._embed_text(query_text.strip())
+        db = SessionLocal()
+        try:
+            if PGVECTOR_ENABLED:
+                distance_expr = DocumentChunk.embedding.cosine_distance(query_embedding).label("distance")
+                query = db.query(DocumentChunk, distance_expr)
+                if document_id:
+                    query = query.filter(DocumentChunk.document_id == document_id)
 
-        chunks = []
-        if results["documents"] and results["documents"][0]:
-            for doc, meta, dist in zip(
-                results["documents"][0],
-                results["metadatas"][0],
-                results["distances"][0],
-            ):
-                chunks.append({
-                    "text": doc,
-                    "metadata": meta,
-                    "distance": dist,
-                    "relevance": 1 - dist,  # cosine distance → similarity
-                })
+                rows = query.order_by(distance_expr.asc()).limit(top_k).all()
+                chunk_hits = [
+                    {
+                        "text": chunk.content,
+                        "metadata": {
+                            "document_id": chunk.document_id,
+                            "chunk_index": chunk.chunk_index,
+                            "subject": chunk.subject,
+                            "topic": chunk.topic,
+                        },
+                        "distance": float(distance),
+                        "relevance": 1 - float(distance),
+                    }
+                    for chunk, distance in rows
+                ]
+                if chunk_hits:
+                    return chunk_hits
+                if document_id:
+                    return self._query_extracted_text_fallback(db, query_embedding, document_id, top_k)
+                return []
 
-        return chunks
+            base_query = db.query(DocumentChunk)
+            if document_id:
+                base_query = base_query.filter(DocumentChunk.document_id == document_id)
+            chunk_rows = base_query.all()
+
+            scored = []
+            for row in chunk_rows:
+                embedding = row.embedding
+                if not isinstance(embedding, list):
+                    continue
+                distance = self._cosine_distance(query_embedding, embedding)
+                scored.append((row, distance))
+
+            scored.sort(key=lambda item: item[1])
+            top_rows = scored[:top_k]
+            chunk_hits = [
+                {
+                    "text": chunk.content,
+                    "metadata": {
+                        "document_id": chunk.document_id,
+                        "chunk_index": chunk.chunk_index,
+                        "subject": chunk.subject,
+                        "topic": chunk.topic,
+                    },
+                    "distance": float(distance),
+                    "relevance": 1 - float(distance),
+                }
+                for chunk, distance in top_rows
+            ]
+            if chunk_hits:
+                return chunk_hits
+            if document_id:
+                return self._query_extracted_text_fallback(db, query_embedding, document_id, top_k)
+            return []
+        finally:
+            db.close()
 
     # ─── Get all text for a document ──────────────────────────
 
     def get_document_text(self, document_id: str) -> str:
         """Retrieve all indexed chunks for a document, joined in order."""
-        results = self._collection.get(
-            where={"document_id": document_id},
-            include=["documents", "metadatas"],
-        )
+        db = SessionLocal()
+        try:
+            rows = (
+                db.query(DocumentChunk)
+                .filter(DocumentChunk.document_id == document_id)
+                .order_by(DocumentChunk.chunk_index.asc())
+                .all()
+            )
+            if not rows:
+                return ""
+            return "\n".join(row.content for row in rows if row.content)
+        finally:
+            db.close()
 
-        if not results["documents"]:
-            return ""
-
-        # Sort by chunk_index
-        paired = list(zip(results["documents"], results["metadatas"]))
-        paired.sort(key=lambda x: x[1].get("chunk_index", 0))
-
-        return "\n".join([p[0] for p in paired])
-
-        
     def get_document_text_with_fallback(self, document_id: str) -> str:
         """
-        Retrieve document text from Chroma first, then fall back to SQLite
+        Retrieve document text from chunk store first, then fall back to
         documents.extracted_text when chunks are unavailable.
         """
         text = self.get_document_text(document_id)
@@ -242,12 +348,23 @@ class RAGService:
 
     def delete_document(self, document_id: str):
         """Remove all chunks for a document from the vector store."""
-        self._collection.delete(where={"document_id": document_id})
+        db = SessionLocal()
+        try:
+            db.query(DocumentChunk).filter(DocumentChunk.document_id == document_id).delete(
+                synchronize_session=False
+            )
+            db.commit()
+        finally:
+            db.close()
 
     # ─── Stats ────────────────────────────────────────────────
 
     def get_total_chunks(self) -> int:
-        return self._collection.count() if self._collection else 0
+        db = SessionLocal()
+        try:
+            return db.query(DocumentChunk).count()
+        finally:
+            db.close()
 
 
 # Singleton

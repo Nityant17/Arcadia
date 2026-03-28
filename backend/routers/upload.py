@@ -76,7 +76,7 @@ async def upload_document(
 ):
     """
     Upload a PDF, image, or text file.
-    → OCR extracts text → chunks are embedded → indexed in ChromaDB.
+    → OCR extracts text → chunks are embedded → indexed in the vector store.
     """
     # Validate file type
     allowed_extensions = {".pdf", ".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff", ".txt"}
@@ -144,7 +144,7 @@ async def upload_document(
         save_path.unlink(missing_ok=True)
         raise HTTPException(400, safety.reason)
 
-    # Index in ChromaDB
+    # Index in vector store
     try:
         chunk_count = rag_service.index_document(doc_id, extracted_text, subject, topic)
     except Exception as e:
@@ -521,7 +521,7 @@ async def delete_document(doc_id: str, current_user = Depends(get_current_user),
     if not doc:
         raise HTTPException(404, "Document not found")
 
-    # Remove from ChromaDB
+    # Remove from vector store
     rag_service.delete_document(doc_id)
 
     # Remove file

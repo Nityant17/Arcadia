@@ -1,13 +1,29 @@
 """
-SQLite database — documents, quiz attempts, mastery scores.
+Database models and runtime session configuration.
 """
 import datetime
+
 from sqlalchemy import create_engine, Column, String, Integer, Float, DateTime, Date, Text, JSON, Boolean, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-from config import SQLITE_DB_PATH
+from config import DATABASE_URL, DB_ECHO, EMBEDDING_DIMENSION
 
-engine = create_engine(f"sqlite:///{SQLITE_DB_PATH}", echo=False)
+try:
+    from pgvector.sqlalchemy import Vector
+except ImportError:  # pragma: no cover - optional in local fallback
+    Vector = None
+
+_engine_kwargs = {"echo": DB_ECHO, "pool_pre_ping": True}
+if DATABASE_URL.startswith("sqlite"):
+    _engine_kwargs["connect_args"] = {"check_same_thread": False}
+
+engine = create_engine(DATABASE_URL, **_engine_kwargs)
+DB_BACKEND = engine.url.get_backend_name()
+IS_SQLITE = DB_BACKEND == "sqlite"
+IS_POSTGRES = DB_BACKEND.startswith("postgresql")
+EMBEDDING_COLUMN_TYPE = Vector(EMBEDDING_DIMENSION) if IS_POSTGRES and Vector is not None else JSON
+PGVECTOR_ENABLED = IS_POSTGRES and Vector is not None
+
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 Base = declarative_base()
 
@@ -27,6 +43,19 @@ class Document(Base):
     extracted_text = Column(Text, default="")
     is_starred = Column(Boolean, default=False)
     chunk_count = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+
+class DocumentChunk(Base):
+    __tablename__ = "document_chunks"
+
+    id = Column(String, primary_key=True)
+    document_id = Column(String, nullable=False, index=True)
+    chunk_index = Column(Integer, nullable=False)
+    subject = Column(String, default="General")
+    topic = Column(String, default="")
+    content = Column(Text, nullable=False)
+    embedding = Column(EMBEDDING_COLUMN_TYPE, nullable=False)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
 
@@ -247,8 +276,7 @@ class CalendarEventLink(Base):
 
 # ─── Init ─────────────────────────────────────────────────────
 
-def init_db():
-    Base.metadata.create_all(bind=engine)
+def _apply_sqlite_backfills() -> None:
     with engine.connect() as connection:
         table_info = connection.execute(text("PRAGMA table_info(documents)")).fetchall()
         column_names = {row[1] for row in table_info}
@@ -314,7 +342,25 @@ def init_db():
         if "provider_subject" not in user_columns:
             connection.execute(text("ALTER TABLE users ADD COLUMN provider_subject TEXT DEFAULT ''"))
             connection.commit()
-    print("📦 SQLite database initialized")
+
+
+def init_db():
+    if IS_POSTGRES and Vector is not None:
+        with engine.begin() as connection:
+            connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+
+    Base.metadata.create_all(bind=engine)
+
+    if IS_SQLITE:
+        _apply_sqlite_backfills()
+        print("📦 SQLite database initialized")
+        return
+
+    if IS_POSTGRES:
+        print("📦 PostgreSQL database initialized")
+        return
+
+    print(f"📦 Database initialized ({DB_BACKEND})")
 
 
 def get_db():

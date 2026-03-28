@@ -9,8 +9,8 @@ BACKEND_ROOT = Path(__file__).resolve().parent.parent
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
-from config import AUDIO_DIR, CHROMA_DB_DIR, SQLITE_DB_PATH, UPLOAD_DIR
-from models.database import init_db
+from config import AUDIO_DIR, CHROMA_DB_DIR, DATABASE_URL, SQLITE_DB_PATH, UPLOAD_DIR
+from models.database import Base, engine, init_db
 
 
 def _remove_path(path: Path) -> int:
@@ -34,12 +34,18 @@ def reset_all_data(force: bool) -> None:
             print("Cancelled.")
             return
 
-    db_path = Path(SQLITE_DB_PATH)
     chroma_path = Path(CHROMA_DB_DIR)
     upload_path = Path(UPLOAD_DIR)
     audio_path = Path(AUDIO_DIR)
 
-    removed_db = _remove_path(db_path)
+    removed_db = 0
+    if DATABASE_URL.startswith("sqlite"):
+        db_path = Path(SQLITE_DB_PATH)
+        removed_db = _remove_path(db_path)
+    else:
+        Base.metadata.drop_all(bind=engine)
+        removed_db = 1
+
     removed_chroma = _remove_path(chroma_path)
     removed_uploads = _remove_path(upload_path)
 

@@ -5,8 +5,24 @@ Toggle MODE to switch between local and Azure AI services.
 import os
 from pathlib import Path
 
+
+def _env_bool(name: str, default: bool = False) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _env_list(name: str, default: list[str]) -> list[str]:
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return default
+    parsed = [item.strip() for item in raw.split(",")]
+    return [item for item in parsed if item]
+
+
 # ─── Deployment Mode ───────────────────────────────────────────
-# "local"  → Ollama + Tesseract + ChromaDB + gTTS + deep-translator
+# "local"  → Ollama + Tesseract + local DB vector store + gTTS + deep-translator
 # "azure"  → Azure OpenAI + Form Recognizer + AI Search + AI Speech + Translator
 MODE = os.getenv("ARCADIA_MODE", "local")
 
@@ -17,6 +33,8 @@ UPLOAD_DIR = DATA_DIR / "uploads"
 AUDIO_DIR = BASE_DIR / "static" / "audio"
 CHROMA_DB_DIR = str(DATA_DIR / "chroma_db")
 SQLITE_DB_PATH = str(DATA_DIR / "arcadia.db")
+DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{SQLITE_DB_PATH}")
+DB_ECHO = _env_bool("DB_ECHO", False)
 
 # Ensure directories exist
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
@@ -41,6 +59,21 @@ RAG_TOP_K = 6  # chunks to retrieve for context
 QUIZ_QUESTIONS_PER_TIER = 5
 MASTERY_THRESHOLD_TIER2 = 0.7   # need 70% on Tier1 to unlock Tier2
 MASTERY_THRESHOLD_TIER3 = 0.8   # need 80% on Tier2 to unlock Tier3
+
+# ─── API Runtime Controls ──────────────────────────────────────
+CORS_ALLOWED_ORIGINS = _env_list("CORS_ALLOWED_ORIGINS", ["http://localhost:5173"])
+MAX_UPLOAD_SIZE_MB = int(os.getenv("MAX_UPLOAD_SIZE_MB", "25"))
+MAX_UPLOAD_SIZE_BYTES = MAX_UPLOAD_SIZE_MB * 1024 * 1024
+MAX_CODE_PAYLOAD_MB = int(os.getenv("MAX_CODE_PAYLOAD_MB", "2"))
+MAX_CODE_PAYLOAD_BYTES = MAX_CODE_PAYLOAD_MB * 1024 * 1024
+REQUEST_LOGGING_ENABLED = _env_bool("REQUEST_LOGGING_ENABLED", True)
+
+RATE_LIMIT_WINDOW_SECONDS = int(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "60"))
+RATE_LIMIT_AUTH_PER_WINDOW = int(os.getenv("RATE_LIMIT_AUTH_PER_WINDOW", "20"))
+RATE_LIMIT_CHAT_PER_WINDOW = int(os.getenv("RATE_LIMIT_CHAT_PER_WINDOW", "60"))
+RATE_LIMIT_QUIZ_PER_WINDOW = int(os.getenv("RATE_LIMIT_QUIZ_PER_WINDOW", "60"))
+RATE_LIMIT_UPLOAD_PER_WINDOW = int(os.getenv("RATE_LIMIT_UPLOAD_PER_WINDOW", "15"))
+RATE_LIMIT_CODE_RUN_PER_WINDOW = int(os.getenv("RATE_LIMIT_CODE_RUN_PER_WINDOW", "20"))
 
 # ─── Supported Languages ──────────────────────────────────────
 SUPPORTED_LANGUAGES = {
