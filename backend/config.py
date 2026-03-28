@@ -44,9 +44,9 @@ AUDIO_DIR.mkdir(parents=True, exist_ok=True)
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "mistral")
 
-# ─── Local: Embeddings ────────────────────────────────────────
+# ─── Local/Azure: Embeddings ──────────────────────────────────
 EMBEDDING_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
-EMBEDDING_DIMENSION = 384
+EMBEDDING_DIMENSION = 1536 if MODE.strip().lower() == "azure" else 384
 
 # ─── Local: Chunking ──────────────────────────────────────────
 CHUNK_MAX_TOKENS = 300
