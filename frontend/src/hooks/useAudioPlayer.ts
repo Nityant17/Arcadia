@@ -3,6 +3,7 @@ import { apiClient, getApiErrorMessage } from "@/services/api";
 import { toast } from "sonner";
 
 let sharedAudio: HTMLAudioElement | null = null;
+let sharedAudioObjectUrl: string | null = null;
 let sharedPlayingId: string | null = null;
 let sharedLoadingId: string | null = null;
 const listeners = new Set<() => void>();
@@ -12,10 +13,15 @@ function notifyAll() {
 }
 
 function cleanupAudio() {
-  if (!sharedAudio) return;
-  sharedAudio.pause();
-  sharedAudio.currentTime = 0;
-  sharedAudio = null;
+  if (sharedAudio) {
+    sharedAudio.pause();
+    sharedAudio.currentTime = 0;
+    sharedAudio = null;
+  }
+  if (sharedAudioObjectUrl) {
+    URL.revokeObjectURL(sharedAudioObjectUrl);
+    sharedAudioObjectUrl = null;
+  }
 }
 
 export function useAudioPlayer() {
@@ -59,11 +65,12 @@ export function useAudioPlayer() {
 
       try {
         const response = await apiClient.tts(text, language);
-        const audioUrl = response.data.audio_url;
+        const audioBlob = response.data;
 
         cleanupAudio();
 
-        sharedAudio = new Audio(audioUrl);
+        sharedAudioObjectUrl = URL.createObjectURL(audioBlob);
+        sharedAudio = new Audio(sharedAudioObjectUrl);
         sharedPlayingId = messageId;
         sharedLoadingId = null;
         notifyAll();

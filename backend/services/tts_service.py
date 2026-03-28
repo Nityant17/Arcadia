@@ -3,9 +3,8 @@ TTS Service — Text-to-Speech.
 Local: gTTS (Google Text-to-Speech, free)
 Azure: Azure AI Speech (Neural TTS with Indic voices)
 """
-import os
-import uuid
 import hashlib
+import re
 from pathlib import Path
 
 from gtts import gTTS
@@ -32,18 +31,47 @@ GTTS_LANG_MAP = {
 
 class TTSService:
 
-    def synthesize(self, text: str, language: str = "en") -> str:
+    @staticmethod
+    def _strip_markdown_for_tts(text: str) -> str:
+        """Convert markdown-rich content into plain readable text for TTS."""
+        if not text:
+            return ""
+
+        cleaned = text.replace("\r\n", "\n").replace("\r", "\n")
+
+        # Keep visible labels/content while removing markdown syntax.
+        cleaned = re.sub(r"!\[([^\]]*)\]\([^)]+\)", r"\1", cleaned)  # images
+        cleaned = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", cleaned)  # links
+        cleaned = re.sub(r"`{3,}[\w-]*\n?", "", cleaned)  # fenced code open/close
+        cleaned = cleaned.replace("`", "")  # inline code
+        cleaned = re.sub(r"^>\s?", "", cleaned, flags=re.MULTILINE)  # block quotes
+        cleaned = re.sub(r"^\s{0,3}#{1,6}\s*", "", cleaned, flags=re.MULTILINE)  # headings
+        cleaned = re.sub(r"^\s*[-*+]\s+", "", cleaned, flags=re.MULTILINE)  # unordered lists
+        cleaned = re.sub(r"^\s*\d+\.\s+", "", cleaned, flags=re.MULTILINE)  # ordered lists
+        cleaned = re.sub(r"(\*\*|__)(.*?)\1", r"\2", cleaned)  # bold
+        cleaned = re.sub(r"(\*|_)(.*?)\1", r"\2", cleaned)  # italics
+        cleaned = re.sub(r"~~(.*?)~~", r"\1", cleaned)  # strikethrough
+        cleaned = re.sub(r"<[^>]+>", "", cleaned)  # html tags
+        cleaned = re.sub(r"[ \t]+", " ", cleaned)
+        cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+
+        return cleaned.strip()
+
+    def synthesize(self, text: str, language: str = "en") -> tuple[bytes, str]:
         """
-        Convert text to speech and return the URL path to the audio file.
-        Returns: relative URL path like /static/audio/abc123.mp3
+        Convert text to speech and return (audio_bytes, media_type).
         """
+        clean_text = self._strip_markdown_for_tts(text)
+        if not clean_text:
+            raise ValueError("No readable text after markdown sanitization.")
+
         if MODE == "azure":
             print(f"[TTS] Using AZURE Speech — region: {AZURE_SPEECH_REGION}, lang: {language}")
-            return self._azure_tts(text, language)
+            return self._azure_tts(clean_text, language)
         print(f"[TTS] Using LOCAL gTTS — lang: {language}")
-        return self._local_tts(text, language)
+        return self._local_tts(clean_text, language)
 
-    def _local_tts(self, text: str, language: str) -> str:
+    def _local_tts(self, text: str, language: str) -> tuple[bytes, str]:
         """Use gTTS for free text-to-speech."""
         lang_code = GTTS_LANG_MAP.get(language, "en")
 
@@ -58,11 +86,10 @@ class TTSService:
             tts = gTTS(text=tts_text, lang=lang_code, slow=False)
             tts.save(str(filepath))
 
-        return f"/static/audio/{filename}"
+        return filepath.read_bytes(), "audio/mpeg"
 
-    def _azure_tts(self, text: str, language: str) -> str:
+    def _azure_tts(self, text: str, language: str) -> tuple[bytes, str]:
         """Azure AI Speech with neural voices via REST API."""
-        import hashlib
         import httpx
 
         # Azure voice names for supported languages
@@ -85,7 +112,7 @@ class TTSService:
         filepath = AUDIO_DIR / filename
 
         if filepath.exists():
-            return f"/static/audio/{filename}"
+            return filepath.read_bytes(), "audio/mpeg"
 
         # Step 1: Get access token
         token_url = f"https://{AZURE_SPEECH_REGION}.api.cognitive.microsoft.com/sts/v1.0/issueToken"
@@ -123,7 +150,7 @@ class TTSService:
             resp.raise_for_status()
             filepath.write_bytes(resp.content)
 
-        return f"/static/audio/{filename}"
+        return filepath.read_bytes(), "audio/mpeg"
 
 
 # Singleton

@@ -320,7 +320,7 @@ export const apiClient = {
   }) => api.post<TranslateResponse>("/translate", payload),
 
   tts: (text: string, language: string) =>
-    api.post<{ audio_url: string; language: string }>("/tts", { text, language }),
+    api.post<Blob>("/tts", { text, language }, { responseType: "blob" }),
 
   getDashboardStats: () =>
     api.get<{

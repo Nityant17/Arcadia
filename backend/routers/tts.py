@@ -1,12 +1,14 @@
 """
 TTS & Translation Router.
 """
+from io import BytesIO
 from fastapi import APIRouter, HTTPException, Depends
+from fastapi.responses import StreamingResponse
 from models.database import User
 from routers.auth import get_current_user
 
 from models.schemas import (
-    TTSRequest, TTSResponse,
+    TTSRequest,
     TranslateRequest, TranslateResponse,
 )
 from services.tts_service import tts_service
@@ -16,7 +18,7 @@ from config import SUPPORTED_LANGUAGES
 router = APIRouter()
 
 
-@router.post("/tts", response_model=TTSResponse)
+@router.post("/tts")
 async def text_to_speech(
     request: TTSRequest,
     current_user: User = Depends(get_current_user),
@@ -26,11 +28,18 @@ async def text_to_speech(
         raise HTTPException(400, f"Unsupported language: {request.language}. "
                             f"Supported: {list(SUPPORTED_LANGUAGES.keys())}")
     try:
-        audio_url = tts_service.synthesize(request.text, request.language)
+        audio_bytes, media_type = tts_service.synthesize(request.text, request.language)
     except Exception as e:
         raise HTTPException(500, f"TTS failed: {e}")
 
-    return TTSResponse(audio_url=audio_url, language=request.language)
+    return StreamingResponse(
+        BytesIO(audio_bytes),
+        media_type=media_type,
+        headers={
+            "Content-Disposition": 'inline; filename="arcadia-tts.mp3"',
+            "Cache-Control": "no-store",
+        },
+    )
 
 
 @router.post("/translate", response_model=TranslateResponse)

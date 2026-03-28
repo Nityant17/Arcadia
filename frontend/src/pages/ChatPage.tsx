@@ -20,6 +20,8 @@ import {
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { toast } from "sonner";
 
 function parseCitation(source: string, index: number) {
@@ -470,13 +472,17 @@ export default function ChatPage() {
                         : "text-slate-300"
                     }`}
                   >
-                    <div
-                      className={`whitespace-pre-wrap break-words leading-relaxed ${
-                        message.role === "assistant" ? "text-slate-300" : ""
-                      }`}
-                    >
-                      {message.content}
-                    </div>
+                    {message.role === "assistant" ? (
+                      <div className="prose prose-invert prose-sm max-w-none break-words text-slate-300 prose-headings:text-slate-100 prose-strong:text-slate-100 prose-a:text-cyan-300 prose-code:text-cyan-200">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {message.content}
+                        </ReactMarkdown>
+                      </div>
+                    ) : (
+                      <div className="whitespace-pre-wrap break-words leading-relaxed">
+                        {message.content}
+                      </div>
+                    )}
                     {message.role === "assistant" && (message.sources?.length || 0) > 0 && (
                       <div className="mt-2 flex flex-wrap gap-2">
                         {message.sources?.map((source, index) => {
