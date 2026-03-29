@@ -30,7 +30,7 @@
 
 | Resource | Link |
 |----------|------|
-| 🎬 Video Demo | `[Coming Soon]` |
+| 🎬 Video Demo | https://youtu.be/PLAjtwTuFk0 |
 | 🌐 Live Application | https://arcadia-two-iota.vercel.app/ |
 | 🔑 Demo Login | Email + password auth — no OAuth required for demo |
 
@@ -276,6 +276,9 @@ Arcadia uses a galaxy / constellation reward system to encourage consistent lear
 - **Google Sign-In + OTP** — backend fully implemented; needs `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET`
 - **Google Calendar sync** — backend router live; needs Calendar API credentials
 - **Microsoft Login + Outlook Calendar** — planned next after Google
+- **Source InApp Viewing** — being able to view the uploaded source directly in the app
+- **Some small bugs** — sometimes creates false positive cases in safety check, quiz can sometimes generate same questions
+- **Latency Issues** — solving some latency issues by moving from free tier software to paid tier and some optimizations
 
 ### v2 Features
 
