@@ -8,6 +8,7 @@ import { apiClient, getApiErrorMessage, type DocumentItem } from "@/services/api
 import { useAppStore } from "@/store/useAppStore";
 import { ChevronLeft, ChevronRight, Loader2, Sparkles, StopCircle, Volume2 } from "lucide-react";
 import { motion } from "motion/react";
+import { useTheme } from "next-themes";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -94,6 +95,7 @@ function markdownToHtml(markdown: string) {
 
 export default function StudyPage() {
   const { currentLanguage, currentUser } = useAppStore();
+  const { resolvedTheme } = useTheme();
   const { play, stop, loadingId, playingId, isPlaying } = useAudioPlayer();
 
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
@@ -166,7 +168,10 @@ export default function StudyPage() {
 
       try {
         const mermaid = (await import("mermaid")).default;
-        mermaid.initialize({ startOnLoad: false, theme: "dark" });
+        mermaid.initialize({
+          startOnLoad: false,
+          theme: resolvedTheme === "light" ? "default" : "dark",
+        });
         const id = `mermaid-${Date.now()}`;
         const { svg } = await mermaid.render(id, diagram.mermaid_code);
         setDiagramSvg(svg);
@@ -178,7 +183,7 @@ export default function StudyPage() {
     };
 
     renderDiagram();
-  }, [diagram]);
+  }, [diagram, resolvedTheme]);
 
   useEffect(() => {
     setFlashcardIndex(0);
@@ -448,7 +453,7 @@ export default function StudyPage() {
         <TabsContent value="cheatsheets" className="space-y-4">
           <Button
             variant="outline"
-            className="border-white/10 gap-2 sparkle-generate-button"
+            className="border-white/10 gap-2 sparkle-generate-button text-foreground"
             onClick={generateCheatsheet}
             disabled={loading}
           >
@@ -505,7 +510,7 @@ export default function StudyPage() {
         <TabsContent value="flashcards" className="space-y-4">
           <Button
             variant="outline"
-            className="border-white/10 gap-2 sparkle-generate-button"
+            className="border-white/10 gap-2 sparkle-generate-button text-foreground"
             onClick={generateFlashcards}
             disabled={loading}
           >
@@ -619,7 +624,7 @@ export default function StudyPage() {
         <TabsContent value="diagrams" className="space-y-4">
           <Button
             variant="outline"
-            className="border-white/10 gap-2 sparkle-generate-button"
+            className="border-white/10 gap-2 sparkle-generate-button text-foreground"
             onClick={generateDiagram}
             disabled={loading}
           >

@@ -12,6 +12,10 @@
 </p>
 
 <p align="center">
+  UI note: <strong>Light mode is available</strong>, but <strong>dark mode is the recommended experience</strong>.
+</p>
+
+<p align="center">
   <img alt="React" src="https://img.shields.io/badge/React-19-20232A?logo=react&logoColor=61DAFB">
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white">
   <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white">

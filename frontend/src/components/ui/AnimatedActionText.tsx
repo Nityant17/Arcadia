@@ -5,7 +5,7 @@ export const AnimatedActionText = () => {
   return (
     <Wrapper>
       <div className="loader">
-        <p className="text-neutral-400">Turn notes into</p>
+        <p className="text-foreground/70">Turn notes into</p>
         <div className="words">
           <span className="word">Answers</span>
           <span className="word">Quizzes</span>

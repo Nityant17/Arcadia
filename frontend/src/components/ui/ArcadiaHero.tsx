@@ -10,7 +10,7 @@ export function ArcadiaHero() {
 
       <div className="relative z-10 flex flex-col items-center pointer-events-none px-4 text-center">
         <div className="w-full flex flex-col items-center justify-center mb-4">
-          <h1 className="text-5xl md:text-7xl font-bold text-center text-white relative z-20 tracking-[0.2em] uppercase">
+          <h1 className="text-5xl md:text-7xl font-bold text-center text-foreground/45 dark:text-white relative z-20 tracking-[0.2em] uppercase">
             Arcadia
           </h1>
           <div className="w-full max-w-[40rem] h-20 md:h-28 relative">
@@ -40,7 +40,7 @@ export function ArcadiaHero() {
         </div>
 
         <h1 className="text-2xl md:text-4xl lg:text-5xl font-semibold tracking-tight">
-          <span className="text-neutral-400">Master every topic at </span>
+          <span className="text-foreground/70 dark:text-neutral-400">Master every topic at </span>
           <CanvasText
             text="Lightning Speed"
             backgroundClassName="bg-cyan-100 dark:bg-cyan-200"

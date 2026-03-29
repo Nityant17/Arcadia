@@ -157,14 +157,22 @@ const StyledWrapper = styled.div`
   width: 100%;
 
   #checklist {
-    --text: #e2e8f0;
+    --text: oklch(var(--foreground));
     --check: #06b6d4;
-    --disabled: #64748b;
-    --surface: rgba(15, 23, 42, 0.45);
+    --disabled: oklch(var(--muted-foreground));
+    --surface: rgba(248, 250, 252, 0.9);
+    --surface-strong: rgba(241, 245, 249, 0.95);
+    --line: rgba(15, 23, 42, 0.2);
     width: 100%;
     display: flex;
     flex-direction: column;
     gap: 0.875rem;
+  }
+
+  html.dark & #checklist {
+    --surface: rgba(15, 23, 42, 0.45);
+    --surface-strong: rgba(15, 23, 42, 0.75);
+    --line: rgba(148, 163, 184, 0.3);
   }
 
   .taskList {
@@ -378,7 +386,7 @@ const StyledWrapper = styled.div`
 
   .taskEditor,
   .addInput {
-    border: 1px solid rgba(148, 163, 184, 0.35);
+    border: 1px solid var(--line);
     background: var(--surface);
     color: var(--text);
     border-radius: 0.55rem;
@@ -397,8 +405,8 @@ const StyledWrapper = styled.div`
 
   .deleteIconButton,
   .addButton {
-    border: 1px solid rgba(148, 163, 184, 0.3);
-    background: rgba(15, 23, 42, 0.75);
+    border: 1px solid var(--line);
+    background: var(--surface-strong);
     color: var(--text);
     border-radius: 0.5rem;
     font-size: 0.74rem;

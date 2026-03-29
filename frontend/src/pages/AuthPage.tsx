@@ -4,17 +4,21 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TextHoverEffect } from "@/components/ui/text-hover-effect";
 import { Meteors } from "@/components/ui/meteors";
+import ThemeModeSwitch from "@/components/ui/ThemeModeSwitch";
 import { useAppStore } from "@/store/useAppStore";
 import { apiClient, getApiErrorMessage } from "@/services/api";
 import { useNavigate } from "@tanstack/react-router";
 import { AlertCircle, Loader2, MailCheck, ShieldCheck } from "lucide-react";
 import { motion } from "motion/react";
+import { useTheme } from "next-themes";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 export default function AuthPage() {
   const navigate = useNavigate();
   const { setAuthToken, setCurrentUser } = useAppStore();
+  const { resolvedTheme } = useTheme();
+  const isLightMode = resolvedTheme === "light";
 
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
@@ -192,19 +196,30 @@ export default function AuthPage() {
 
   if (showVerification) {
     return (
-      <div className="min-h-screen w-full relative flex items-center justify-center overflow-hidden bg-slate-950">
-        <div className="absolute inset-0 w-full h-full z-0 overflow-hidden">
-          <Meteors number={90} className="z-0" />
-        </div>
-        <div className="absolute inset-0 -z-10 bg-gradient-to-br from-[#070A12] via-[#0B1020] to-[#0F172A]" />
+      <div className="min-h-screen w-full relative flex items-center justify-center overflow-hidden bg-background">
+        {isLightMode ? null : (
+          <div className="absolute inset-0 w-full h-full z-0 overflow-hidden">
+            <Meteors number={90} className="z-0" />
+          </div>
+        )}
+        <div
+          className={`absolute inset-0 -z-10 ${
+            isLightMode
+              ? "bg-gradient-to-br from-[oklch(0.99_0.003_255)] via-[oklch(0.97_0.01_245)] to-[oklch(0.95_0.012_260)]"
+              : "bg-gradient-to-br from-[#070A12] via-[#0B1020] to-[#0F172A]"
+          }`}
+        />
         <div className="blob-teal absolute -z-10 top-[-100px] left-[-100px] w-[500px] h-[500px]" />
         <div className="blob-purple absolute -z-10 bottom-[-100px] right-[-100px] w-[600px] h-[600px]" />
+        <div className="absolute top-4 right-4 z-20 rounded-xl border border-border/70 bg-card/75 px-2 py-1.5 backdrop-blur-xl">
+          <ThemeModeSwitch size="sm" />
+        </div>
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, ease: "easeOut" }}
-          className="relative z-10 w-full max-w-md rounded-3xl p-8 bg-slate-900/60 backdrop-blur-xl border border-white/10 shadow-2xl"
+          className="relative z-10 w-full max-w-md rounded-3xl p-8 bg-card/90 dark:bg-slate-900/60 backdrop-blur-xl border border-border/70 dark:border-white/10 shadow-2xl"
         >
           <div className="mb-5">
             <h2 className="text-xl font-semibold text-foreground flex items-center gap-2">
@@ -230,7 +245,7 @@ export default function AuthPage() {
                 type="email"
                 value={verificationEmail}
                 onChange={(e) => setVerificationEmail(e.target.value)}
-                className="bg-white/5 border border-white/10 text-white placeholder:text-neutral-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+                className="bg-white/5 border border-white/10 text-foreground placeholder:text-neutral-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
               />
             </div>
             <div className="space-y-1.5">
@@ -239,14 +254,14 @@ export default function AuthPage() {
                 type="text"
                 value={verificationOtp}
                 onChange={(e) => setVerificationOtp(e.target.value)}
-                className="bg-white/5 border border-white/10 text-white tracking-[0.22em] font-semibold text-center placeholder:text-neutral-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+                className="bg-white/5 border border-white/10 text-foreground tracking-[0.22em] font-semibold text-center placeholder:text-neutral-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
                 placeholder="123456"
                 maxLength={8}
               />
             </div>
 
             {devOtpHint ? (
-              <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-100 flex items-start gap-2">
+              <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-100 flex items-start gap-2">
                 <ShieldCheck className="h-4 w-4 shrink-0 mt-0.5 text-amber-300" />
                 Dev OTP (SMTP not configured): <span className="font-semibold tracking-widest ml-1">{devOtpHint}</span>
               </div>
@@ -293,26 +308,43 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen w-full relative flex items-center justify-center overflow-hidden bg-slate-950">
-      <div className="absolute inset-0 w-full h-full z-0 overflow-hidden">
-        <Meteors number={90} className="z-0" />
-      </div>
+    <div className="min-h-screen w-full relative flex items-center justify-center overflow-hidden bg-background">
+      {isLightMode ? null : (
+        <div className="absolute inset-0 w-full h-full z-0 overflow-hidden">
+          <Meteors number={90} className="z-0" />
+        </div>
+      )}
 
       {/* Background */}
-      <div className="absolute inset-0 -z-10 bg-gradient-to-br from-[#070A12] via-[#0B1020] to-[#0F172A]" />
+      <div
+        className={`absolute inset-0 -z-10 ${
+          isLightMode
+            ? "bg-gradient-to-br from-[oklch(0.99_0.003_255)] via-[oklch(0.97_0.01_245)] to-[oklch(0.95_0.012_260)]"
+            : "bg-gradient-to-br from-[#070A12] via-[#0B1020] to-[#0F172A]"
+        }`}
+      />
       <div className="blob-teal absolute -z-10 top-[-100px] left-[-100px] w-[500px] h-[500px]" />
       <div className="blob-purple absolute -z-10 bottom-[-100px] right-[-100px] w-[600px] h-[600px]" />
+      <div className="absolute top-4 right-4 z-20 rounded-xl border border-border/70 bg-card/75 px-2 py-1.5 backdrop-blur-xl">
+        <ThemeModeSwitch size="sm" />
+      </div>
 
       <div className="relative z-10 w-full px-4 flex flex-col items-center">
         <div className="h-[12rem] md:h-[16rem] w-full max-w-3xl flex items-center justify-center mb-4">
-          <TextHoverEffect text="ARCADIA" />
+          {isLightMode ? (
+            <h1 className="text-6xl md:text-8xl font-black tracking-[0.12em] text-foreground/15 select-none">
+              ARCADIA
+            </h1>
+          ) : (
+            <TextHoverEffect text="ARCADIA" />
+          )}
         </div>
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: "easeOut" }}
-          className="w-full max-w-md rounded-3xl p-8 bg-slate-900/60 backdrop-blur-xl border border-white/10 shadow-2xl hover:border-cyan-500/20 transition-all duration-500"
+          className="w-full max-w-md rounded-3xl p-8 bg-card/90 dark:bg-slate-900/60 backdrop-blur-xl border border-border/70 dark:border-white/10 shadow-2xl hover:border-cyan-500/20 transition-all duration-500"
         >
           <Tabs
             defaultValue="login"
@@ -357,7 +389,7 @@ export default function AuthPage() {
                     placeholder="alex@example.com"
                     value={loginEmail}
                     onChange={(e) => setLoginEmail(e.target.value)}
-                    className="bg-white/5 border border-white/10 text-white placeholder:text-neutral-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
+                    className="bg-white/5 border border-white/10 text-foreground placeholder:text-neutral-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
                     data-ocid="auth.login.input"
                   />
                 </div>
@@ -370,7 +402,7 @@ export default function AuthPage() {
                     placeholder="••••••••"
                     value={loginPassword}
                     onChange={(e) => setLoginPassword(e.target.value)}
-                    className="bg-white/5 border border-white/10 text-white placeholder:text-neutral-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
+                    className="bg-white/5 border border-white/10 text-foreground placeholder:text-neutral-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
                     data-ocid="auth.password.input"
                   />
                 </div>
@@ -400,7 +432,7 @@ export default function AuthPage() {
                     placeholder="Alex Chen"
                     value={regName}
                     onChange={(e) => setRegName(e.target.value)}
-                    className="bg-white/5 border border-white/10 text-white placeholder:text-neutral-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
+                    className="bg-white/5 border border-white/10 text-foreground placeholder:text-neutral-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
                     data-ocid="auth.register.name.input"
                   />
                 </div>
@@ -411,7 +443,7 @@ export default function AuthPage() {
                     placeholder="alex@example.com"
                     value={regEmail}
                     onChange={(e) => setRegEmail(e.target.value)}
-                    className="bg-white/5 border border-white/10 text-white placeholder:text-neutral-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
+                    className="bg-white/5 border border-white/10 text-foreground placeholder:text-neutral-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
                     data-ocid="auth.register.email.input"
                   />
                 </div>
@@ -424,7 +456,7 @@ export default function AuthPage() {
                     placeholder="••••••••"
                     value={regPassword}
                     onChange={(e) => setRegPassword(e.target.value)}
-                    className="bg-white/5 border border-white/10 text-white placeholder:text-neutral-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
+                    className="bg-white/5 border border-white/10 text-foreground placeholder:text-neutral-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
                     data-ocid="auth.register.password.input"
                   />
                 </div>
@@ -440,7 +472,7 @@ export default function AuthPage() {
                   Create Account
                 </Button>
               </form>
-              <div className="mt-4 rounded-lg border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-xs text-cyan-100">
+              <div className="mt-4 rounded-lg border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-xs text-cyan-700 dark:text-cyan-100">
                 OAuth backend is ready. Provider environment variables are currently not set.
               </div>
             </TabsContent>

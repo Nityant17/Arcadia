@@ -11,6 +11,7 @@ import { useTimer } from "@/context/TimerContext";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ChevronDown, CloudUpload, MessageSquare, Star, Trash2, X, Play, Pause, RotateCcw, CheckCircle } from "lucide-react";
 import { motion } from "motion/react";
+import { useTheme } from "next-themes";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import styled from "styled-components";
@@ -24,7 +25,7 @@ function formatTopicLabel(topic: string | undefined) {
 type UploadOcrMode = "handwritten" | "printed";
 
 const rowCardClass =
-  "rounded-3xl p-6 bg-slate-950/40 backdrop-blur-xl border border-white/10 hover:border-cyan-500/30 transition-all";
+  "rounded-3xl p-6 bg-card/80 dark:bg-slate-950/40 backdrop-blur-xl border border-border/70 dark:border-white/10 hover:border-cyan-500/30 transition-all";
 
 const gridVariants = {
   hidden: {},
@@ -163,6 +164,7 @@ function HamsterLoader() {
 
 export default function HomePage() {
   const navigate = useNavigate();
+  const { resolvedTheme } = useTheme();
   const { currentLanguage, currentUser } = useAppStore();
   const setUiOverlayActive = useAppStore((s) => s.setUiOverlayActive);
   const [loading, setLoading] = useState(true);
@@ -201,6 +203,7 @@ export default function HomePage() {
   const [selectedUploadOcrMode, setSelectedUploadOcrMode] = useState<UploadOcrMode>("printed");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const shouldLockUi = uploadOverlayState !== "idle";
+  const isLightMode = resolvedTheme === "light";
 
   const mapDocumentsToNotes = (documents: Array<{ id: string; note_id: string; note_title?: string; original_name: string; filename: string; subject: string; topic: string }>) => {
     const grouped = new Map<string, {
@@ -986,101 +989,127 @@ export default function HomePage() {
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4"
           data-ocid="home.next-steps.panel"
         >
-          <LampContainer
-            className="w-[min(94vw,560px)] min-h-[310px] rounded-2xl border border-cyan-500/30 bg-slate-950/95 shadow-[0_0_36px_rgba(6,182,212,0.28)]"
-            contentClassName="absolute inset-0 z-50 flex translate-y-0 items-start justify-center px-6 pt-8 pb-10"
-          >
-            <button
-              type="button"
-              onClick={() => setShowNextSteps(false)}
-              className="absolute right-3 top-3 z-30 rounded-md border border-white/10 bg-white/5 p-1 text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
-              aria-label="Close next steps"
-              data-ocid="home.next-steps.close"
-            >
-              <X className="h-4 w-4" />
-            </button>
-
-            <div className="mx-auto flex w-full max-w-[430px] flex-col text-center">
-              <div className="flex flex-col gap-1">
-                <h3 className="text-4xl font-semibold text-cyan-100">Things to do next…</h3>
-                <p className="text-lg text-cyan-100/85">Your note is ready. Pick the next step.</p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 pt-4">
-                <StyledNextStepButton>
-                  <Link
-                    to="/chat"
-                    onClick={() => applyNextStepContext("chat")}
-                    data-ocid="home.next-steps.chat"
-                    className="animated-button"
-                  >
-                    <svg viewBox="0 0 24 24" className="arr-2" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z" />
-                    </svg>
-                    <span className="text">Chat</span>
-                    <span className="circle" />
-                    <svg viewBox="0 0 24 24" className="arr-1" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z" />
-                    </svg>
-                  </Link>
-                </StyledNextStepButton>
-
-                <StyledNextStepButton>
-                  <Link
-                    to="/quiz"
-                    onClick={() => applyNextStepContext("quiz")}
-                    data-ocid="home.next-steps.quiz"
-                    className="animated-button"
-                  >
-                    <svg viewBox="0 0 24 24" className="arr-2" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z" />
-                    </svg>
-                    <span className="text">Quiz</span>
-                    <span className="circle" />
-                    <svg viewBox="0 0 24 24" className="arr-1" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z" />
-                    </svg>
-                  </Link>
-                </StyledNextStepButton>
-
-                <StyledNextStepButton>
-                  <Link
-                    to="/study"
-                    onClick={() => applyNextStepContext("study")}
-                    data-ocid="home.next-steps.study"
-                    className="animated-button"
-                  >
-                    <svg viewBox="0 0 24 24" className="arr-2" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z" />
-                    </svg>
-                    <span className="text">Study</span>
-                    <span className="circle" />
-                    <svg viewBox="0 0 24 24" className="arr-1" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z" />
-                    </svg>
-                  </Link>
-                </StyledNextStepButton>
-
-                <StyledNextStepButton>
-                  <Link
-                    to="/planner"
-                    onClick={() => applyNextStepContext("planner")}
-                    data-ocid="home.next-steps.planner"
-                    className="animated-button"
-                  >
-                    <svg viewBox="0 0 24 24" className="arr-2" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z" />
-                    </svg>
-                    <span className="text">Plan</span>
-                    <span className="circle" />
-                    <svg viewBox="0 0 24 24" className="arr-1" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z" />
-                    </svg>
-                  </Link>
-                </StyledNextStepButton>
+          {isLightMode ? (
+            <div className="relative w-[min(94vw,560px)] min-h-[310px] rounded-2xl border border-border/80 bg-card/96 shadow-xl px-6 pt-8 pb-10">
+              <button
+                type="button"
+                onClick={() => setShowNextSteps(false)}
+                className="absolute right-3 top-3 z-30 rounded-md border border-border/70 bg-muted/70 p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                aria-label="Close next steps"
+                data-ocid="home.next-steps.close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+              <div className="mx-auto flex w-full max-w-[430px] flex-col text-center">
+                <div className="flex flex-col gap-1">
+                  <h3 className="text-4xl font-semibold text-foreground">Things to do next…</h3>
+                  <p className="text-lg text-muted-foreground">Your note is ready. Pick the next step.</p>
+                </div>
+                <div className="grid grid-cols-2 gap-3 pt-4">
+                  <Button variant="outline" className="h-12 text-base" asChild><Link to="/chat" onClick={() => applyNextStepContext("chat")} data-ocid="home.next-steps.chat">Chat</Link></Button>
+                  <Button variant="outline" className="h-12 text-base" asChild><Link to="/quiz" onClick={() => applyNextStepContext("quiz")} data-ocid="home.next-steps.quiz">Quiz</Link></Button>
+                  <Button variant="outline" className="h-12 text-base" asChild><Link to="/study" onClick={() => applyNextStepContext("study")} data-ocid="home.next-steps.study">Study</Link></Button>
+                  <Button variant="outline" className="h-12 text-base" asChild><Link to="/planner" onClick={() => applyNextStepContext("planner")} data-ocid="home.next-steps.planner">Plan</Link></Button>
+                </div>
               </div>
             </div>
-          </LampContainer>
+          ) : (
+            <LampContainer
+              className="w-[min(94vw,560px)] min-h-[310px] rounded-2xl border border-cyan-500/30 bg-slate-950/95 shadow-[0_0_36px_rgba(6,182,212,0.28)]"
+              contentClassName="absolute inset-0 z-50 flex translate-y-0 items-start justify-center px-6 pt-8 pb-10"
+            >
+              <button
+                type="button"
+                onClick={() => setShowNextSteps(false)}
+                className="absolute right-3 top-3 z-30 rounded-md border border-white/10 bg-white/5 p-1 text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
+                aria-label="Close next steps"
+                data-ocid="home.next-steps.close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+
+              <div className="mx-auto flex w-full max-w-[430px] flex-col text-center">
+                <div className="flex flex-col gap-1">
+                  <h3 className="text-4xl font-semibold text-cyan-100">Things to do next…</h3>
+                  <p className="text-lg text-cyan-100/85">Your note is ready. Pick the next step.</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-4">
+                  <StyledNextStepButton>
+                    <Link
+                      to="/chat"
+                      onClick={() => applyNextStepContext("chat")}
+                      data-ocid="home.next-steps.chat"
+                      className="animated-button"
+                    >
+                      <svg viewBox="0 0 24 24" className="arr-2" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z" />
+                      </svg>
+                      <span className="text">Chat</span>
+                      <span className="circle" />
+                      <svg viewBox="0 0 24 24" className="arr-1" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z" />
+                      </svg>
+                    </Link>
+                  </StyledNextStepButton>
+
+                  <StyledNextStepButton>
+                    <Link
+                      to="/quiz"
+                      onClick={() => applyNextStepContext("quiz")}
+                      data-ocid="home.next-steps.quiz"
+                      className="animated-button"
+                    >
+                      <svg viewBox="0 0 24 24" className="arr-2" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z" />
+                      </svg>
+                      <span className="text">Quiz</span>
+                      <span className="circle" />
+                      <svg viewBox="0 0 24 24" className="arr-1" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z" />
+                      </svg>
+                    </Link>
+                  </StyledNextStepButton>
+
+                  <StyledNextStepButton>
+                    <Link
+                      to="/study"
+                      onClick={() => applyNextStepContext("study")}
+                      data-ocid="home.next-steps.study"
+                      className="animated-button"
+                    >
+                      <svg viewBox="0 0 24 24" className="arr-2" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z" />
+                      </svg>
+                      <span className="text">Study</span>
+                      <span className="circle" />
+                      <svg viewBox="0 0 24 24" className="arr-1" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z" />
+                      </svg>
+                    </Link>
+                  </StyledNextStepButton>
+
+                  <StyledNextStepButton>
+                    <Link
+                      to="/planner"
+                      onClick={() => applyNextStepContext("planner")}
+                      data-ocid="home.next-steps.planner"
+                      className="animated-button"
+                    >
+                      <svg viewBox="0 0 24 24" className="arr-2" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z" />
+                      </svg>
+                      <span className="text">Plan</span>
+                      <span className="circle" />
+                      <svg viewBox="0 0 24 24" className="arr-1" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z" />
+                      </svg>
+                    </Link>
+                  </StyledNextStepButton>
+                </div>
+              </div>
+            </LampContainer>
+          )}
         </motion.div>
       )}
 

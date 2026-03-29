@@ -146,7 +146,7 @@ export default function Galaxy() {
   const panLimit = Math.max(VIEWBOX_WIDTH, VIEWBOX_HEIGHT) * scale * 3.5;
 
   return (
-    <div className="h-full max-h-[calc(100vh-2rem)] text-white p-6 md:p-10 relative flex flex-col bg-transparent overflow-hidden">
+    <div className="h-full max-h-[calc(100vh-2rem)] text-foreground p-6 md:p-10 relative flex flex-col bg-transparent overflow-hidden">
       
       <style>
         {`
@@ -164,14 +164,14 @@ export default function Galaxy() {
       </style>
 
       <header className="relative z-10 w-full mb-6 shrink-0">
-        <p className="text-[11px] uppercase tracking-[0.4em] text-blue-300/70">Galaxy</p>
-        <h1 className="mt-3 text-3xl md:text-4xl font-extralight tracking-[0.25em] uppercase text-blue-100">
+        <p className="text-[11px] uppercase tracking-[0.4em] text-cyan-700/80 dark:text-blue-300/70">Galaxy</p>
+        <h1 className="mt-3 text-3xl md:text-4xl font-extralight tracking-[0.25em] uppercase text-foreground dark:text-blue-100">
           The Infinite Library
         </h1>
-        <p className="text-slate-500 font-mono text-xs mt-2">
+        <p className="text-muted-foreground font-mono text-xs mt-2">
           {loading ? "Syncing your stars..." : `Streak (1000 for demo): ${effectiveStreak} Days · ${completedCount} Constellations Discovered`}
         </p>
-        <p className="text-slate-400 text-xs mt-1">
+        <p className="text-muted-foreground text-xs mt-1">
           Log in each day to reveal a new star.
         </p>
       </header>
@@ -186,7 +186,7 @@ export default function Galaxy() {
       >
         <button
           onClick={handleResetView}
-          className="absolute bottom-6 right-6 z-20 p-3 rounded-full bg-slate-800/80 border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700 hover:border-slate-500 transition-all shadow-lg backdrop-blur-sm group"
+          className="absolute bottom-6 right-6 z-20 p-3 rounded-full bg-card/90 border border-border/80 text-muted-foreground hover:text-foreground hover:bg-muted hover:border-border transition-all shadow-lg backdrop-blur-sm group"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="group-hover:rotate-90 transition-transform duration-300">
             <circle cx="12" cy="12" r="10"></circle>

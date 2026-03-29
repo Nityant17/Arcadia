@@ -12,7 +12,73 @@
 @layer base {
   :root {
     --radius: 1rem;
-    /* Dark mode only - Arcadia futuristic premium */
+    --background: 0.985 0.004 255;
+    --foreground: 0.19 0.015 264;
+    --card: 0.995 0.002 255;
+    --card-foreground: 0.19 0.015 264;
+    --popover: 0.995 0.001 255;
+    --popover-foreground: 0.19 0.015 264;
+    --primary: 0.3 0.03 264;
+    --primary-foreground: 0.98 0.004 255;
+    --secondary: 0.95 0.01 260;
+    --secondary-foreground: 0.22 0.02 264;
+    --muted: 0.955 0.01 260;
+    --muted-foreground: 0.38 0.025 264;
+    --accent: 0.86 0.11 200;
+    --accent-foreground: 0.16 0.02 264;
+    --destructive: 0.58 0.22 25;
+    --destructive-foreground: 0.99 0.002 255;
+    --border: 0 0 0 / 12%;
+    --input: 0 0 0 / 10%;
+    --ring: 0.7 0.13 196;
+    --chart-1: 0.78 0.16 196;
+    --chart-2: 0.65 0.22 304;
+    --chart-3: 0.62 0.18 240;
+    --chart-4: 0.7 0.2 340;
+    --chart-5: 0.82 0.16 84;
+    --sidebar: 0.965 0.008 258;
+    --sidebar-foreground: 0.19 0.015 264;
+    --sidebar-primary: 0.78 0.16 196;
+    --sidebar-primary-foreground: 0.15 0.02 264;
+    --sidebar-accent: 0.93 0.012 260;
+    --sidebar-accent-foreground: 0.19 0.015 264;
+    --sidebar-border: 0 0 0 / 10%;
+    --sidebar-ring: 0.7 0.13 196;
+
+    /* Arcadia custom tokens */
+    --arcadia-teal: 0.78 0.16 196;
+    --arcadia-cyan: 0.82 0.14 200;
+    --arcadia-indigo: 0.6 0.2 264;
+    --arcadia-purple: 0.66 0.22 304;
+    --arcadia-blue: 0.68 0.18 240;
+    --arcadia-magenta: 0.62 0.22 340;
+    --arcadia-surface: 0 0 0 / 4%;
+    --arcadia-surface-hover: 0 0 0 / 7%;
+    --arcadia-border: 0 0 0 / 12%;
+    --arcadia-border-bright: 0 0 0 / 18%;
+
+    --glass-rgb: 15, 23, 42;
+    --glass-bg-alpha: 0.035;
+    --glass-border-alpha: 0.11;
+    --glass-inset-rgb: 255, 255, 255;
+    --glass-inset-alpha: 0.55;
+    --glass-shadow-lg: 0 20px 60px rgba(15, 23, 42, 0.15);
+    --glass-shadow-nav: 0 4px 24px rgba(15, 23, 42, 0.12);
+    --glass-shadow-card: 0 8px 32px rgba(15, 23, 42, 0.12);
+
+    --blob-teal-alpha: 0.11;
+    --blob-purple-alpha: 0.1;
+
+    --scrollbar-thumb-rgb: 15, 23, 42;
+    --scrollbar-thumb-alpha: 0.22;
+
+    --delete-button-bg: 248, 250, 252;
+    --delete-button-fg: 30, 41, 59;
+    --delete-button-border: 15, 23, 42;
+    --delete-button-border-alpha: 0.12;
+  }
+
+  .dark {
     --background: 0.09 0.02 264;
     --foreground: 0.94 0.01 264;
     --card: 0.13 0.025 264;
@@ -45,18 +111,30 @@
     --sidebar-accent-foreground: 0.94 0.01 264;
     --sidebar-border: 1 0 0 / 10%;
     --sidebar-ring: 0.78 0.16 196;
-
-    /* Arcadia custom tokens */
-    --arcadia-teal: 0.78 0.16 196;
-    --arcadia-cyan: 0.82 0.14 200;
-    --arcadia-indigo: 0.6 0.2 264;
-    --arcadia-purple: 0.66 0.22 304;
-    --arcadia-blue: 0.68 0.18 240;
-    --arcadia-magenta: 0.62 0.22 340;
     --arcadia-surface: 1 0 0 / 7%;
     --arcadia-surface-hover: 1 0 0 / 10%;
     --arcadia-border: 1 0 0 / 12%;
     --arcadia-border-bright: 1 0 0 / 18%;
+
+    --glass-rgb: 255, 255, 255;
+    --glass-bg-alpha: 0.05;
+    --glass-border-alpha: 0.1;
+    --glass-inset-rgb: 255, 255, 255;
+    --glass-inset-alpha: 0.1;
+    --glass-shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.45);
+    --glass-shadow-nav: 0 4px 24px rgba(0, 0, 0, 0.35);
+    --glass-shadow-card: 0 8px 32px rgba(0, 0, 0, 0.35);
+
+    --blob-teal-alpha: 0.18;
+    --blob-purple-alpha: 0.15;
+
+    --scrollbar-thumb-rgb: 255, 255, 255;
+    --scrollbar-thumb-alpha: 0.12;
+
+    --delete-button-bg: 20, 20, 20;
+    --delete-button-fg: 255, 255, 255;
+    --delete-button-border: 255, 255, 255;
+    --delete-button-border-alpha: 0.1;
   }
 
   * {
@@ -64,47 +142,146 @@
   }
 
   html {
+    color-scheme: light;
+  }
+
+  html.dark {
     color-scheme: dark;
   }
 
   body {
     @apply bg-background text-foreground;
     font-family: "Plus Jakarta Sans", sans-serif;
-    background: #0a0a0a;
+    background: oklch(var(--background));
     min-height: 100vh;
   }
 }
 
+/* Light-mode compatibility for legacy dark utility classes used across pages */
+html:not(.dark) .bg-slate-950\/95,
+html:not(.dark) .bg-slate-950\/90,
+html:not(.dark) .bg-slate-950\/80,
+html:not(.dark) .bg-slate-950\/70,
+html:not(.dark) .bg-slate-950\/60 {
+  background-color: oklch(var(--card) / 0.95) !important;
+}
+
+html:not(.dark) .bg-slate-950\/45,
+html:not(.dark) .bg-slate-950\/40,
+html:not(.dark) .bg-slate-950\/35,
+html:not(.dark) .bg-slate-950\/30,
+html:not(.dark) .bg-slate-950\/25,
+html:not(.dark) .bg-slate-950\/20,
+html:not(.dark) .bg-slate-900\/70,
+html:not(.dark) .bg-slate-900\/60,
+html:not(.dark) .bg-slate-900\/50,
+html:not(.dark) .bg-slate-900\/40,
+html:not(.dark) .bg-slate-900\/30,
+html:not(.dark) .bg-slate-900\/20 {
+  background-color: oklch(var(--card) / 0.78) !important;
+}
+
+html:not(.dark) .bg-slate-800\/80,
+html:not(.dark) .bg-slate-800\/70,
+html:not(.dark) .bg-slate-800\/60,
+html:not(.dark) .bg-slate-800\/50,
+html:not(.dark) .bg-slate-800\/40,
+html:not(.dark) .bg-slate-700\/80,
+html:not(.dark) .bg-slate-700\/70,
+html:not(.dark) .bg-slate-700\/60 {
+  background-color: oklch(var(--muted) / 0.88) !important;
+}
+
+html:not(.dark) .bg-black\/65,
+html:not(.dark) .bg-black\/60,
+html:not(.dark) .bg-black\/55,
+html:not(.dark) .bg-black\/50 {
+  background-color: oklch(var(--muted) / 0.72) !important;
+}
+
+html:not(.dark) .bg-white\/5,
+html:not(.dark) .bg-white\/8,
+html:not(.dark) .bg-white\/10,
+html:not(.dark) .bg-white\/12 {
+  background-color: oklch(var(--muted) / 0.62) !important;
+}
+
+html:not(.dark) .border-white\/5,
+html:not(.dark) .border-white\/10,
+html:not(.dark) .border-white\/15,
+html:not(.dark) .border-white\/20 {
+  border-color: rgba(15, 23, 42, 0.14) !important;
+}
+
+html:not(.dark) .text-slate-200,
+html:not(.dark) .text-slate-300,
+html:not(.dark) .text-slate-400,
+html:not(.dark) .text-cyan-200,
+html:not(.dark) .text-cyan-300,
+html:not(.dark) .text-cyan-400,
+html:not(.dark) .text-cyan-100,
+html:not(.dark) .text-cyan-100\/85,
+html:not(.dark) .text-cyan-100\/80,
+html:not(.dark) .text-cyan-100\/75,
+html:not(.dark) .text-blue-100,
+html:not(.dark) .text-blue-200,
+html:not(.dark) .text-blue-300 {
+  color: oklch(var(--foreground)) !important;
+}
+
+html:not(.dark) .text-cyan-300\/80,
+html:not(.dark) .text-cyan-300\/70,
+html:not(.dark) .text-cyan-300\/60,
+html:not(.dark) .text-cyan-200\/80 {
+  color: oklch(var(--primary)) !important;
+}
+
+html:not(.dark) .prose-invert {
+  color: oklch(var(--foreground)) !important;
+}
+
+html:not(.dark) .prose-invert :where(h1, h2, h3, h4, strong) {
+  color: oklch(var(--foreground)) !important;
+}
+
+html:not(.dark) .prose-invert :where(code) {
+  color: oklch(var(--primary)) !important;
+}
+
+html:not(.dark) .placeholder\:text-neutral-500::placeholder {
+  color: oklch(var(--muted-foreground)) !important;
+}
+
 /* Glassmorphism utilities */
 .glass {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(var(--glass-rgb), var(--glass-bg-alpha));
+  border: 1px solid rgba(var(--glass-rgb), var(--glass-border-alpha));
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45), inset 0 1px 0
-    rgba(255, 255, 255, 0.1);
+  box-shadow: var(--glass-shadow-lg), inset 0 1px 0
+    rgba(var(--glass-inset-rgb), var(--glass-inset-alpha));
 }
 
 .glass-nav {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(var(--glass-rgb), var(--glass-bg-alpha));
+  border: 1px solid rgba(var(--glass-rgb), var(--glass-border-alpha));
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--glass-shadow-nav);
 }
 
 .glass-card {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(var(--glass-rgb), var(--glass-bg-alpha));
+  border: 1px solid rgba(var(--glass-rgb), var(--glass-border-alpha));
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), inset 0 1px 0
-    rgba(255, 255, 255, 0.08);
+  box-shadow: var(--glass-shadow-card), inset 0 1px 0
+    rgba(var(--glass-inset-rgb), calc(var(--glass-inset-alpha) * 0.8));
 }
 
 .glass-card-hover:hover {
-  background: rgba(255, 255, 255, 0.09);
-  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(var(--glass-rgb), calc(var(--glass-bg-alpha) + 0.035));
+  border-color: rgba(var(--glass-rgb), calc(var(--glass-border-alpha) + 0.05));
   transform: translateY(-1px);
   transition: all 0.2s ease;
 }
@@ -113,7 +290,7 @@
 .blob-teal {
   background: radial-gradient(
     circle,
-    rgba(34, 211, 238, 0.18) 0%,
+    rgba(34, 211, 238, var(--blob-teal-alpha)) 0%,
     transparent 70%
   );
   filter: blur(60px);
@@ -123,7 +300,7 @@
 .blob-purple {
   background: radial-gradient(
     circle,
-    rgba(139, 92, 246, 0.15) 0%,
+    rgba(139, 92, 246, var(--blob-purple-alpha)) 0%,
     transparent 70%
   );
   filter: blur(80px);
@@ -144,7 +321,7 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(var(--scrollbar-thumb-rgb), var(--scrollbar-thumb-alpha));
   border-radius: 2px;
 }
 
@@ -176,21 +353,24 @@
 
 select,
 .arc-select {
-  color-scheme: dark;
+  color-scheme: inherit;
 }
 
 select option,
 .arc-select option {
   color: oklch(var(--foreground));
-  background-color: #0b1020;
+  background-color: oklch(var(--popover));
 }
 
 .uiverse-delete-button {
   width: 50px;
   height: 50px;
   border-radius: 9999px;
-  background-color: rgb(20, 20, 20);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background-color: rgb(var(--delete-button-bg));
+  border: 1px solid rgba(
+    var(--delete-button-border),
+    var(--delete-button-border-alpha)
+  );
   font-weight: 600;
   display: flex;
   align-items: center;
@@ -200,7 +380,7 @@ select option,
   transition-duration: 0.3s;
   overflow: hidden;
   position: relative;
-  color: white;
+  color: rgb(var(--delete-button-fg));
 }
 
 .uiverse-delete-button .uiverse-delete-icon {
@@ -295,6 +475,13 @@ select option,
     box-shadow var(--transition),
     background var(--transition),
     border-color var(--transition);
+}
+
+html:not(.dark) .sparkle-generate-button {
+  --active: 0.62;
+  color: oklch(var(--foreground));
+  text-shadow: none;
+  border-color: color-mix(in oklab, oklch(var(--arcadia-cyan)), transparent 40%);
 }
 
 .sparkle-generate-button::before {
@@ -463,6 +650,24 @@ select option,
   transition: all 0.25s ease;
   position: relative;
   overflow: hidden;
+}
+
+html:not(.dark) .uiverse-cloud-upload-zone {
+  border-color: rgba(15, 23, 42, 0.18);
+  background: linear-gradient(
+    180deg,
+    rgba(6, 182, 212, 0.16),
+    rgba(148, 163, 184, 0.22)
+  );
+}
+
+html:not(.dark) .uiverse-cloud-upload-icon-wrap {
+  border-color: rgba(6, 182, 212, 0.45);
+  background: rgba(6, 182, 212, 0.16);
+}
+
+html:not(.dark) .uiverse-cloud-upload-icon {
+  color: rgb(8, 47, 73);
 }
 
 .uiverse-cloud-upload-zone::before {

@@ -73,7 +73,7 @@ function CellModal({
       }}
     >
       <div
-        className="rounded-2xl bg-slate-950/40 backdrop-blur-xl border border-white/10 p-6 w-80 space-y-4"
+        className="rounded-2xl bg-card/95 dark:bg-slate-950/40 backdrop-blur-xl border border-border/70 dark:border-white/10 p-6 w-80 space-y-4"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => e.stopPropagation()}
       >
@@ -105,7 +105,7 @@ function CellModal({
             size="sm"
             variant="outline"
             onClick={onDelete}
-            className="flex-1 border-red-500/30 text-red-400 hover:bg-red-500/20 hover:text-red-300"
+            className="flex-1 border-red-500/30 text-red-700 dark:text-red-400 hover:bg-red-500/20 hover:text-red-800 dark:hover:text-red-300"
             data-ocid="planner.cell.delete"
           >
             Delete
@@ -114,7 +114,7 @@ function CellModal({
             size="sm"
             variant="outline"
             onClick={onClose}
-            className="flex-1 border-white/10"
+            className="flex-1 border-border/70"
           >
             Cancel
           </Button>
@@ -440,7 +440,7 @@ export default function PlannerPage() {
         </div>
         <div className="flex items-center gap-2">
           <Button
-            className="sparkle-generate-button"
+            className="sparkle-generate-button text-foreground"
             onClick={generatePlan}
             disabled={generatingPlan || availableSubjects.length === 0}
             data-ocid="planner.generate.button"
@@ -487,7 +487,7 @@ export default function PlannerPage() {
             {calendarConnected ? "Reconnect Google Calendar" : "Connect Google Calendar"}
           </Button>
           <Button
-            className="sparkle-generate-button"
+            className="sparkle-generate-button text-foreground"
             disabled={!calendarConnected || calendarPushing}
             onClick={pushTasksToCalendar}
           >

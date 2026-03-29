@@ -27,8 +27,8 @@ const StyledWrapper = styled.div`
     border: none;
     cursor: pointer;
     --border-right: 6px;
-    --text-stroke-color: rgba(255, 255, 255, 0.2);
-    --animation-color: #06b6d4;
+    --text-stroke-color: oklch(var(--foreground) / 0.35);
+    --animation-color: oklch(var(--arcadia-teal));
     --fs-size: 2rem;
     letter-spacing: 4px;
     text-decoration: none;

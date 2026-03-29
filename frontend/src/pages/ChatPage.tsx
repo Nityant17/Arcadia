@@ -9,7 +9,11 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAudioPlayer } from "@/hooks/useAudioPlayer";
 import { type ChatMessage, useChatMessages } from "@/hooks/useChatMessages";
-import { apiClient, getApiErrorMessage, type DocumentItem } from "@/services/api";
+import {
+  apiClient,
+  getApiErrorMessage,
+  type DocumentItem,
+} from "@/services/api";
 import { useAppStore } from "@/store/useAppStore";
 import {
   FileText,
@@ -21,8 +25,11 @@ import {
 import { motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
 import { toast } from "sonner";
+import "katex/dist/katex.min.css";
 
 function parseCitation(source: string, index: number) {
   const compact = source.trim();
@@ -32,6 +39,36 @@ function parseCitation(source: string, index: number) {
   return {
     label: `[${index + 1}] ${title}${pageLike ? ` - ${pageLike}` : ""}`,
     preview: compact,
+  };
+}
+
+function resolveCitationFromSource(source: string, index: number, documents: DocumentItem[]) {
+  const normalized = source.trim();
+  const matchedDocument = documents.find((item) => item.id === normalized);
+  if (!matchedDocument) {
+    return {
+      ...parseCitation(source, index),
+      sourceId: normalized,
+      noteId: "",
+    };
+  }
+
+  const labelText =
+    matchedDocument.original_name ||
+    matchedDocument.note_title ||
+    matchedDocument.topic ||
+    matchedDocument.filename;
+
+  const previewParts = [
+    matchedDocument.note_title || matchedDocument.topic || "Untitled note",
+    matchedDocument.subject || "General",
+  ].filter(Boolean);
+
+  return {
+    label: `[${index + 1}] ${labelText}`,
+    preview: previewParts.join(" • "),
+    sourceId: matchedDocument.id,
+    noteId: matchedDocument.note_id || "",
   };
 }
 
@@ -131,6 +168,20 @@ export default function ChatPage() {
       });
     }
     return Array.from(grouped.values());
+  }, [documents]);
+
+  const openSourceNote = useCallback((sourceId: string, noteId: string) => {
+    const resolvedNoteId =
+      noteId ||
+      documents.find((item) => item.id === sourceId)?.note_id ||
+      "";
+
+    if (!resolvedNoteId) {
+      toast.error("Could not locate this source note");
+      return;
+    }
+
+    window.location.assign(`/notes?noteId=${encodeURIComponent(resolvedNoteId)}`);
   }, [documents]);
 
   const refreshChatHistory = useCallback(
@@ -380,13 +431,13 @@ export default function ChatPage() {
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="relative flex flex-col h-[calc(100dvh-7rem)] lg:h-[calc(100dvh-3rem)] rounded-2xl border border-white/10 bg-slate-950/35 backdrop-blur-xl overflow-hidden"
+      className="relative flex flex-col h-[calc(100dvh-7rem)] lg:h-[calc(100dvh-3rem)] rounded-2xl border border-border/70 bg-card/85 dark:bg-slate-950/35 backdrop-blur-xl overflow-hidden"
       data-ocid="chat.page"
     >
-      <div className="px-6 py-4 border-b border-white/10 flex items-start justify-between gap-4 shrink-0">
+      <div className="px-6 py-4 border-b border-border/70 dark:border-white/10 flex items-start justify-between gap-4 shrink-0">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[oklch(0.78_0.16_196)]/30 to-[oklch(0.60_0.20_264)]/30 flex items-center justify-center border border-white/10">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[oklch(0.78_0.16_196)]/30 to-[oklch(0.60_0.20_264)]/30 flex items-center justify-center border border-border/70 dark:border-white/10">
               <MessageSquare className="w-4 h-4 text-arcadia-teal" />
             </div>
             <div className="flex-1 min-w-0">
@@ -398,7 +449,7 @@ export default function ChatPage() {
               size="sm"
               onClick={handleNewChat}
               disabled={!activeDocumentId || historyLoading || clearing}
-              className="ml-auto border-cyan-400/40 text-cyan-300"
+              className="ml-auto border-cyan-500/45 text-cyan-700 dark:text-cyan-300"
               data-ocid="chat.new"
             >
               {clearing ? (
@@ -412,7 +463,7 @@ export default function ChatPage() {
 
           <div className="flex items-center gap-2 overflow-x-auto pr-2 pb-1">
             {noteOptions.length === 0 ? (
-              <div className="text-xs text-muted-foreground rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
+              <div className="text-xs text-muted-foreground rounded-full border border-border/70 bg-muted/55 px-3 py-1.5">
                 No source documents uploaded
               </div>
             ) : (
@@ -425,8 +476,8 @@ export default function ChatPage() {
                     onClick={() => setActiveDocumentId(note.noteId)}
                     className={`shrink-0 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs border transition-all ${
                       isActive
-                        ? "border-cyan-500/40 bg-cyan-500/12 text-cyan-200 shadow-[0_0_20px_rgba(6,182,212,0.18)]"
-                        : "border-white/10 bg-white/5 text-muted-foreground hover:text-foreground hover:bg-white/10"
+                        ? "border-cyan-500/45 bg-cyan-500/12 text-cyan-700 dark:text-cyan-200 shadow-[0_0_20px_rgba(6,182,212,0.18)]"
+                        : "border-border/70 bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted"
                     }`}
                     data-ocid={`chat.document.${note.noteId}`}
                   >
@@ -446,8 +497,8 @@ export default function ChatPage() {
         <div className="w-full max-w-3xl mx-auto flex flex-col gap-6 py-4 pb-8">
           {historyLoading ? (
             <>
-              <Skeleton className="h-10 w-56 rounded-2xl bg-white/10" />
-              <Skeleton className="h-10 w-44 rounded-2xl bg-white/10 ml-auto" />
+              <Skeleton className="h-10 w-56 rounded-2xl bg-muted/60" />
+              <Skeleton className="h-10 w-44 rounded-2xl bg-muted/60 ml-auto" />
             </>
           ) : messages.length === 0 ? (
             <div className="text-sm text-muted-foreground">
@@ -463,18 +514,18 @@ export default function ChatPage() {
                 className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
               >
                 {message.isTranslating ? (
-                  <Skeleton className="h-10 w-56 rounded-2xl bg-white/10" />
+                  <Skeleton className="h-10 w-56 rounded-2xl bg-muted/60" />
                 ) : (
                   <div
                     className={`group relative max-w-[74%] px-3 py-2 text-sm leading-relaxed ${
                       message.role === "user"
-                        ? "rounded-full border border-white/15 bg-white/6 text-foreground"
-                        : "text-slate-300"
+                        ? "rounded-full border border-border/70 bg-muted/55 text-foreground"
+                        : "text-foreground"
                     }`}
                   >
                     {message.role === "assistant" ? (
-                      <div className="prose prose-invert prose-sm max-w-none break-words text-slate-300 prose-headings:text-slate-100 prose-strong:text-slate-100 prose-a:text-cyan-300 prose-code:text-cyan-200">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      <div className="prose prose-sm max-w-none break-words text-foreground dark:prose-invert prose-headings:text-foreground prose-strong:text-foreground prose-a:text-cyan-700 dark:prose-a:text-cyan-300 prose-code:text-cyan-700 dark:prose-code:text-cyan-200">
+                        <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
                           {message.content}
                         </ReactMarkdown>
                       </div>
@@ -486,18 +537,19 @@ export default function ChatPage() {
                     {message.role === "assistant" && (message.sources?.length || 0) > 0 && (
                       <div className="mt-2 flex flex-wrap gap-2">
                         {message.sources?.map((source, index) => {
-                          const citation = parseCitation(source, index);
+                          const citation = resolveCitationFromSource(source, index, documents);
                           return (
                             <HoverCard key={`${message.id}-source-${index}`}>
                               <HoverCardTrigger asChild>
                                 <button
                                   type="button"
-                                  className="rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-[11px] text-cyan-200 hover:border-cyan-500/40 hover:bg-cyan-500/10 transition-all"
+                                  onClick={() => openSourceNote(citation.sourceId, citation.noteId)}
+                                  className="rounded-full border border-border/70 bg-muted/45 px-2.5 py-1 text-[11px] text-cyan-700 dark:text-cyan-200 hover:border-cyan-500/40 hover:bg-cyan-500/10 transition-all"
                                 >
                                   {citation.label}
                                 </button>
                               </HoverCardTrigger>
-                              <HoverCardContent className="w-80 border-white/15 bg-slate-950/95 text-foreground backdrop-blur-xl">
+                              <HoverCardContent className="w-80 border-border/70 bg-card/95 text-foreground backdrop-blur-xl">
                                 <p className="text-xs leading-relaxed text-muted-foreground">{citation.preview}</p>
                               </HoverCardContent>
                             </HoverCard>
@@ -517,7 +569,7 @@ export default function ChatPage() {
                                 currentLanguage?.id ?? "en",
                               )
                         }
-                        className="absolute -right-10 top-1 opacity-0 group-hover:opacity-100 transition-opacity rounded-full border border-white/10 bg-slate-950/70 p-1.5 text-muted-foreground hover:text-cyan-300 hover:border-cyan-500/40"
+                        className="absolute -right-10 top-1 opacity-0 group-hover:opacity-100 transition-opacity rounded-full border border-border/70 bg-card/95 dark:bg-slate-950/70 p-1.5 text-muted-foreground hover:text-cyan-700 dark:hover:text-cyan-300 hover:border-cyan-500/40"
                         data-ocid={`chat.tts.${message.id}`}
                       >
                         {loadingId === message.id ? (
@@ -554,12 +606,12 @@ export default function ChatPage() {
         </div>
       </ScrollArea>
 
-      <div className="px-6 pb-4 pt-4 bg-gradient-to-t from-slate-950 via-slate-950/95 to-transparent border-t border-white/10 shrink-0">
+      <div className="px-6 pb-4 pt-4 bg-gradient-to-t from-card via-card/95 to-transparent border-t border-border/70 dark:border-white/10 shrink-0">
         <div className="relative">
           <div className="mb-2 min-h-5 flex items-center justify-between gap-3">
             <div className="min-w-0 flex items-center gap-2">
               {localContextText && (
-                <div className="flex items-center gap-2 rounded-md border border-cyan-500/30 bg-cyan-500/10 px-2 py-1 text-xs text-cyan-200 max-w-[75%]">
+                <div className="flex items-center gap-2 rounded-md border border-cyan-500/35 bg-cyan-500/12 px-2 py-1 text-xs text-cyan-700 dark:text-cyan-200 max-w-[75%]">
                   <span className="truncate">Using context: {localContextName}</span>
                   <button
                     type="button"
@@ -567,7 +619,7 @@ export default function ChatPage() {
                       setLocalContextName("");
                       setLocalContextText("");
                     }}
-                    className="shrink-0 rounded border border-white/20 px-1.5 py-0.5 text-[10px] text-slate-200 hover:border-cyan-400/60 hover:text-cyan-100"
+                    className="shrink-0 rounded border border-border/70 px-1.5 py-0.5 text-[10px] text-muted-foreground hover:border-cyan-400/60 hover:text-cyan-700 dark:hover:text-cyan-100"
                   >
                     Clear
                   </button>
@@ -575,14 +627,14 @@ export default function ChatPage() {
               )}
 
               {uploadingContext && (
-                <div className="text-xs text-cyan-300 flex items-center gap-1.5">
+                <div className="text-xs text-cyan-700 dark:text-cyan-300 flex items-center gap-1.5">
                   <Loader2 className="w-3.5 h-3.5 animate-spin" /> Reading context...
                 </div>
               )}
             </div>
 
             {sending && (
-              <div className="text-xs text-cyan-300 flex items-center gap-1.5 shrink-0">
+              <div className="text-xs text-cyan-700 dark:text-cyan-300 flex items-center gap-1.5 shrink-0">
                 <Loader2 className="w-3.5 h-3.5 animate-spin" /> Sending...
               </div>
             )}

@@ -18,7 +18,7 @@ export function Flashcard({ question, answer, isPinned, onPin }: FlashcardProps)
             event.stopPropagation();
             onPin();
           }}
-          className={`pin-button ${isPinned ? "text-yellow-400" : "text-slate-500"} hover:text-yellow-300 transition-colors`}
+          className={`pin-button ${isPinned ? "text-yellow-400" : "text-muted-foreground"} hover:text-yellow-300 transition-colors`}
           aria-label={isPinned ? "Unpin flashcard" : "Pin flashcard"}
         >
           <Star size={18} fill={isPinned ? "currentColor" : "none"} />
@@ -26,7 +26,7 @@ export function Flashcard({ question, answer, isPinned, onPin }: FlashcardProps)
 
         <div className="front-content flex flex-col items-center justify-center gap-4 h-full">
           <Brain size={48} className="text-cyan-400 group-hover:scale-0 transition-all duration-500" />
-          <p className="text-slate-300 font-medium px-4 text-center group-hover:opacity-0 transition-all duration-500">
+          <p className="text-foreground/90 font-medium px-4 text-center group-hover:opacity-0 transition-all duration-500">
             {question}
           </p>
         </div>
@@ -35,7 +35,7 @@ export function Flashcard({ question, answer, isPinned, onPin }: FlashcardProps)
           <div className="flex justify-between items-start w-full shrink-0">
             <h3 className="card__title text-cyan-400">Answer</h3>
           </div>
-          <p className="card__description text-slate-300 mt-2">{answer}</p>
+          <p className="card__description text-foreground/90 mt-2">{answer}</p>
         </div>
       </div>
     </StyledWrapper>
@@ -47,9 +47,9 @@ const StyledWrapper = styled.div`
     position: relative;
     width: 320px;
     height: 220px;
-    background-color: rgba(15, 23, 42, 0.6);
+    background-color: oklch(var(--card) / 0.84);
     backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid oklch(var(--border));
     border-radius: 16px;
     overflow: hidden;
     perspective: 1000px;
@@ -77,7 +77,7 @@ const StyledWrapper = styled.div`
 
   .card:hover {
     transform: scale(1.02);
-    border-color: rgba(6, 182, 212, 0.5);
+    border-color: color-mix(in oklab, oklch(var(--arcadia-cyan)), transparent 50%);
     box-shadow: 0 0 20px rgba(6, 182, 212, 0.15);
   }
 
@@ -89,7 +89,7 @@ const StyledWrapper = styled.div`
     height: 100%;
     padding: 24px;
     box-sizing: border-box;
-    background-color: rgba(10, 10, 10, 0.95);
+    background-color: oklch(var(--card) / 0.98);
     transform: rotateX(-90deg);
     transform-origin: bottom;
     transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
