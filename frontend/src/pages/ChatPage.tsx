@@ -524,13 +524,13 @@ export default function ChatPage() {
                     }`}
                   >
                     {message.role === "assistant" ? (
-                      <div className="prose prose-sm max-w-none break-words text-foreground dark:prose-invert prose-headings:text-foreground prose-strong:text-foreground prose-a:text-cyan-700 dark:prose-a:text-cyan-300 prose-code:text-cyan-700 dark:prose-code:text-cyan-200">
+                      <div className="chat-multilingual-text prose prose-sm max-w-none break-words text-foreground dark:prose-invert prose-headings:text-foreground prose-strong:text-foreground prose-a:text-cyan-700 dark:prose-a:text-cyan-300 prose-code:text-cyan-700 dark:prose-code:text-cyan-200">
                         <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
                           {message.content}
                         </ReactMarkdown>
                       </div>
                     ) : (
-                      <div className="whitespace-pre-wrap break-words leading-relaxed">
+                      <div className="chat-multilingual-text whitespace-pre-wrap break-words leading-relaxed">
                         {message.content}
                       </div>
                     )}

@@ -493,7 +493,7 @@ export default function StudyPage() {
                   <Badge className="bg-white/5 text-muted-foreground border-white/10">Markdown Rendered</Badge>
                 </div>
                 <div
-                  className="space-y-2"
+                  className="chat-multilingual-text space-y-2"
                   // biome-ignore lint/security/noDangerouslySetInnerHtml: markdown content is escaped before conversion
                   dangerouslySetInnerHTML={{ __html: cheatsheetHtml }}
                 />

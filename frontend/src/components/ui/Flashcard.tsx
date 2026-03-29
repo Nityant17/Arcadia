@@ -26,7 +26,7 @@ export function Flashcard({ question, answer, isPinned, onPin }: FlashcardProps)
 
         <div className="front-content flex flex-col items-center justify-center gap-4 h-full">
           <Brain size={48} className="text-cyan-400 group-hover:scale-0 transition-all duration-500" />
-          <p className="text-foreground/90 font-medium px-4 text-center group-hover:opacity-0 transition-all duration-500">
+          <p className="chat-multilingual-text text-foreground/90 font-medium px-4 text-center group-hover:opacity-0 transition-all duration-500">
             {question}
           </p>
         </div>
@@ -35,7 +35,7 @@ export function Flashcard({ question, answer, isPinned, onPin }: FlashcardProps)
           <div className="flex justify-between items-start w-full shrink-0">
             <h3 className="card__title text-cyan-400">Answer</h3>
           </div>
-          <p className="card__description text-foreground/90 mt-2">{answer}</p>
+          <p className="chat-multilingual-text card__description text-foreground/90 mt-2">{answer}</p>
         </div>
       </div>
     </StyledWrapper>

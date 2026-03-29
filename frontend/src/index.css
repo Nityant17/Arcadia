@@ -2,6 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url("https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Noto+Sans+Gujarati:wght@400;500;600;700&family=Noto+Sans+Kannada:wght@400;500;600;700&family=Noto+Sans+Malayalam:wght@400;500;600;700&family=Noto+Sans+Tamil:wght@400;500;600;700&family=Noto+Sans+Telugu:wght@400;500;600;700&display=swap");
+
 @font-face {
   font-family: "Plus Jakarta Sans";
   src: url("/assets/fonts/PlusJakartaSans.woff2") format("woff2");
@@ -151,10 +153,18 @@
 
   body {
     @apply bg-background text-foreground;
-    font-family: "Plus Jakarta Sans", sans-serif;
+    font-family: "Plus Jakarta Sans", "Noto Sans", "Noto Sans Devanagari", "Noto Sans Tamil", "Noto Sans Telugu", "Noto Sans Bengali", "Noto Sans Gujarati", "Noto Sans Kannada", "Noto Sans Malayalam", "Nirmala UI", "Latha", "Vijaya", sans-serif;
     background: oklch(var(--background));
     min-height: 100vh;
   }
+}
+
+.chat-multilingual-text {
+  font-family: "Plus Jakarta Sans", "Noto Sans", "Noto Sans Devanagari", "Noto Sans Tamil", "Noto Sans Telugu", "Noto Sans Bengali", "Noto Sans Gujarati", "Noto Sans Kannada", "Noto Sans Malayalam", "Nirmala UI", "Latha", "Vijaya", sans-serif;
+}
+
+.chat-multilingual-text :where(code, pre, kbd, samp) {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", "Noto Sans", "Noto Sans Devanagari", "Noto Sans Tamil", "Noto Sans Telugu", "Noto Sans Bengali", "Noto Sans Gujarati", "Noto Sans Kannada", "Noto Sans Malayalam", "Nirmala UI", "Latha", "Vijaya", monospace;
 }
 
 /* Light-mode compatibility for legacy dark utility classes used across pages */
